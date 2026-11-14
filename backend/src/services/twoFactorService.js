@@ -1,19 +1,86 @@
-const defaultBaseUrl = 'https://2factor.in/API/V1/OTP/SEND';
+import env from '../config/env.js';
 
-export async function sendOtpSms({ phone, otp }) {
-  const apiKey = process.env.TWOFACTOR_API_KEY;
-  const template = process.env.TWOFACTOR_OTP_TEMPLATE;
-  if (!apiKey || !template) {
-    const error = new Error('SMS delivery is not configured'); error.statusCode = 503; throw error;
+const DEFAULT_TWOFACTOR_API_ROOT = 'https://2factor.in/API/V1';
+
+function resolveTwoFactorRoot(configuredBaseUrl) {
+  const raw = String(configuredBaseUrl || DEFAULT_TWOFACTOR_API_ROOT)
+    .trim()
+    .replace(/\/+$/, '');
+  // Normalize legacy '/OTP/SEND' suffix if present in older env files
+  if (/\/API\/V1\/OTP\/SEND$/i.test(raw)) {
+    return raw.replace(/\/OTP\/SEND$/i, '');
   }
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 8_000);
-  try {
-    const response = await fetch(process.env.TWOFACTOR_BASE_URL || defaultBaseUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey }, body: JSON.stringify({ to: `+91${phone}`, channel: 'SMS', template_name: template, var1: otp }), signal: controller.signal });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !['sent', 'success'].includes(String(data.status || '').toLowerCase())) { const error = new Error('Unable to send OTP at this time'); error.statusCode = 502; throw error; }
-    return { providerSessionId: data.session_id || null };
-  } catch (error) {
-    if (error.name === 'AbortError') { const timeoutError = new Error('OTP provider timed out'); timeoutError.statusCode = 504; throw timeoutError; }
-    throw error;
-  } finally { clearTimeout(timeout); }
+  return raw || DEFAULT_TWOFACTOR_API_ROOT;
 }
+
+/**
+ * Sends a backend-generated 6-digit OTP via 2Factor's documented Manual OTP SMS API:
+ *   GET https://2factor.in/API/V1/{api_key}/SMS/+91{phone}/{otp}/{template_name}
+ *
+ * Security rules:
+ * - Never logs the OTP or API key.
+ * - Never simulates or fakes SMS delivery.
+ */
+export async function sendOtpSms({ phone, otp }) {
+  const apiKey = (process.env.TWOFACTOR_API_KEY || env.twoFactor?.apiKey || '').trim();
+  const template = (process.env.TWOFACTOR_OTP_TEMPLATE || env.twoFactor?.template || '').trim();
+  const baseUrl = resolveTwoFactorRoot(process.env.TWOFACTOR_BASE_URL || env.twoFactor?.baseUrl);
+
+  if (!apiKey) {
+    const error = new Error('SMS delivery is not configured');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  if (!/^[6-9]\d{9}$/.test(String(phone || '')) || !/^\d{6}$/.test(String(otp || ''))) {
+    const error = new Error('Invalid phone or OTP format for SMS dispatch');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const templateSegment = template ? `/${encodeURIComponent(template)}` : '';
+  const endpointUrl = `${baseUrl}/${encodeURIComponent(apiKey)}/SMS/+91${encodeURIComponent(phone)}/${encodeURIComponent(otp)}${templateSegment}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+
+  try {
+    const response = await fetch(endpointUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    const rawStatus = String(data?.Status || data?.status || '').toLowerCase();
+
+    if (!response.ok || !['success', 'sent'].includes(rawStatus)) {
+      const error = new Error('Unable to send OTP via SMS gateway at this time');
+      error.statusCode = 502;
+      throw error;
+    }
+
+    const sessionId = String(data?.Details || data?.details || data?.session_id || '').trim();
+    return {
+      providerSessionId: sessionId || null,
+    };
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('OTP SMS provider timed out');
+      timeoutError.statusCode = 504;
+      throw timeoutError;
+    }
+    if (error.statusCode) {
+      throw error;
+    }
+    const gatewayError = new Error('Unable to reach SMS gateway');
+    gatewayError.statusCode = 502;
+    throw gatewayError;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export default { sendOtpSms };

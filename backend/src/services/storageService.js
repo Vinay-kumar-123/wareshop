@@ -3,50 +3,73 @@ import path from 'path';
 import crypto from 'crypto';
 import env from '../config/env.js';
 import logger from '../utils/logger.js';
+import { validateAndSanitizeImage } from '../utils/imageSecurity.js';
 
 export const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+function sanitizeOriginalFilename(name) {
+  return String(name || 'property-image')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .slice(0, 120);
+}
+
+function createCloudinarySignature(params, apiSecret) {
+  const sortedQuery = Object.keys(params)
+    .filter((k) => params[k] !== undefined && params[k] !== null && params[k] !== '')
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&');
+  return crypto
+    .createHash('sha1')
+    .update(`${sortedQuery}${apiSecret}`)
+    .digest('hex');
+}
+
 /**
  * Storage Service Abstraction
- * Manages file uploads to either Cloudinary (cloud object storage)
- * or local filesystem storage with secure metadata generation.
+ * Validates image magic bytes, strips EXIF/metadata, and uploads to either
+ * Cloudinary (server-side signed upload) or local filesystem storage.
  */
 export const storageService = {
-  /**
-   * Upload an image buffer or file object
-   * @param {Object} file - Multer file object ({ buffer, originalname, mimetype, size })
-   * @returns {Promise<Object>} Image metadata object
-   */
   async uploadImage(file) {
     if (!file) {
-      throw new Error('No file provided for upload');
-    }
-
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      const error = new Error('Invalid file type. Only JPEG, PNG, and WebP images are permitted.');
+      const error = new Error('No file provided for upload');
       error.statusCode = 400;
       throw error;
     }
 
-    const maxSizeBytes = env.storage.maxFileSizeMb * 1024 * 1024;
-    if (file.size > maxSizeBytes) {
+    const maxSizeBytes = (env.storage.maxFileSizeMb || 5) * 1024 * 1024;
+    if (file.size > maxSizeBytes || (file.buffer && file.buffer.length > maxSizeBytes)) {
       const error = new Error(`File size exceeds maximum limit of ${env.storage.maxFileSizeMb}MB.`);
       error.statusCode = 400;
       throw error;
     }
 
-    // Cloudinary Storage Provider
-    if (
-      env.storage.provider === 'cloudinary' &&
-      env.storage.cloudinary.cloudName &&
-      env.storage.cloudinary.apiKey &&
-      env.storage.cloudinary.apiSecret
-    ) {
-      return await this._uploadToCloudinary(file);
+    // Validate magic bytes, structural integrity, and strip EXIF/GPS metadata
+    const sanitized = validateAndSanitizeImage(file, ALLOWED_MIME_TYPES);
+    const cleanFile = {
+      ...file,
+      buffer: sanitized.buffer,
+      mimetype: sanitized.mimeType,
+      size: sanitized.size,
+      originalname: sanitizeOriginalFilename(file.originalname),
+    };
+
+    const provider = (process.env.STORAGE_PROVIDER || env.storage.provider || 'local').trim();
+    const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || env.storage.cloudinary.cloudName || '').trim();
+    const apiKey = (process.env.CLOUDINARY_API_KEY || env.storage.cloudinary.apiKey || '').trim();
+    const apiSecret = (process.env.CLOUDINARY_API_SECRET || env.storage.cloudinary.apiSecret || '').trim();
+
+    if (provider === 'cloudinary' && cloudName && apiKey && apiSecret) {
+      return await this._uploadToCloudinary(cleanFile, {
+        cloudName,
+        apiKey,
+        apiSecret,
+        folder: (process.env.CLOUDINARY_FOLDER || env.storage.cloudinary.folder || 'wareshop/providers').trim(),
+      });
     }
 
-    // Default: Local Storage Provider
-    return await this._uploadToLocalStorage(file);
+    return await this._uploadToLocalStorage(cleanFile);
   },
 
   async _uploadToLocalStorage(file) {
@@ -55,7 +78,6 @@ export const storageService = {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    // Determine safe extension
     const extMap = {
       'image/jpeg': '.jpg',
       'image/png': '.png',
@@ -66,7 +88,7 @@ export const storageService = {
     const targetPath = path.join(uploadDir, uniqueKey);
 
     await fs.promises.writeFile(targetPath, file.buffer);
-    logger.info('Shop image saved to local storage', { key: uniqueKey, size: file.size });
+    logger.info('Image saved to local storage', { key: uniqueKey, size: file.size });
 
     return {
       url: `/uploads/${uniqueKey}`,
@@ -78,56 +100,90 @@ export const storageService = {
     };
   },
 
-  async _uploadToCloudinary(file) {
-    // Dynamic import to avoid crash if cloudinary package is not loaded
-    const cloudinaryModule = await import('cloudinary');
-    const cloudinary = cloudinaryModule.v2 || cloudinaryModule.default;
+  async _uploadToCloudinary(file, { cloudName, apiKey, apiSecret, folder }) {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const paramsToSign = {
+      folder,
+      timestamp,
+    };
+    const signature = createCloudinarySignature(paramsToSign, apiSecret);
 
-    cloudinary.config({
-      cloud_name: env.storage.cloudinary.cloudName,
-      api_key: env.storage.cloudinary.apiKey,
-      api_secret: env.storage.cloudinary.apiSecret,
+    const base64DataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    const body = new URLSearchParams({
+      file: base64DataUri,
+      api_key: apiKey,
+      timestamp: String(timestamp),
+      folder,
+      signature,
     });
 
-    return new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: env.storage.cloudinary.folder,
-          resource_type: 'image',
-          allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    try {
+      const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
         },
-        (error, result) => {
-          if (error) {
-            logger.error('Cloudinary upload failure', { error: error.message });
-            return reject(new Error('Cloud image storage upload failed: ' + error.message));
-          }
-          resolve({
-            url: result.secure_url,
-            publicId: result.public_id,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            size: file.size,
-            uploadedAt: new Date(),
-          });
-        }
-      );
-      uploadStream.end(file.buffer);
-    });
+        body: body.toString(),
+        signal: controller.signal,
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.secure_url) {
+        const errMsg = result?.error?.message || 'Cloudinary image upload failed';
+        logger.error('Cloudinary upload failure', { error: errMsg });
+        const err = new Error('Cloud image storage upload failed');
+        err.statusCode = 502;
+        throw err;
+      }
+
+      return {
+        url: result.secure_url,
+        publicId: result.public_id,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        uploadedAt: new Date(),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
   },
 
   async deleteImage(publicId) {
-    if (!publicId) return;
+    if (!publicId || typeof publicId !== 'string') return;
 
-    if (env.storage.provider === 'cloudinary' && env.storage.cloudinary.cloudName) {
+    const provider = (process.env.STORAGE_PROVIDER || env.storage.provider || 'local').trim();
+    const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || env.storage.cloudinary.cloudName || '').trim();
+    const apiKey = (process.env.CLOUDINARY_API_KEY || env.storage.cloudinary.apiKey || '').trim();
+    const apiSecret = (process.env.CLOUDINARY_API_SECRET || env.storage.cloudinary.apiSecret || '').trim();
+
+    if (provider === 'cloudinary' && cloudName && apiKey && apiSecret) {
       try {
-        const cloudinaryModule = await import('cloudinary');
-        const cloudinary = cloudinaryModule.v2 || cloudinaryModule.default;
-        await cloudinary.uploader.destroy(publicId);
+        const timestamp = Math.floor(Date.now() / 1000);
+        const signature = createCloudinarySignature({ public_id: publicId, timestamp }, apiSecret);
+        const body = new URLSearchParams({
+          public_id: publicId,
+          api_key: apiKey,
+          timestamp: String(timestamp),
+          signature,
+        });
+        await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/destroy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        });
       } catch (err) {
         logger.warn('Failed to delete Cloudinary asset', { publicId, error: err.message });
       }
     } else {
-      const localFile = path.join(env.storage.uploadDir, publicId);
+      // Prevent path traversal on local delete
+      const safeBasename = path.basename(publicId);
+      const localFile = path.join(env.storage.uploadDir, safeBasename);
       if (fs.existsSync(localFile)) {
         try {
           await fs.promises.unlink(localFile);

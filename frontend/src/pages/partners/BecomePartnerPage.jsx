@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usePageMeta } from '../../hooks/usePageMeta.js';
 import Breadcrumb from '../../components/common/Breadcrumb.jsx';
 import Alert from '../../components/common/Alert.jsx';
@@ -7,72 +7,336 @@ import leadService from '../../services/leadService.js';
 import api from '../../services/api.js';
 import { categories as fallbackCategories } from '../../data/categories.js';
 import {
-  Briefcase,
   CheckCircle2,
   Clock,
   ArrowRight,
-  ShieldAlert,
-  Building,
   Lock,
-  Sparkles,
-  HelpCircle,
-  FileCheck2,
   Upload,
-  Image as ImageIcon,
   X,
   PhoneCall,
+  LayoutDashboard,
+  Building2,
+  PlusCircle,
+  FileCheck2,
+  User,
+  LogOut,
+  Edit3,
+  ExternalLink,
+  AlertTriangle,
+  ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 
+const STATUS_BADGES = {
+  SUBMITTED: {
+    label: 'Pending Admin Review',
+    classes: 'bg-amber-50 text-amber-800 border-amber-200',
+  },
+  APPROVED: {
+    label: 'Approved (Ready to Publish)',
+    classes: 'bg-blue-50 text-blue-800 border-blue-200',
+  },
+  PUBLISHED: {
+    label: 'Published Live',
+    classes: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  },
+  UNPUBLISHED: {
+    label: 'Unpublished (Draft)',
+    classes: 'bg-slate-100 text-slate-700 border-slate-300',
+  },
+  REJECTED: {
+    label: 'Rejected',
+    classes: 'bg-rose-50 text-rose-800 border-rose-200',
+  },
+  SUSPENDED: {
+    label: 'Suspended',
+    classes: 'bg-red-100 text-red-900 border-red-300',
+  },
+};
+
+const EMPTY_FORM = {
+  businessName: '',
+  contactPerson: '',
+  email: '',
+  category: '',
+  customCategoryName: '',
+  servicesOffered: '',
+  city: '',
+  state: '',
+  address: '',
+  pinCode: '',
+  serviceAreas: '',
+  website: '',
+  businessDescription: '',
+  consentToContact: true,
+  consentToDisplayPhone: true,
+};
+
 export default function BecomePartnerPage() {
-  const [formData, setFormData] = useState({
-    businessName: '',
-    contactPerson: '',
-    phone: '',
-    email: '',
-    category: '',
-    customCategoryName: '',
-    servicesOffered: '',
-    city: '',
-    state: '',
-    address: '',
-    pinCode: '',
-    serviceAreas: '',
-    website: '',
-    businessDescription: '',
-    consentToContact: false,
-    consentToDisplayPhone: true,
+  usePageMeta({
+    title: 'Provider Portal — List & Manage Commercial Properties | WARESHOP',
+    description:
+      'Authenticate with your Indian mobile number via OTP to submit and manage commercial shop, office, warehouse, and godown listings on WARESHOP.',
+    canonical: 'https://wareshop.in/become-a-partner',
   });
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'overview';
+
+  // Provider session & dashboard state
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [account, setAccount] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    submitted: 0,
+    approved: 0,
+    published: 0,
+    unpublished: 0,
+    rejected: 0,
+    suspended: 0,
+  });
+  const [listings, setListings] = useState([]);
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [editingListingId, setEditingListingId] = useState(null);
+
+  // OTP Authentication state
+  const [authPhone, setAuthPhone] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authOtp, setAuthOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
+
+  // Categories
+  const [availableCategories, setAvailableCategories] = useState(fallbackCategories);
+
+  // Listing submission / edit form state
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [shopImageFile, setShopImageFile] = useState(null);
   const [shopImagePreview, setShopImagePreview] = useState(null);
   const fileInputRef = useRef(null);
-
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [submissionSuccess, setSubmissionSuccess] = useState(null);
-  const [submitError, setSubmitError] = useState(null);
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpMessage, setOtpMessage] = useState('');
-  const [verificationToken, setVerificationToken] = useState('');
-  const [providerAccountId, setProviderAccountId] = useState('');
-  const [availableCategories, setAvailableCategories] = useState(fallbackCategories);
-  useEffect(() => { api.get('/categories').then((result) => { if (result.data?.length) setAvailableCategories(result.data); }).catch(() => {}); }, []);
 
-  usePageMeta({
-    title: 'Partner Onboarding — Become a Verified Provider — KONNEVIA',
-    description:
-      'Apply to join KONNEVIA as a verified service partner. High-intent customer enquiries with transparent commission terms.',
-    canonical: 'https://konnevia.com/become-a-partner',
-  });
+  // Profile form state
+  const [profileForm, setProfileForm] = useState({ name: '', email: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
 
-  const handleChange = (e) => {
+  // Load active categories from backend
+  useEffect(() => {
+    api
+      .get('/categories')
+      .then((result) => {
+        if (Array.isArray(result?.data) && result.data.length > 0) {
+          setAvailableCategories(result.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const loadDashboardData = useCallback(async () => {
+    try {
+      const res = await leadService.getDashboard();
+      if (res?.success && res?.data?.account) {
+        const acct = res.data.account;
+        setAccount(acct);
+        setStats(
+          res.data.stats || {
+            total: 0,
+            submitted: 0,
+            approved: 0,
+            published: 0,
+            unpublished: 0,
+            rejected: 0,
+            suspended: 0,
+          }
+        );
+        setListings(Array.isArray(res.data.listings) ? res.data.listings : []);
+        setProfileForm({
+          name: acct.name || '',
+          email: acct.email || '',
+        });
+        setFormData((prev) => ({
+          ...prev,
+          contactPerson: prev.contactPerson || acct.name || '',
+          email: prev.email || acct.email || '',
+        }));
+        return true;
+      }
+    } catch {
+      setAccount(null);
+    }
+    return false;
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    setCheckingSession(true);
+    loadDashboardData().finally(() => {
+      if (isMounted) setCheckingSession(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [loadDashboardData]);
+
+  // Synchronize URL tab query parameter
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && ['overview', 'listings', 'submit', 'status', 'profile'].includes(t)) {
+      setActiveTab(t);
+    }
+  }, [searchParams]);
+
+  const switchTab = (tabName) => {
+    setActiveTab(tabName);
+    setSubmitError('');
+    setSubmissionSuccess(null);
+    if (tabName !== 'edit') {
+      setEditingListingId(null);
+      setSearchParams({ tab: tabName });
+    }
+  };
+
+  // --- OTP AUTHENTICATION HANDLERS ---
+  const handleSendOtp = async (e) => {
+    if (e) e.preventDefault();
+    setAuthError('');
+    setAuthNotice('');
+
+    const cleanPhone = authPhone.replace(/\D/g, '');
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setAuthError('Please enter a valid 10-digit Indian mobile number (starting with 6–9).');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const res = await leadService.sendOtp(cleanPhone);
+      setOtpSent(true);
+      setAuthOtp('');
+      setAuthNotice(
+        res?.message || `A 6-digit OTP has been sent via SMS to +91 ${cleanPhone}.`
+      );
+    } catch (err) {
+      setAuthError(
+        err.message || 'Unable to send OTP right now. Please verify your number or try again.'
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleVerifyAndLogin = async (e) => {
+    if (e) e.preventDefault();
+    setAuthError('');
+    setAuthNotice('');
+
+    const cleanPhone = authPhone.replace(/\D/g, '');
+    const cleanOtp = authOtp.replace(/\D/g, '');
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      setAuthError('Please enter the 6-digit OTP received on your mobile.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const verifyRes = await leadService.verifyOtp(cleanPhone, cleanOtp);
+      const verificationToken = verifyRes?.data?.verificationToken;
+      if (!verificationToken) {
+        throw new Error('OTP verification did not return a valid session token.');
+      }
+
+      await leadService.registerOrLogin({
+        phone: cleanPhone,
+        verificationToken,
+        name: authName.trim(),
+      });
+
+      await loadDashboardData();
+      const targetTab = searchParams.get('tab') || 'overview';
+      setActiveTab(targetTab);
+    } catch (err) {
+      setAuthError(err.message || 'OTP verification failed. Please check the code and try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await leadService.logoutProvider();
+    setAccount(null);
+    setListings([]);
+    setOtpSent(false);
+    setAuthOtp('');
+    setAuthNotice('');
+    setAuthError('');
+  };
+
+  // --- LISTING FORM HANDLERS ---
+  const startNewListing = () => {
+    setEditingListingId(null);
+    setSubmissionSuccess(null);
+    setSubmitError('');
+    setErrors({});
+    setShopImageFile(null);
+    setShopImagePreview(null);
+    setFormData({
+      ...EMPTY_FORM,
+      contactPerson: account?.name || '',
+      email: account?.email || '',
+    });
+    switchTab('submit');
+  };
+
+  const startEditListing = (item) => {
+    setEditingListingId(item.listingId || item.applicationId || item.id);
+    setSubmissionSuccess(null);
+    setSubmitError('');
+    setErrors({});
+    setShopImageFile(null);
+    setShopImagePreview(item.shopImage?.url || null);
+
+    const catValue =
+      item.categorySlug === 'other' || item.category === 'Other'
+        ? 'other'
+        : item.categorySlug || item.category || '';
+
+    setFormData({
+      businessName: item.businessName || '',
+      contactPerson: item.contactPerson || account?.name || '',
+      email: item.email || account?.email || '',
+      category: catValue,
+      customCategoryName: item.customCategoryName || item.customCategoryRequest?.requestedName || '',
+      servicesOffered: Array.isArray(item.servicesOffered)
+        ? item.servicesOffered.join(', ')
+        : item.servicesOffered || '',
+      city: item.city || '',
+      state: item.state || '',
+      address: item.address || '',
+      pinCode: item.pinCode || '',
+      serviceAreas: Array.isArray(item.serviceAreas)
+        ? item.serviceAreas.join(', ')
+        : item.serviceAreas || '',
+      website: item.website || '',
+      businessDescription: item.businessDescription || item.description || '',
+      consentToContact: true,
+      consentToDisplayPhone: item.consentToDisplayPhone !== false,
+    });
+    setActiveTab('edit');
+  };
+
+  const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
-
     if (errors[name]) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -86,21 +350,19 @@ export default function BecomePartnerPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate type
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       setErrors((prev) => ({
         ...prev,
-        shopImage: 'Please upload a valid image file (JPEG, PNG, or WebP).',
+        shopImage: 'Only JPEG, PNG, and WebP images are allowed.',
       }));
       return;
     }
 
-    // Validate 5MB limit
     if (file.size > 5 * 1024 * 1024) {
       setErrors((prev) => ({
         ...prev,
-        shopImage: 'Image size exceeds 5MB. Please choose a smaller photo.',
+        shopImage: 'Image size exceeds 5MB. Please select a smaller photograph.',
       }));
       return;
     }
@@ -112,100 +374,92 @@ export default function BecomePartnerPage() {
     });
 
     setShopImageFile(file);
-
     const reader = new FileReader();
-    reader.onload = () => {
-      setShopImagePreview(reader.result);
-    };
+    reader.onload = () => setShopImagePreview(reader.result);
     reader.readAsDataURL(file);
   };
 
   const handleRemoveImage = () => {
     setShopImageFile(null);
     setShopImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const validateForm = () => {
+  const validateListingForm = () => {
     const errs = {};
-
-    if (!formData.businessName.trim()) {
-      errs.businessName = 'Business or enterprise name is required';
+    if (!formData.businessName.trim() || formData.businessName.trim().length < 2) {
+      errs.businessName = 'Business or property name is required (min 2 characters).';
     }
-
-    if (!formData.contactPerson.trim()) {
-      errs.contactPerson = 'Contact person name is required';
+    if (!formData.contactPerson.trim() || formData.contactPerson.trim().length < 2) {
+      errs.contactPerson = 'Contact person name is required.';
     }
-
-    const cleanPhone = formData.phone.replace(/\D/g, '');
-    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      errs.phone = 'Valid 10-digit Indian mobile number is required';
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      errs.email = 'Please enter a valid email address or leave it blank.';
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
-      errs.email = 'Valid business email is required';
-    }
-
     if (!formData.category.trim()) {
-      errs.category = 'Please choose your primary category vertical';
+      errs.category = 'Please select a property/business category.';
     }
-
+    if (
+      formData.category === 'other' &&
+      (!formData.customCategoryName.trim() || formData.customCategoryName.trim().length < 2)
+    ) {
+      errs.customCategoryName = 'Please specify the requested custom category name.';
+    }
     if (!formData.servicesOffered.trim()) {
-      errs.servicesOffered = 'Please list at least one service you provide';
+      errs.servicesOffered = 'Please list at least one service or facility offered.';
     }
-
     if (!formData.city.trim()) {
-      errs.city = 'Operating headquarters city is required';
+      errs.city = 'City is required.';
     }
-
+    if (!formData.state.trim()) {
+      errs.state = 'State is required.';
+    }
+    if (!formData.address.trim()) {
+      errs.address = 'Property/business address is required.';
+    }
+    if (!formData.pinCode.trim() || !/^\d{6}$/.test(formData.pinCode.trim())) {
+      errs.pinCode = 'Valid 6-digit Indian PIN code is required.';
+    }
+    if (
+      formData.website.trim() &&
+      !/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(formData.website.trim())
+    ) {
+      errs.website = 'Website must be a valid URL starting with http:// or https://';
+    }
     if (!formData.businessDescription.trim() || formData.businessDescription.trim().length < 15) {
-      errs.businessDescription = 'Please provide a business overview (at least 15 characters)';
+      errs.businessDescription = 'Please provide a description of at least 15 characters.';
     }
-
-    if (formData.pinCode && !/^\d{6}$/.test(formData.pinCode.trim())) {
-      errs.pinCode = 'PIN code must be exactly 6 digits';
-    }
-
     if (!formData.consentToContact) {
-      errs.consentToContact = 'You must authorize our onboarding team to contact you';
+      errs.consentToContact = 'Please confirm that you are the authorized owner/representative.';
     }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleListingSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError(null);
+    setSubmitError('');
 
-    if (!verificationToken || !providerAccountId) {
-      setSubmitError('Verify your mobile number before submitting the application.');
-      return;
-    }
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateListingForm()) return;
 
     setIsSubmitting(true);
-
     try {
       const payload = new FormData();
       payload.append('businessName', formData.businessName.trim());
       payload.append('contactPerson', formData.contactPerson.trim());
-      payload.append('phone', formData.phone.replace(/\D/g, ''));
+      payload.append('phone', account.phone);
       payload.append('email', formData.email.trim());
       payload.append('category', formData.category.trim());
-      payload.append('customCategoryName', formData.customCategoryName.trim());
-      payload.append('providerAccountId', providerAccountId);
+      if (formData.category === 'other') {
+        payload.append('customCategoryName', formData.customCategoryName.trim());
+      }
       payload.append('servicesOffered', formData.servicesOffered.trim());
       payload.append('city', formData.city.trim());
       payload.append('state', formData.state.trim());
       payload.append('address', formData.address.trim());
       payload.append('pinCode', formData.pinCode.trim());
-      payload.append('serviceAreas', formData.serviceAreas.trim());
+      payload.append('serviceAreas', formData.serviceAreas.trim() || formData.city.trim());
       payload.append('website', formData.website.trim());
       payload.append('businessDescription', formData.businessDescription.trim());
       payload.append('consentToContact', formData.consentToContact ? 'true' : 'false');
@@ -215,701 +469,1275 @@ export default function BecomePartnerPage() {
         payload.append('shopImage', shopImageFile);
       }
 
-      const response = await leadService.submitPartnerEnquiry(payload);
+      let response;
+      if (editingListingId) {
+        response = await leadService.updateOwnListing(editingListingId, payload);
+      } else {
+        response = await leadService.submitListing(payload);
+      }
 
-      if (response && response.success) {
+      if (response?.success) {
+        await loadDashboardData();
         setSubmissionSuccess({
-          referenceId: response.data?.referenceId || 'KNV-PTR-CONFIRMED',
+          isEdit: Boolean(editingListingId),
+          referenceId: response.data?.referenceId || 'WSH-SUBMITTED',
+          businessName: formData.businessName.trim(),
+          city: formData.city.trim(),
           message:
             response.message ||
-            'Your partner onboarding application and shop profile have been received.',
-          businessName: formData.businessName,
-          category: formData.category,
-          city: formData.city,
+            'Your listing has been submitted and is now pending administrator review.',
         });
+        setEditingListingId(null);
       } else {
-        setSubmitError(
-          response?.message || 'We could not submit your partner application. Please try again.'
-        );
+        setSubmitError(response?.message || 'Unable to save listing. Please try again.');
       }
     } catch (err) {
-      console.error('Partner submission error:', err);
-      setSubmitError(
-        err.message || 'Unable to connect to the onboarding service. Please verify your connection.'
-      );
+      setSubmitError(err.message || 'Unable to submit listing. Please check your inputs.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const requestOtp = async () => {
-    const phone = formData.phone.replace(/\D/g, '');
-    if (!/^[6-9]\d{9}$/.test(phone)) { setOtpMessage('Enter a valid 10-digit Indian mobile number first.'); return; }
-    try { await api.post('/provider-auth/otp/request', { phone }); setOtpSent(true); setOtp(''); setOtpMessage('OTP sent to your mobile number. Enter the six-digit code to continue.'); } catch (err) { setOtpSent(false); setOtpMessage(err.message); }
-  };
-  const verifyMobile = async () => {
-    try { const phone = formData.phone.replace(/\D/g, ''); const verified = await api.post('/provider-auth/otp/verify', { phone, otp }); const token = verified.data.verificationToken; const account = await api.post('/provider-auth/register', { phone, verificationToken: token }); setVerificationToken(token); setProviderAccountId(account.data.providerAccountId); setOtpMessage('Mobile verified successfully.'); } catch (err) { setOtpMessage(err.message); }
+  // --- PROFILE UPDATE HANDLER ---
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    setProfileMessage('');
+    setProfileError('');
+    setProfileSaving(true);
+    try {
+      const res = await leadService.updateProviderProfile({
+        name: profileForm.name.trim(),
+        email: profileForm.email.trim(),
+      });
+      if (res?.success) {
+        setProfileMessage('Account profile updated successfully.');
+        await loadDashboardData();
+      }
+    } catch (err) {
+      setProfileError(err.message || 'Unable to update profile.');
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
-  const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Partner With Us', href: null },
+  if (checkingSession) {
+    return (
+      <div className="bg-[#F8FAFC] min-h-[70vh] flex flex-col items-center justify-center p-8">
+        <div className="w-9 h-9 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-xs sm:text-sm text-slate-500 font-medium">Loading Provider Portal...</p>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // UNAUTHENTICATED VIEW: 2FACTOR OTP REGISTRATION & LOGIN
+  // ============================================================================
+  if (!account) {
+    return (
+      <div className="bg-[#F8FAFC] min-h-screen pb-16">
+        <div className="bg-white border-b border-slate-200/80">
+          <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
+            <Breadcrumb items={[{ label: 'Provider Portal' }]} />
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column: Value Proposition */}
+            <div className="lg:col-span-6 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold uppercase tracking-wider">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Provider Portal & OTP Authentication</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight">
+                List Your Commercial Property or Business on WARESHOP
+              </h1>
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+                Register or sign in with your Indian mobile number via 2Factor SMS OTP. Once
+                authenticated, you can submit new listings for{' '}
+                <strong className="text-slate-900">Shops, Offices, Warehouses, and Godowns</strong>,
+                track approval status, and edit your published profiles.
+              </p>
+
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 space-y-4 shadow-xs">
+                <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+                  Why List on WARESHOP?
+                </h2>
+                <ul className="space-y-3 text-xs sm:text-sm text-slate-600">
+                  <li className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-slate-900">Direct Customer Calls:</strong> Customers
+                      call you directly on your verified phone number.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-slate-900">Verified Ownership:</strong> Your listing’s
+                      contact number is locked to your OTP-verified mobile number so no one can
+                      impersonate your phone.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-slate-900">Full Lifecycle Dashboard:</strong> Track
+                      pending applications, rejection reasons, and live published listings in one
+                      place.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Right Column: OTP Login / Registration Card */}
+            <div className="lg:col-span-6">
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <span className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                    <PhoneCall className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-950">
+                      Provider Sign In / Register
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      New and returning providers sign in using mobile OTP
+                    </p>
+                  </div>
+                </div>
+
+                {authError && (
+                  <Alert type="error" title="Authentication Error" message={authError} className="mt-4" />
+                )}
+                {authNotice && (
+                  <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium">
+                    {authNotice}
+                  </div>
+                )}
+
+                <form
+                  onSubmit={otpSent ? handleVerifyAndLogin : handleSendOtp}
+                  className="mt-6 space-y-5"
+                >
+                  <div>
+                    <label
+                      htmlFor="provider-auth-phone"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                    >
+                      Indian Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3.5 text-sm font-bold text-slate-500">+91</span>
+                      <input
+                        id="provider-auth-phone"
+                        type="tel"
+                        maxLength={10}
+                        value={authPhone}
+                        disabled={otpSent && authLoading}
+                        onChange={(e) => {
+                          setAuthPhone(e.target.value.replace(/\D/g, ''));
+                          if (otpSent) setOtpSent(false);
+                        }}
+                        placeholder="98XXXXXXXX"
+                        className="w-full pl-12 pr-4 py-3 text-sm sm:text-base font-semibold bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                        required
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      This verified mobile number will be used for direct customer calls on your
+                      listings.
+                    </p>
+                  </div>
+
+                  {!otpSent ? (
+                    <>
+                      <div>
+                        <label
+                          htmlFor="provider-auth-name"
+                          className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                        >
+                          Your Name (Optional for Returning Providers)
+                        </label>
+                        <input
+                          id="provider-auth-name"
+                          type="text"
+                          value={authName}
+                          onChange={(e) => setAuthName(e.target.value)}
+                          placeholder="e.g. Rajesh Sharma"
+                          className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={authLoading}
+                        className="w-full py-3.5 px-6 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                      >
+                        <span>{authLoading ? 'Sending OTP via 2Factor...' : 'Request SMS OTP'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label
+                          htmlFor="provider-auth-otp"
+                          className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                        >
+                          Enter 6-Digit SMS OTP <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          id="provider-auth-otp"
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={authOtp}
+                          onChange={(e) => setAuthOtp(e.target.value.replace(/\D/g, ''))}
+                          placeholder="••••••"
+                          className="w-full px-4 py-3 text-center tracking-[0.4em] text-lg font-black bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          type="submit"
+                          disabled={authLoading}
+                          className="flex-1 py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                        >
+                          <span>
+                            {authLoading ? 'Verifying OTP...' : 'Verify OTP & Enter Dashboard'}
+                          </span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={authLoading}
+                          onClick={handleSendOtp}
+                          className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
+                        >
+                          Resend OTP
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // AUTHENTICATED VIEW: PROVIDER PORTAL DASHBOARD
+  // ============================================================================
+  const navItems = [
+    { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard },
+    { id: 'listings', label: `My Listings (${listings.length})`, icon: Building2 },
+    { id: 'submit', label: 'Add New Listing', icon: PlusCircle },
+    { id: 'status', label: 'Application Status', icon: FileCheck2 },
+    { id: 'profile', label: 'Account Profile', icon: User },
   ];
 
   return (
-    <div className="bg-background min-h-screen pb-16">
-      {/* Header Banner */}
-      <section className="bg-primary text-white py-12 md:py-16 border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Breadcrumb items={breadcrumbItems} className="mb-6 text-slate-300" />
-          <div className="max-w-3xl">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-accent/20 text-accent mb-4 border border-accent/30">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Pan-India Verified Provider Network</span>
-            </span>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mb-4">
-              Scale Your Service Enterprise on KONNEVIA
+    <div className="bg-[#F8FAFC] min-h-screen pb-16">
+      {/* Top Portal Bar */}
+      <div className="bg-slate-950 text-white border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-400 mb-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>OTP-Verified Provider Session (+91 {account.phone})</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+              {account.name ? `Welcome, ${account.name}` : 'WARESHOP Provider Dashboard'}
             </h1>
-            <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
-              Connect with high-intent clients looking for vetted professionals. Transparent
-              performance-based commissions upon verified deal completion.
-            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={startNewListing}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Add New Listing</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-200 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6">
+      {/* Suspension Notice if Account is Suspended */}
+      {account.status === 'SUSPENDED' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm">
+              <strong className="font-bold block">Provider Account Suspended</strong>
+              Your provider account and listings are currently suspended.
+              {account.suspensionReason ? ` Reason: ${account.suspensionReason}` : ''}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Portal Layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Form Area */}
-          <div className="lg:col-span-8">
-            {submissionSuccess ? (
-              <div className="bg-white rounded-2xl p-8 sm:p-10 border border-border shadow-sm text-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-5 border border-emerald-100">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest text-accent mb-1 block">
-                  Application Received
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-primary mb-3">
-                  Welcome to KONNEVIA Onboarding
-                </h2>
-                <p className="text-sm text-text-muted max-w-xl mx-auto leading-relaxed mb-6">
-                  {submissionSuccess.message}
-                </p>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 max-w-md mx-auto text-left mb-6 space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-text-muted font-medium">Tracking Reference:</span>
-                    <span className="font-mono font-bold text-accent">
-                      {submissionSuccess.referenceId}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-text-muted font-medium">Enterprise Name:</span>
-                    <span className="font-semibold text-primary">
-                      {submissionSuccess.businessName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-text-muted font-medium">Headquarters:</span>
-                    <span className="font-semibold text-primary">{submissionSuccess.city}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-text-muted font-medium">Verification Status:</span>
-                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
-                      UNDER DESK REVIEW
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Link
-                    to="/"
-                    className="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm font-semibold"
-                  >
-                    Return to Marketplace
-                  </Link>
+          {/* Sidebar Navigation */}
+          <aside className="lg:col-span-3">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-3 shadow-xs space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  activeTab === item.id || (activeTab === 'edit' && item.id === 'listings');
+                return (
                   <button
+                    key={item.id}
                     type="button"
-                    onClick={() => {
-                      setSubmissionSuccess(null);
-                      setShopImageFile(null);
-                      setShopImagePreview(null);
-                    }}
-                    className="btn-secondary w-full sm:w-auto px-6 py-2.5 text-sm font-semibold"
+                    onClick={() => (item.id === 'submit' ? startNewListing() : switchTab(item.id))}
+                    className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-colors text-left cursor-pointer ${
+                      isActive
+                        ? 'bg-orange-50 text-orange-600'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                    }`}
                   >
-                    Submit Another Profile
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{item.label}</span>
                   </button>
+                );
+              })}
+
+              <div className="pt-2 mt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 shrink-0" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Tab Content */}
+          <div className="lg:col-span-9">
+            {/* TAB 1: DASHBOARD OVERVIEW */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Total Listings
+                    </span>
+                    <p className="text-2xl sm:text-3xl font-black text-slate-950 mt-1">
+                      {stats.total}
+                    </p>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+                      Published Live
+                    </span>
+                    <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">
+                      {stats.published}
+                    </p>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-600">
+                      Pending Review
+                    </span>
+                    <p className="text-2xl sm:text-3xl font-black text-amber-700 mt-1">
+                      {stats.submitted}
+                    </p>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                      Approved
+                    </span>
+                    <p className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">
+                      {stats.approved}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-lg font-extrabold text-slate-950">
+                        Your Recent Commercial Listings
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        Manage your properties and monitor administrator review status.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={loadDashboardData}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-orange-600 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+
+                  {listings.length === 0 ? (
+                    <div className="py-10 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                      <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                      <h3 className="text-sm font-bold text-slate-900">
+                        You haven’t submitted any listings yet
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 mb-4">
+                        Submit your first Shop, Office, Warehouse, or Godown listing for review.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={startNewListing}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                      >
+                        <PlusCircle className="w-4 h-4" />
+                        <span>Submit First Listing</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {listings.slice(0, 5).map((item) => {
+                        const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                        return (
+                          <div
+                            key={item.id}
+                            className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                          >
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-bold text-slate-900 text-sm sm:text-base">
+                                  {item.businessName}
+                                </h3>
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
+                                >
+                                  {badge.label}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {item.category} • {item.city}
+                                {item.referenceId ? ` • Ref: ${item.referenceId}` : ''}
+                              </p>
+                              {item.rejectionReason && (
+                                <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg">
+                                  <strong>Rejection Reason:</strong> {item.rejectionReason}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {item.status === 'PUBLISHED' && item.slug && (
+                                <Link
+                                  to={`/providers/${item.slug}`}
+                                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                  <span>View Live</span>
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </Link>
+                              )}
+                              {item.status !== 'SUSPENDED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditListing(item)}
+                                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold cursor-pointer"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-border shadow-sm">
-                {submitError && (
-                  <Alert
-                    type="error"
-                    title="Submission Notice"
-                    message={submitError}
-                    className="mb-6"
-                  />
-                )}
+            )}
 
-                <form onSubmit={handleSubmit} className="space-y-8" noValidate>
-                  {/* 1. Business Identity */}
+            {/* TAB 2: MY LISTINGS */}
+            {activeTab === 'listings' && (
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-primary mb-4 pb-2 border-b border-border/60 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-accent-50 text-accent text-xs font-extrabold flex items-center justify-center">
-                        1
-                      </span>
-                      <span>Business & Commercial Identity</span>
+                    <h2 className="text-xl font-extrabold text-slate-950">My Commercial Listings</h2>
+                    <p className="text-xs text-slate-500">
+                      View and edit your submitted, approved, and published listings.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startNewListing}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Add New Listing</span>
+                  </button>
+                </div>
+
+                {listings.length === 0 ? (
+                  <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                    <p className="text-sm font-bold text-slate-800 mb-2">No listings found</p>
+                    <button
+                      type="button"
+                      onClick={startNewListing}
+                      className="px-4 py-2 rounded-xl bg-orange-500 text-white text-xs font-bold"
+                    >
+                      Add Your First Listing
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {listings.map((item) => {
+                      const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-5 rounded-2xl border border-slate-200 flex flex-col md:flex-row justify-between gap-5"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-2.5 py-0.5 rounded">
+                                {item.category}
+                              </span>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
+                              >
+                                {badge.label}
+                              </span>
+                              {item.referenceId && (
+                                <span className="text-xs font-mono text-slate-400">
+                                  {item.referenceId}
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="text-lg font-extrabold text-slate-900">
+                              {item.businessName}
+                            </h3>
+                            <p className="text-xs text-slate-600 line-clamp-2">
+                              {item.description}
+                            </p>
+                            <p className="text-xs text-slate-500 font-medium">
+                              Location: {[item.address, item.city, item.state, item.pinCode].filter(Boolean).join(', ')}
+                            </p>
+
+                            {item.customCategoryRequest && (
+                              <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg inline-block">
+                                Custom Category Request ({item.customCategoryRequest.requestedName}):{' '}
+                                <strong>{item.customCategoryRequest.status}</strong>
+                              </p>
+                            )}
+
+                            {item.rejectionReason && (
+                              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                                <strong>Administrator Rejection Note:</strong> {item.rejectionReason}
+                              </div>
+                            )}
+
+                            {item.suspensionReason && (
+                              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900">
+                                <strong>Suspension Note:</strong> {item.suspensionReason}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex md:flex-col justify-end gap-2 shrink-0">
+                            {item.status === 'PUBLISHED' && item.slug && (
+                              <Link
+                                to={`/providers/${item.slug}`}
+                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800"
+                              >
+                                <span>Public Profile</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+                            )}
+                            {item.status !== 'SUSPENDED' && (
+                              <button
+                                type="button"
+                                onClick={() => startEditListing(item)}
+                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit Listing</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: ADD / EDIT LISTING FORM */}
+            {(activeTab === 'submit' || activeTab === 'edit') && (
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-xs">
+                {submissionSuccess ? (
+                  <div className="text-center py-6">
+                    <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-200">
+                      <CheckCircle2 className="w-7 h-7" />
+                    </div>
+                    <h2 className="text-2xl font-black text-slate-950 mb-2">
+                      {submissionSuccess.isEdit
+                        ? 'Listing Updated & Sent for Review'
+                        : 'Listing Application Submitted'}
                     </h2>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {/* Business Name */}
-                      <div className="sm:col-span-2">
-                        <label
-                          htmlFor="partner-businessName"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          Enterprise or Firm Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          id="partner-businessName"
-                          name="businessName"
-                          type="text"
-                          value={formData.businessName}
-                          onChange={handleChange}
-                          placeholder="e.g. Skyline Architecture & Construction LLP"
-                          className={`w-full px-3.5 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                            errors.businessName
-                              ? 'border-red-500 bg-red-50/20'
-                              : 'border-border focus:border-accent'
-                          }`}
-                        />
-                        {errors.businessName && (
-                          <p className="mt-1 text-xs text-red-600">{errors.businessName}</p>
-                        )}
+                    <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto mb-6">
+                      {submissionSuccess.message}
+                    </p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 max-w-md mx-auto text-left text-xs space-y-2 mb-6">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Reference ID:</span>
+                        <span className="font-mono font-bold text-orange-600">
+                          {submissionSuccess.referenceId}
+                        </span>
                       </div>
-
-                      {/* Primary Category */}
-                      <div>
-                        <label
-                          htmlFor="partner-category"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          Primary Vertical <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          id="partner-category"
-                          name="category"
-                          value={formData.category}
-                          onChange={handleChange}
-                          className={`w-full px-3.5 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors cursor-pointer ${
-                            errors.category
-                              ? 'border-red-500 bg-red-50/20'
-                              : 'border-border focus:border-accent'
-                          }`}
-                        >
-                          <option value="">Select your main domain</option>
-                          {availableCategories.map((c) => (
-                            <option key={c._id || c.id} value={c.slug}>
-                              {c.name}
-                            </option>
-                          ))}
-                          <option value="other">Other — request a category</option>
-                        </select>
-                        {errors.category && (
-                          <p className="mt-1 text-xs text-red-600">{errors.category}</p>
-                        )}
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Business / Property:</span>
+                        <span className="font-bold text-slate-900">
+                          {submissionSuccess.businessName}
+                        </span>
                       </div>
-
-                      {formData.category === 'other' && <div><label className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5">Requested category <span className="text-red-500">*</span></label><input name="customCategoryName" value={formData.customCategoryName} onChange={handleChange} placeholder="e.g. Cold Storage Facility" className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-border rounded-lg text-primary focus:outline-none focus:border-accent" /></div>}
-
-                      {/* Services Offered */}
-                      <div>
-                        <label
-                          htmlFor="partner-servicesOffered"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          Specific Services Offered <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          id="partner-servicesOffered"
-                          name="servicesOffered"
-                          type="text"
-                          value={formData.servicesOffered}
-                          onChange={handleChange}
-                          placeholder="e.g. Modular Kitchens, Turnkey Interiors"
-                          className={`w-full px-3.5 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                            errors.servicesOffered
-                              ? 'border-red-500 bg-red-50/20'
-                              : 'border-border focus:border-accent'
-                          }`}
-                        />
-                        {errors.servicesOffered && (
-                          <p className="mt-1 text-xs text-red-600">{errors.servicesOffered}</p>
-                        )}
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Current Lifecycle Status:</span>
+                        <span className="font-bold text-amber-700">SUBMITTED (Pending Review)</span>
                       </div>
                     </div>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => switchTab('listings')}
+                        className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                      >
+                        View My Listings
+                      </button>
+                      <button
+                        type="button"
+                        onClick={startNewListing}
+                        className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                      >
+                        Add Another Listing
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="mb-6 pb-4 border-b border-slate-100">
+                      <h2 className="text-xl font-black text-slate-950">
+                        {editingListingId ? 'Edit Commercial Listing' : 'Add New Commercial Listing'}
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {editingListingId
+                          ? 'Updating a listing submits the changes for administrator verification before appearing publicly.'
+                          : 'Complete the form below to submit your Shop, Office, Warehouse, or Godown for administrator review.'}
+                      </p>
+                    </div>
 
-                  {/* 2. Shop / Business Image Upload (Required Phase 4 Feature) */}
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-primary mb-2 pb-2 border-b border-border/60 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-accent-50 text-accent text-xs font-extrabold flex items-center justify-center">
-                        2
-                      </span>
-                      <span>Shop / Business Establishment Image</span>
-                    </h2>
-                    <p className="text-xs text-text-muted mb-4">
-                      Upload a photo of your shop, studio, office facade, or workshop. Verified
-                      visuals build customer trust. (JPEG, PNG, WebP — Max 5MB).
-                    </p>
-
-                    <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 bg-slate-50/50 hover:bg-slate-50 transition-colors text-center relative">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleImageSelect}
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        id="partner-shop-image-input"
+                    {submitError && (
+                      <Alert
+                        type="error"
+                        title="Submission Error"
+                        message={submitError}
+                        className="mb-6"
                       />
+                    )}
 
-                      {shopImagePreview ? (
-                        <div className="flex flex-col sm:flex-row items-center gap-5 justify-center">
-                          <div className="relative group">
-                            <img
-                              src={shopImagePreview}
-                              alt="Shop Preview"
-                              className="w-36 h-28 object-cover rounded-lg border border-border shadow-sm"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleRemoveImage}
-                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 shadow"
-                              title="Remove photo"
+                    <form onSubmit={handleListingSubmit} className="space-y-6" noValidate>
+                      {/* Business Name & Category */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="sm:col-span-2">
+                          <label
+                            htmlFor="listing-businessName"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Business / Property Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            id="listing-businessName"
+                            name="businessName"
+                            type="text"
+                            value={formData.businessName}
+                            onChange={handleFormChange}
+                            placeholder="e.g. Apex Industrial Warehouse & Logistics Park"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.businessName && (
+                            <p className="mt-1 text-xs text-red-600">{errors.businessName}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="listing-category"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Category <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            id="listing-category"
+                            name="category"
+                            value={formData.category}
+                            onChange={handleFormChange}
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white cursor-pointer"
+                          >
+                            <option value="">Select Category</option>
+                            {availableCategories.map((c) => (
+                              <option key={c._id || c.slug} value={c.slug}>
+                                {c.name}
+                              </option>
+                            ))}
+                            <option value="other">Other — Request Custom Category</option>
+                          </select>
+                          {errors.category && (
+                            <p className="mt-1 text-xs text-red-600">{errors.category}</p>
+                          )}
+                        </div>
+
+                        {formData.category === 'other' && (
+                          <div>
+                            <label
+                              htmlFor="listing-customCategoryName"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
                             >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+                              Requested Custom Category <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="listing-customCategoryName"
+                              name="customCategoryName"
+                              type="text"
+                              value={formData.customCategoryName}
+                              onChange={handleFormChange}
+                              placeholder="e.g. Cold Storage Facility"
+                              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            />
+                            {errors.customCategoryName && (
+                              <p className="mt-1 text-xs text-red-600">
+                                {errors.customCategoryName}
+                              </p>
+                            )}
                           </div>
-                          <div className="text-left text-xs space-y-1">
-                            <p className="font-semibold text-primary truncate max-w-xs">
-                              {shopImageFile?.name}
-                            </p>
-                            <p className="text-text-muted">
-                              Size: {(shopImageFile?.size / (1024 * 1024)).toFixed(2)} MB
-                            </p>
-                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                              Ready for verification
-                            </span>
-                            <div className="pt-2">
+                        )}
+
+                        <div className={formData.category === 'other' ? 'sm:col-span-2' : ''}>
+                          <label
+                            htmlFor="listing-servicesOffered"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Services / Facilities Offered <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            id="listing-servicesOffered"
+                            name="servicesOffered"
+                            type="text"
+                            value={formData.servicesOffered}
+                            onChange={handleFormChange}
+                            placeholder="e.g. Retail Frontage, Loading Dock, 24x7 Security"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.servicesOffered && (
+                            <p className="mt-1 text-xs text-red-600">{errors.servicesOffered}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <label
+                          htmlFor="listing-businessDescription"
+                          className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                        >
+                          Property / Business Description <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          id="listing-businessDescription"
+                          name="businessDescription"
+                          rows={4}
+                          value={formData.businessDescription}
+                          onChange={handleFormChange}
+                          placeholder="Describe the commercial property or business, access roads, suitability, and key highlights..."
+                          className="w-full p-3.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                        />
+                        {errors.businessDescription && (
+                          <p className="mt-1 text-xs text-red-600">{errors.businessDescription}</p>
+                        )}
+                      </div>
+
+                      {/* Contact Person, Locked Verified Phone, Optional Email */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                        <div>
+                          <label
+                            htmlFor="listing-contactPerson"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Contact Person <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            id="listing-contactPerson"
+                            name="contactPerson"
+                            type="text"
+                            value={formData.contactPerson}
+                            onChange={handleFormChange}
+                            placeholder="Full Name"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.contactPerson && (
+                            <p className="mt-1 text-xs text-red-600">{errors.contactPerson}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                            Verified Mobile (Locked)
+                          </label>
+                          <div className="w-full px-3.5 py-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 font-bold flex items-center justify-between">
+                            <span>+91 {account.phone}</span>
+                            <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="listing-email"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Email (Optional)
+                          </label>
+                          <input
+                            id="listing-email"
+                            name="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={handleFormChange}
+                            placeholder="owner@business.com"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.email && (
+                            <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Address, City, State, PIN, Website */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                        <div className="sm:col-span-3">
+                          <label
+                            htmlFor="listing-address"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Street Address / Landmark <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            id="listing-address"
+                            name="address"
+                            type="text"
+                            value={formData.address}
+                            onChange={handleFormChange}
+                            placeholder="Plot / Shop No., Industrial Area or Commercial Complex"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.address && (
+                            <p className="mt-1 text-xs text-red-600">{errors.address}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="listing-city"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            City <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            id="listing-city"
+                            name="city"
+                            type="text"
+                            value={formData.city}
+                            onChange={handleFormChange}
+                            placeholder="e.g. Mumbai"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.city && (
+                            <p className="mt-1 text-xs text-red-600">{errors.city}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="listing-state"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            State <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            id="listing-state"
+                            name="state"
+                            type="text"
+                            value={formData.state}
+                            onChange={handleFormChange}
+                            placeholder="e.g. Maharashtra"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.state && (
+                            <p className="mt-1 text-xs text-red-600">{errors.state}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="listing-pinCode"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            PIN Code <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            id="listing-pinCode"
+                            name="pinCode"
+                            type="text"
+                            maxLength={6}
+                            value={formData.pinCode}
+                            onChange={handleFormChange}
+                            placeholder="400001"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.pinCode && (
+                            <p className="mt-1 text-xs text-red-600">{errors.pinCode}</p>
+                          )}
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label
+                            htmlFor="listing-website"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Website URL (Optional)
+                          </label>
+                          <input
+                            id="listing-website"
+                            name="website"
+                            type="url"
+                            value={formData.website}
+                            onChange={handleFormChange}
+                            placeholder="https://www.yourbusiness.in"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                          {errors.website && (
+                            <p className="mt-1 text-xs text-red-600">{errors.website}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="listing-serviceAreas"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          >
+                            Nearby Localities
+                          </label>
+                          <input
+                            id="listing-serviceAreas"
+                            name="serviceAreas"
+                            type="text"
+                            value={formData.serviceAreas}
+                            onChange={handleFormChange}
+                            placeholder="Andheri, Bhiwandi, Navi Mumbai"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Image Upload */}
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                          Property / Business Photograph (JPEG, PNG, WebP — Max 5MB)
+                        </label>
+                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 bg-slate-50 text-center">
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleImageSelect}
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                          />
+                          {shopImagePreview ? (
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                              <div className="relative">
+                                <img
+                                  src={shopImagePreview}
+                                  alt="Preview"
+                                  className="w-36 h-24 object-cover rounded-lg border border-slate-200"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveImage}
+                                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="text-xs text-accent hover:underline font-semibold"
+                                className="text-xs font-bold text-orange-600 hover:underline cursor-pointer"
                               >
-                                Replace with different photo
+                                Choose a different photo
                               </button>
                             </div>
-                          </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="inline-flex flex-col items-center gap-1.5 cursor-pointer"
+                            >
+                              <Upload className="w-6 h-6 text-orange-500" />
+                              <span className="text-xs font-bold text-orange-600">
+                                Click to upload property or business image
+                              </span>
+                            </button>
+                          )}
                         </div>
-                      ) : (
-                        <div
-                          onClick={() => fileInputRef.current?.click()}
-                          className="cursor-pointer space-y-2"
-                        >
-                          <div className="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center mx-auto">
-                            <Upload className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <span className="text-sm font-semibold text-accent hover:underline">
-                              Click to choose shop photo
-                            </span>
-                            <span className="text-xs text-text-muted block mt-0.5">
-                              or drag and drop here (JPG, PNG, WebP up to 5MB)
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {errors.shopImage && (
-                      <p className="mt-1.5 text-xs text-red-600">{errors.shopImage}</p>
-                    )}
-                  </div>
-
-                  {/* 3. Contact Person & Authorization */}
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-primary mb-4 pb-2 border-b border-border/60 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-accent-50 text-accent text-xs font-extrabold flex items-center justify-center">
-                        3
-                      </span>
-                      <span>Authorized Contact Person</span>
-                    </h2>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                      {/* Contact Person */}
-                      <div>
-                        <label
-                          htmlFor="partner-contactPerson"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          Full Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          id="partner-contactPerson"
-                          name="contactPerson"
-                          type="text"
-                          value={formData.contactPerson}
-                          onChange={handleChange}
-                          placeholder="e.g. Anand Kulkarni"
-                          className={`w-full px-3.5 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                            errors.contactPerson
-                              ? 'border-red-500 bg-red-50/20'
-                              : 'border-border focus:border-accent'
-                          }`}
-                        />
-                        {errors.contactPerson && (
-                          <p className="mt-1 text-xs text-red-600">{errors.contactPerson}</p>
+                        {errors.shopImage && (
+                          <p className="mt-1 text-xs text-red-600">{errors.shopImage}</p>
                         )}
                       </div>
 
-                      {/* Phone */}
-                      <div>
-                        <label
-                          htmlFor="partner-phone"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          Direct Mobile Number <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs text-text-muted font-medium pointer-events-none">
-                            +91
-                          </span>
+                      {/* Consents */}
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
+                        <label className="flex items-start gap-2.5 cursor-pointer">
                           <input
-                            id="partner-phone"
-                            name="phone"
-                            type="tel"
-                            maxLength={10}
-                            value={formData.phone}
-                            onChange={handleChange}
-                            placeholder="98XXXXXXXX"
-                            className={`w-full pl-11 pr-3 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                              errors.phone
-                                ? 'border-red-500 bg-red-50/20'
-                                : 'border-border focus:border-accent'
-                            }`}
+                            type="checkbox"
+                            name="consentToDisplayPhone"
+                            checked={formData.consentToDisplayPhone}
+                            onChange={handleFormChange}
+                            className="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                           />
-                        </div>
-                        {errors.phone && (
-                          <p className="mt-1 text-xs text-red-600">{errors.phone}</p>
-                        )}
-                        <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={requestOtp} disabled={Boolean(verificationToken)} className="text-xs font-bold text-accent hover:underline">{verificationToken ? 'Mobile verified' : 'Send OTP'}</button>{otpSent && !verificationToken && <><input value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} placeholder="6-digit OTP" className="w-28 px-2 py-1 text-xs border border-border rounded" /><button type="button" onClick={verifyMobile} className="text-xs font-bold text-accent hover:underline">Verify</button></>}</div>{otpMessage && <p className={`mt-1 text-xs ${verificationToken ? 'text-emerald-700' : 'text-text-muted'}`}>{otpMessage}</p>}
-                      </div>
-
-                      {/* Email */}
-                      <div>
-                        <label
-                          htmlFor="partner-email"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          Official Email <span className="text-red-500">*</span>
+                          <span className="text-slate-700">
+                            <strong className="text-slate-900">
+                              Display my verified phone number (+91 {account.phone}) publicly
+                            </strong>{' '}
+                            on this listing once approved and published so customers can call me
+                            directly.
+                          </span>
                         </label>
-                        <input
-                          id="partner-email"
-                          name="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          placeholder="business@example.com"
-                          className={`w-full px-3.5 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                            errors.email
-                              ? 'border-red-500 bg-red-50/20'
-                              : 'border-border focus:border-accent'
-                          }`}
-                        />
-                        {errors.email && (
-                          <p className="mt-1 text-xs text-red-600">{errors.email}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* 4. Location & Geographic Scope */}
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-primary mb-4 pb-2 border-b border-border/60 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-accent-50 text-accent text-xs font-extrabold flex items-center justify-center">
-                        4
-                      </span>
-                      <span>Physical Address & Operating Scope</span>
-                    </h2>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                      {/* City */}
-                      <div>
-                        <label
-                          htmlFor="partner-city"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          City <span className="text-red-500">*</span>
+                        <label className="flex items-start gap-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="consentToContact"
+                            checked={formData.consentToContact}
+                            onChange={handleFormChange}
+                            className="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                          />
+                          <span className="text-slate-700">
+                            I confirm that I am the authorized owner or representative of this
+                            property/business and the details submitted are accurate.
+                          </span>
                         </label>
-                        <input
-                          id="partner-city"
-                          name="city"
-                          type="text"
-                          value={formData.city}
-                          onChange={handleChange}
-                          placeholder="e.g. Pune, Delhi NCR"
-                          className={`w-full px-3.5 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                            errors.city
-                              ? 'border-red-500 bg-red-50/20'
-                              : 'border-border focus:border-accent'
-                          }`}
-                        />
-                        {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
-                      </div>
-
-                      {/* State */}
-                      <div>
-                        <label
-                          htmlFor="partner-state"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          State / UT
-                        </label>
-                        <input
-                          id="partner-state"
-                          name="state"
-                          type="text"
-                          value={formData.state}
-                          onChange={handleChange}
-                          placeholder="e.g. Maharashtra"
-                          className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-border rounded-lg text-primary focus:outline-none focus:border-accent focus:bg-white transition-colors"
-                        />
-                      </div>
-
-                      {/* PIN Code */}
-                      <div>
-                        <label
-                          htmlFor="partner-pinCode"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          PIN Code
-                        </label>
-                        <input
-                          id="partner-pinCode"
-                          name="pinCode"
-                          type="text"
-                          maxLength={6}
-                          value={formData.pinCode}
-                          onChange={handleChange}
-                          placeholder="e.g. 411045"
-                          className={`w-full px-3.5 py-2.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                            errors.pinCode
-                              ? 'border-red-500 bg-red-50/20'
-                              : 'border-border focus:border-accent'
-                          }`}
-                        />
-                        {errors.pinCode && (
-                          <p className="mt-1 text-xs text-red-600">{errors.pinCode}</p>
+                        {errors.consentToContact && (
+                          <p className="text-xs text-red-600">{errors.consentToContact}</p>
                         )}
                       </div>
 
-                      {/* Address */}
-                      <div className="sm:col-span-2">
-                        <label
-                          htmlFor="partner-address"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
+                      <div className="flex items-center justify-end gap-3 pt-2">
+                        {editingListingId && (
+                          <button
+                            type="button"
+                            onClick={() => switchTab('listings')}
+                            className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer"
                         >
-                          Shop / Office Address
-                        </label>
-                        <input
-                          id="partner-address"
-                          name="address"
-                          type="text"
-                          value={formData.address}
-                          onChange={handleChange}
-                          placeholder="Shop No. 4, Commercial Complex, Main Road"
-                          className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-border rounded-lg text-primary focus:outline-none focus:border-accent focus:bg-white transition-colors"
-                        />
-                      </div>
-
-                      {/* Service Areas */}
-                      <div>
-                        <label
-                          htmlFor="partner-serviceAreas"
-                          className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                        >
-                          Key Localities Served
-                        </label>
-                        <input
-                          id="partner-serviceAreas"
-                          name="serviceAreas"
-                          type="text"
-                          value={formData.serviceAreas}
-                          onChange={handleChange}
-                          placeholder="Baner, Kothrud, Wakad"
-                          className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-border rounded-lg text-primary focus:outline-none focus:border-accent focus:bg-white transition-colors"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 5. Business Description */}
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-primary mb-4 pb-2 border-b border-border/60 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-accent-50 text-accent text-xs font-extrabold flex items-center justify-center">
-                        5
-                      </span>
-                      <span>Business Overview & Experience</span>
-                    </h2>
-
-                    <div>
-                      <label
-                        htmlFor="partner-businessDescription"
-                        className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5"
-                      >
-                        Company Profile & Experience <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        id="partner-businessDescription"
-                        name="businessDescription"
-                        rows={3}
-                        value={formData.businessDescription}
-                        onChange={handleChange}
-                        placeholder="Detail your years in operation, team size, client specializations, or certifications..."
-                        className={`w-full p-3.5 text-sm bg-slate-50 border rounded-lg text-primary focus:outline-none focus:bg-white transition-colors ${
-                          errors.businessDescription
-                            ? 'border-red-500 bg-red-50/20'
-                            : 'border-border focus:border-accent'
-                        }`}
-                      />
-                      {errors.businessDescription && (
-                        <p className="mt-1 text-xs text-red-600">
-                          {errors.businessDescription}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 6. Consents & Declarations */}
-                  <div className="bg-slate-50/70 p-5 sm:p-6 rounded-xl border border-border/80 space-y-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-accent" />
-                      <span>Partner Declarations & Consent</span>
-                    </h3>
-
-                    {/* Phone Display Consent */}
-                    <div className="flex items-start gap-3">
-                      <input
-                        id="partner-consentToDisplayPhone"
-                        name="consentToDisplayPhone"
-                        type="checkbox"
-                        checked={formData.consentToDisplayPhone}
-                        onChange={handleChange}
-                        className="w-4 h-4 text-accent border-border rounded mt-0.5 cursor-pointer focus:ring-accent"
-                      />
-                      <label
-                        htmlFor="partner-consentToDisplayPhone"
-                        className="text-xs text-text-primary leading-relaxed cursor-pointer"
-                      >
-                        <strong>Public Contact Number Display:</strong> Consent to display direct
-                        business phone number publicly once verified and published.
-                      </label>
-                    </div>
-
-                    {/* Onboarding Consent */}
-                    <div className="flex items-start gap-3">
-                      <input
-                        id="partner-consentToContact"
-                        name="consentToContact"
-                        type="checkbox"
-                        checked={formData.consentToContact}
-                        onChange={handleChange}
-                        className="w-4 h-4 text-accent border-border rounded mt-0.5 cursor-pointer focus:ring-accent"
-                      />
-                      <label
-                        htmlFor="partner-consentToContact"
-                        className="text-xs text-text-primary leading-relaxed cursor-pointer"
-                      >
-                        <strong>Verification Authorization:</strong> I certify that all details
-                        submitted are accurate and authorize KONNEVIA to review our credentials and
-                        contact us for verification.{' '}
-                        <span className="text-red-500">*</span>
-                      </label>
-                    </div>
-                    {errors.consentToContact && (
-                      <p className="text-xs text-red-600 pl-7">{errors.consentToContact}</p>
-                    )}
-                  </div>
-
-                  {/* Submit Action Button */}
-                  <div className="flex items-center justify-end gap-4 pt-4 border-t border-border/80">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="btn-primary w-full sm:w-auto py-3 px-8 text-sm font-semibold flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Submitting Application...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Submit Partner Registration</span>
+                          <span>
+                            {isSubmitting
+                              ? 'Submitting...'
+                              : editingListingId
+                                ? 'Save Changes & Submit for Review'
+                                : 'Submit Listing for Review'}
+                          </span>
                           <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: APPLICATION STATUS */}
+            {activeTab === 'status' && (
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs">
+                <h2 className="text-xl font-extrabold text-slate-950 mb-1">
+                  Application & Review Status
+                </h2>
+                <p className="text-xs text-slate-500 mb-6">
+                  Track every listing application through WARESHOP’s verification lifecycle (
+                  SUBMITTED → APPROVED → PUBLISHED).
+                </p>
+
+                {listings.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-8 text-center">
+                    No applications submitted yet.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {listings.map((item) => {
+                      const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-5 rounded-xl border border-slate-200 space-y-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <span className="text-xs font-mono text-slate-400 block">
+                                Reference: {item.referenceId || item.applicationId}
+                              </span>
+                              <h3 className="text-base font-bold text-slate-900">
+                                {item.businessName} ({item.category})
+                              </h3>
+                            </div>
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-bold border ${badge.classes}`}
+                            >
+                              {item.status}: {badge.label}
+                            </span>
+                          </div>
+
+                          {item.rejectionReason && (
+                            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                              <strong>Reason for Rejection:</strong> {item.rejectionReason}
+                            </div>
+                          )}
+
+                          {item.suspensionReason && (
+                            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900">
+                              <strong>Reason for Suspension:</strong> {item.suspensionReason}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" />
+                              Submitted: {new Date(item.createdAt).toLocaleDateString('en-IN')}
+                            </span>
+                            {item.status !== 'SUSPENDED' && (
+                              <button
+                                type="button"
+                                onClick={() => startEditListing(item)}
+                                className="font-bold text-orange-600 hover:underline cursor-pointer"
+                              >
+                                Edit & Resubmit →
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 5: ACCOUNT PROFILE */}
+            {activeTab === 'profile' && (
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-xs">
+                <h2 className="text-xl font-extrabold text-slate-950 mb-1">
+                  Provider Account Profile
+                </h2>
+                <p className="text-xs text-slate-500 mb-6">
+                  Your mobile number is verified via 2Factor SMS OTP and locked to your provider
+                  account.
+                </p>
+
+                {profileMessage && (
+                  <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
+                    {profileMessage}
+                  </div>
+                )}
+                {profileError && (
+                  <Alert type="error" title="Error" message={profileError} className="mb-4" />
+                )}
+
+                <form onSubmit={handleProfileSave} className="space-y-5 max-w-lg">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Verified Indian Mobile Number
+                    </label>
+                    <div className="px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800 flex items-center justify-between">
+                      <span>+91 {account.phone}</span>
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        OTP Verified
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="profile-name"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                    >
+                      Account Holder / Owner Name
+                    </label>
+                    <input
+                      id="profile-name"
+                      type="text"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="Your full name"
+                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="profile-email"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                    >
+                      Email Address (Optional)
+                    </label>
+                    <input
+                      id="profile-email"
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))}
+                      placeholder="you@company.com"
+                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs sm:text-sm font-bold cursor-pointer"
+                  >
+                    {profileSaving ? 'Saving...' : 'Save Account Profile'}
+                  </button>
                 </form>
               </div>
             )}
-          </div>
-
-          {/* Sidebar Info */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-2xl p-6 border border-border shadow-sm">
-              <h3 className="text-sm font-extrabold text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Building className="w-4 h-4 text-accent" />
-                <span>Why Partner With KONNEVIA</span>
-              </h3>
-              <ul className="space-y-3.5 text-xs text-text-muted leading-relaxed">
-                <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Verified Provider Badge:</strong> Stand out to genuine customers looking
-                    for audited Indian specialists.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Zero Upfront Fees:</strong> Pay agreed commission only when you
-                    successfully win and complete deals.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Admin Verification:</strong> Every business is reviewed to protect the
-                    platform from low-quality spam.
-                  </span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-accent" />
-                <span>Verification SLA</span>
-              </h4>
-              <p className="text-xs text-text-muted leading-relaxed">
-                Our operations team reviews partner applications within 24 to 48 business hours. You
-                will receive confirmation via email and phone.
-              </p>
-            </div>
           </div>
         </div>
       </div>

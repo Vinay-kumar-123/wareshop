@@ -5,7 +5,12 @@ import { usePageMeta } from '../../hooks/usePageMeta.js';
 import { ShieldCheck, LockKeyhole, Mail, AlertCircle, Warehouse, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  usePageMeta({ title: 'Administrator Sign In — WARESHOP', description: 'Restricted WARESHOP administration access.' });
+  usePageMeta({
+    title: 'Admin Login',
+    description: 'Secure administrator sign-in for WARESHOP.',
+    canonical: false,
+    noIndex: true,
+  });
   const { login } = useAuth(); const navigate = useNavigate(); const location = useLocation();
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [isSubmitting, setIsSubmitting] = useState(false); const [error, setError] = useState(''); const from = location.state?.from?.pathname || '/admin';
   const submit = async (event) => { event.preventDefault(); if (!email || !password) return setError('Enter your administrator email and password.'); setIsSubmitting(true); setError(''); try { await login(email, password); navigate(from, { replace: true }); } catch (err) { setError(err.message || 'We could not authenticate this account.'); } finally { setIsSubmitting(false); } };

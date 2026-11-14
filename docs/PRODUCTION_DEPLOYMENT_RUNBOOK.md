@@ -1,8 +1,8 @@
 # KONNEVIA — Production Deployment Runbook & Operational Guide
-**Document Status:** Production Ready  
-**Date:** November 13, 2026  
-**Target Environment:** Frontend on Vercel | Backend on Render | Database on MongoDB Atlas  
-**Architecture Policy:** Zero TypeScript | Strict Scope-Lock | Separation of Privileges  
+**Document Status:** Production Ready
+**Date:** November 13, 2026
+**Target Environment:** Frontend on Vercel | Backend on Render | Database on MongoDB Atlas
+**Architecture Policy:** Zero TypeScript | Strict Scope-Lock | Separation of Privileges
 
 ---
 

@@ -3,305 +3,457 @@ import { useParams, Link } from 'react-router-dom';
 import { usePageMeta } from '../../hooks/usePageMeta.js';
 import Breadcrumb from '../../components/common/Breadcrumb.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
-import Badge from '../../components/common/Badge.jsx';
+import ProviderCard from '../../components/marketplace/ProviderCard.jsx';
 import providerService from '../../services/providerService.js';
 import {
   MapPin,
-  ShieldAlert,
+  AlertCircle,
+  RotateCcw,
   CheckCircle2,
-  CalendarCheck,
-  ArrowRight,
   UserX,
   Briefcase,
   Layers,
-  Sparkles,
   ShieldCheck,
-  Building,
-  Phone
+  Phone,
+  PhoneCall,
+  Globe,
+  Building2,
+  Store,
+  Warehouse,
+  Package,
+  ExternalLink,
 } from 'lucide-react';
+
+const categoryIcons = {
+  shop: Store,
+  office: Building2,
+  warehouse: Warehouse,
+  godown: Package,
+};
 
 export default function ProviderProfilePage() {
   const { slug } = useParams();
   const [provider, setProvider] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [contact, setContact] = useState(null);
   const [contactError, setContactError] = useState('');
   const [contactLoading, setContactLoading] = useState(false);
+  const [activeImage, setActiveImage] = useState('');
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     setIsLoading(true);
+    setLoadError(null);
+    setContact(null);
+    setContactError('');
+    setImageError(false);
+
     providerService
       .getProviderBySlug(slug)
       .then((data) => {
-        setProvider(data);
+        if (isMounted) {
+          setProvider(data);
+          setActiveImage(data?.shopImage?.url || '');
+        }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (!isMounted) return;
         setProvider(null);
+        if (err && err.status !== 404) {
+          setLoadError(err.message || 'Unable to load business profile right now.');
+        }
       })
       .finally(() => {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       });
-  }, [slug]);
-  const showContact = async () => { setContactLoading(true); setContactError(''); try { setContact(await providerService.getPublicContact(slug)); } catch (error) { setContactError(error.message); } finally { setContactLoading(false); } };
+
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, retryCount]);
+
+  const handleRevealContact = async () => {
+    setContactLoading(true);
+    setContactError('');
+    try {
+      const data = await providerService.getPublicContact(slug);
+      setContact(data);
+    } catch (error) {
+      setContactError(error.message || 'Unable to reveal owner contact right now.');
+    } finally {
+      setContactLoading(false);
+    }
+  };
 
   usePageMeta({
-    title: provider
-      ? `${provider.businessName} — WARESHOP`
-      : 'Business Not Found — WARESHOP',
+    title: provider ? `${provider.businessName} | WARESHOP` : 'Business Listing Not Found | WARESHOP',
     description: provider
       ? provider.metaDescription || provider.description
-      : 'The requested business profile does not exist in the WARESHOP directory.',
+      : 'The requested commercial property or business listing is not available on WARESHOP.',
     canonical: provider ? `https://wareshop.in/providers/${provider.slug}` : undefined,
   });
 
   if (isLoading) {
     return (
-      <div className="bg-background min-h-[70vh] flex flex-col items-center justify-center py-16 px-4">
-        <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-xs text-text-muted">Loading business profile...</p>
+      <div className="bg-[#F8FAFC] min-h-[70vh] flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-9 h-9 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-xs sm:text-sm text-slate-500 font-medium">Loading business listing...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="bg-[#F8FAFC] min-h-[70vh] flex items-center justify-center py-16 px-4">
+        <div
+          role="alert"
+          className="bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center max-w-xl mx-auto"
+        >
+          <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-3" aria-hidden="true" />
+          <h1 className="text-lg font-bold text-rose-900 mb-1">Unable to Load Business Listing</h1>
+          <p className="text-xs sm:text-sm text-rose-700 leading-relaxed mb-5">{loadError}</p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setRetryCount((c) => c + 1)}
+              className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Retry</span>
+            </button>
+            <Link
+              to="/providers"
+              className="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs font-bold"
+            >
+              Back to Directory
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!provider) {
     return (
-      <div className="bg-background min-h-[70vh] flex items-center justify-center py-16 px-4">
+      <div className="bg-[#F8FAFC] min-h-[70vh] flex items-center justify-center py-16 px-4">
         <EmptyState
           icon={UserX}
-          title="Business Profile Not Found"
-          description={`We couldn't find a service provider matching profile slug "${slug}".`}
-          actionLabel="View All Businesses"
+          title="Business Listing Not Found"
+          description={`We couldn't find an active published business matching "${slug}".`}
+          actionLabel="Explore Directory"
           actionHref="/providers"
         />
       </div>
     );
   }
 
-  // Safe initials generator for avatar placeholder
-  const getInitials = (name) => {
-    if (!name) return 'KP';
-    return name
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0].toUpperCase())
-      .join('');
-  };
+  const categoryLabel = provider.category || 'Commercial';
+  const categorySlug = String(provider.categorySlug || '').toLowerCase();
+  const CategoryIcon = categoryIcons[categorySlug] || Building2;
+  const locationLabel = [provider.city, provider.state].filter(Boolean).join(', ');
+  const fullAddress = [provider.address, provider.city, provider.state, provider.pinCode]
+    .filter(Boolean)
+    .join(', ');
+  const servicesList = Array.isArray(provider.services) ? provider.services : [];
+  const relatedList = Array.isArray(provider.relatedProviders) ? provider.relatedProviders : [];
+
+  const galleryImages = [
+    ...(provider.shopImage?.url ? [provider.shopImage.url] : []),
+    ...(Array.isArray(provider.gallery) ? provider.gallery.map((g) => g?.url).filter(Boolean) : []),
+  ];
+
+  const hasValidMainImage = Boolean(activeImage && !imageError);
 
   return (
-    <div className="bg-background min-h-screen">
-      {/* Top Banner & Breadcrumb */}
-      <div className="bg-white border-b border-border/80">
-        <div className="container-max py-3 px-4 sm:px-6 lg:px-8">
+    <div className="bg-[#F8FAFC] min-h-screen">
+      {/* Top Breadcrumb */}
+      <div className="bg-white border-b border-slate-200/80">
+        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[
-              { label: 'Providers', href: '/providers' },
+              { label: 'Commercial Directory', href: '/providers' },
+              ...(categorySlug
+                ? [{ label: categoryLabel, href: `/categories/${categorySlug}` }]
+                : []),
               { label: provider.businessName },
             ]}
           />
         </div>
       </div>
 
-      {/* Header Profile Section */}
-      <div className="bg-white border-b border-border/60 py-10 sm:py-14">
-        <div className="container-max px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8">
-            <div className="flex items-start gap-5 sm:gap-6">
-              {/* Profile Avatar */}
-              <div
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-primary text-white flex items-center justify-center font-extrabold text-xl sm:text-2xl flex-shrink-0 shadow-sm"
-                aria-hidden="true"
-              >
-                {getInitials(provider.businessName)}
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <Badge variant="teal">{provider.categoryName}</Badge>
-
-                  {provider.isDevSample && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                      <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Development Sample Profile</span>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left 8 Columns: Media Gallery, Overview, Services, Address */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Header & Media Card */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs">
+              {/* Image Gallery / Category Graphic */}
+              <div className="relative h-64 sm:h-88 bg-slate-100 overflow-hidden">
+                {hasValidMainImage ? (
+                  <img
+                    src={activeImage}
+                    alt={provider.businessName}
+                    onError={() => setImageError(true)}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-orange-50 via-slate-50 to-indigo-50 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-white shadow-xs flex items-center justify-center text-orange-600 mb-3">
+                      <CategoryIcon className="w-8 h-8" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      {categoryLabel} Category Placeholder
                     </span>
-                  )}
+                    <p className="text-xs text-slate-400 mt-1">
+                      No property photograph uploaded by owner
+                    </p>
+                  </div>
+                )}
 
-                  {provider.verificationStatus === 'verified' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Manually Verified Partner</span>
+                <div className="absolute top-4 left-4 flex items-center gap-2">
+                  <Link
+                    to={`/categories/${categorySlug || 'shop'}`}
+                    className="bg-slate-950/85 backdrop-blur-xs text-white px-3 py-1 rounded-full text-xs font-bold hover:bg-orange-600 transition-colors"
+                  >
+                    {categoryLabel}
+                  </Link>
+                  {provider.isDemo && (
+                    <span className="bg-amber-500 text-white px-2.5 py-1 rounded-full text-xs font-bold">
+                      Sample Listing
                     </span>
                   )}
                 </div>
-
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-primary tracking-tight leading-tight mb-2">
-                  {provider.businessName}
-                </h1>
-
-                <p className="text-xs sm:text-sm text-text-muted flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-accent flex-shrink-0" aria-hidden="true" />
-                  <span>{provider.location}</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Request Quote Action Box & Public Direct Call */}
-            <div className="bg-slate-50/80 border border-border/80 rounded-2xl p-6 lg:w-88 flex-shrink-0 space-y-3">
-              <div>
-                <h2 className="text-base font-bold text-primary mb-1">Contact business</h2>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  Contact this published business directly using its registered public number.
-                </p>
               </div>
 
-              {contact && (
-                <div className="pt-2">
-                  <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider block mb-1">
-                    Verified Public Contact
-                  </span>
-                  <a
-                    href={`tel:${contact.contactNumber}`}
-                    className="w-full py-2.5 px-4 bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-300 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Phone className="w-4 h-4 text-accent" />
-                    <span>Call {contact.contactNumber}</span>
-                  </a>
+              {/* Thumbnail strip if multiple gallery images exist */}
+              {galleryImages.length > 1 && (
+                <div className="px-6 pt-4 flex items-center gap-2.5 overflow-x-auto">
+                  {galleryImages.map((imgUrl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setImageError(false);
+                        setActiveImage(imgUrl);
+                      }}
+                      className={`w-16 h-16 rounded-lg overflow-hidden border-2 shrink-0 ${
+                        activeImage === imgUrl ? 'border-orange-500' : 'border-transparent'
+                      }`}
+                    >
+                      <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
                 </div>
               )}
 
-              {!contact && <button type="button" onClick={showContact} disabled={contactLoading} className="btn-primary w-full py-2.5 px-5 text-xs sm:text-sm font-semibold">{contactLoading ? 'Loading contact…' : 'Show contact number'} <Phone className="w-4 h-4" /></button>}
-              {contactError && <p className="text-xs text-rose-700 text-center">{contactError}</p>}
+              {/* Business Title & Location Summary */}
+              <div className="p-6 sm:p-8">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight leading-tight">
+                  {provider.businessName}
+                </h1>
 
-              <p className="text-[11px] text-text-muted text-center flex items-center justify-center gap-1 pt-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-accent" aria-hidden="true" />
-                Direct business contact
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+                {locationLabel && (
+                  <p className="mt-2 text-sm text-slate-600 flex items-center gap-1.5 font-medium">
+                    <MapPin className="w-4 h-4 text-orange-500 shrink-0" />
+                    <span>{fullAddress || locationLabel}</span>
+                  </p>
+                )}
 
-      <div className="container-max py-10 sm:py-14 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-10">
-          {/* Main Column (2 cols) */}
-          <div className="lg:col-span-2 space-y-10">
-            {/* Development Notice if applicable */}
-            {provider.isDevSample && (
-              <div className="p-4 bg-amber-50/90 border border-amber-200/90 rounded-xl text-xs sm:text-sm text-amber-900 leading-relaxed flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                <div>
-                  <strong>Notice regarding this profile:</strong> This record is a development placeholder demonstrating structure and verification workflow. In production, only genuine businesses with signed partnership agreements are published. Zero fake reviews or fabricated client feedback are permitted.
-                </div>
+                {provider.website && (
+                  <div className="mt-3">
+                    <a
+                      href={provider.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Visit Official Website</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* About / Business Description */}
-            <section aria-labelledby="about-heading" className="bg-white p-6 sm:p-8 rounded-2xl border border-border/80 shadow-xs">
-              <h2 id="about-heading" className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-accent" aria-hidden="true" />
-                <span>About {provider.businessName}</span>
+            {/* About / Description */}
+            <section
+              aria-labelledby="about-heading"
+              className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-xs"
+            >
+              <h2
+                id="about-heading"
+                className="text-lg sm:text-xl font-bold text-slate-900 mb-3 flex items-center gap-2"
+              >
+                <Briefcase className="w-5 h-5 text-orange-500" aria-hidden="true" />
+                <span>Property & Business Overview</span>
               </h2>
-              <p className="text-text-muted text-sm sm:text-base leading-relaxed whitespace-pre-line">
+              <p className="text-slate-600 text-sm sm:text-base leading-relaxed whitespace-pre-line">
                 {provider.description}
               </p>
             </section>
 
-            {/* Services Offered */}
-            {provider.servicesOffered && provider.servicesOffered.length > 0 && (
-              <section aria-labelledby="services-offered-heading" className="bg-white p-6 sm:p-8 rounded-2xl border border-border/80 shadow-xs">
-                <h2 id="services-offered-heading" className="text-xl font-bold text-primary mb-4 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-accent" aria-hidden="true" />
-                  <span>Specialized Services & Scope</span>
+            {/* Services / Facilities Offered */}
+            {servicesList.length > 0 && (
+              <section
+                aria-labelledby="services-offered-heading"
+                className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-xs"
+              >
+                <h2
+                  id="services-offered-heading"
+                  className="text-lg sm:text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"
+                >
+                  <Layers className="w-5 h-5 text-orange-500" aria-hidden="true" />
+                  <span>Services & Facilities Offered</span>
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {provider.servicesOffered.map((serviceName, idx) => (
+                  {servicesList.map((serviceName, idx) => (
                     <div
                       key={idx}
-                      className="p-3.5 bg-slate-50/80 rounded-lg border border-border/60 text-xs sm:text-sm font-medium text-text-primary flex items-center gap-2.5"
+                      className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70 text-xs sm:text-sm font-semibold text-slate-800 flex items-center gap-2.5"
                     >
-                      <CheckCircle2 className="w-4 h-4 text-accent flex-shrink-0" aria-hidden="true" />
+                      <CheckCircle2
+                        className="w-4 h-4 text-orange-500 shrink-0"
+                        aria-hidden="true"
+                      />
                       <span>{serviceName}</span>
                     </div>
                   ))}
                 </div>
               </section>
             )}
-
-            {/* Portfolio Section — only if genuine items exist */}
-            {provider.portfolio && provider.portfolio.length > 0 ? (
-              <section aria-labelledby="portfolio-heading" className="bg-white p-6 sm:p-8 rounded-2xl border border-border/80 shadow-xs">
-                <h2 id="portfolio-heading" className="text-xl font-bold text-primary mb-4">
-                  Verified Portfolio Works
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {provider.portfolio.map((item, idx) => (
-                    <div key={idx} className="border border-border rounded-lg p-4">
-                      <h3 className="font-semibold text-primary text-sm mb-1">{item.title}</h3>
-                      <p className="text-xs text-text-muted">{item.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
           </div>
 
-          {/* Sidebar / Meta Details (1 col) */}
-          <div className="space-y-6">
-            {/* Service Areas Card */}
-            <div className="bg-white p-6 rounded-2xl border border-border/80 shadow-xs">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-3 flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-accent" aria-hidden="true" />
-                <span>Service Coverage Areas</span>
-              </h3>
-              {provider.serviceAreas && provider.serviceAreas.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {provider.serviceAreas.map((area, idx) => (
-                    <span
-                      key={idx}
-                      className="text-xs font-medium bg-slate-100 text-text-primary px-2.5 py-1 rounded"
+          {/* Right 4 Columns: Direct Owner Contact Box & Location Details */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Protected Direct Contact Card */}
+            <div className="bg-white border-2 border-orange-500/20 rounded-2xl p-6 shadow-sm sticky top-24">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-600 mb-2">
+                <PhoneCall className="w-4 h-4" />
+                <span>Direct Business Contact</span>
+              </div>
+              <h2 className="text-lg font-extrabold text-slate-900">
+                Contact {provider.businessName}
+              </h2>
+              <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                Connect directly with the owner of this listing using their OTP-verified phone
+                number. WARESHOP does not intermediate or charge commissions on calls.
+              </p>
+
+              <div className="mt-5">
+                {provider.consentToDisplayPhone === false ? (
+                  <div className="p-4 rounded-xl bg-slate-100 text-slate-700 text-xs font-medium text-center">
+                    The owner of this listing has disabled public phone display.
+                  </div>
+                ) : contact ? (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                      <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">
+                        Owner’s Verified Mobile Number
+                      </span>
+                      <p className="text-xl font-black text-emerald-950 mt-1 tracking-wide">
+                        +91 {contact.contactNumber}
+                      </p>
+                    </div>
+                    <a
+                      href={contact.telUri || `tel:+91${contact.contactNumber}`}
+                      className="w-full py-3.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
                     >
-                      {area}
-                    </span>
-                  ))}
+                      <PhoneCall className="w-4 h-4" />
+                      <span>Call Now (+91 {contact.contactNumber})</span>
+                    </a>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRevealContact}
+                    disabled={contactLoading}
+                    className="w-full py-3.5 px-5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>{contactLoading ? 'Verifying & Loading...' : 'Show Owner Phone Number'}</span>
+                  </button>
+                )}
+
+                {contactError && (
+                  <p className="mt-2.5 text-xs text-rose-600 font-medium text-center">
+                    {contactError}
+                  </p>
+                )}
+              </div>
+
+              {/* Location & Coverage Details */}
+              <div className="mt-6 pt-5 border-t border-slate-100 space-y-3 text-xs">
+                <div>
+                  <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Property / Business Location
+                  </span>
+                  <p className="text-slate-800 font-semibold">{fullAddress || locationLabel}</p>
                 </div>
-              ) : (
-                <p className="text-xs text-text-muted">Direct citywide coverage.</p>
-              )}
-            </div>
 
-            {/* Transparency & Quality Assurances */}
-            <div className="bg-white p-6 rounded-2xl border border-border/80 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-accent" aria-hidden="true" />
-                <span>Platform Safeguards</span>
-              </h3>
-              <ul className="space-y-3 text-xs text-text-muted">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" aria-hidden="true" />
-                  <span>Contact details appear only for eligible public listings</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" aria-hidden="true" />
-                  <span>Business contact is sourced from the published listing</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" aria-hidden="true" />
-                  <span>WARESHOP does not intermediate customer enquiries</span>
-                </li>
-              </ul>
-            </div>
+                {Array.isArray(provider.serviceAreas) && provider.serviceAreas.length > 0 && (
+                  <div>
+                    <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                      Service / Operating Areas
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {provider.serviceAreas.map((area, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-slate-100 text-slate-700 font-medium px-2.5 py-1 rounded-md"
+                        >
+                          {area}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-            {/* Back to Directory Link */}
-            <div className="text-center">
-              <Link
-                to="/providers"
-                className="text-xs font-semibold text-accent hover:underline inline-flex items-center gap-1"
-              >
-                <span>← Back to Providers Directory</span>
-              </Link>
+              {/* Trust & Safety Note */}
+              <div className="mt-5 pt-4 border-t border-slate-100 flex items-start gap-2 text-[11px] text-slate-500">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  Always inspect commercial spaces and verify ownership documents in person before
+                  making any financial payment.
+                </span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Related Businesses Section */}
+        {relatedList.length > 0 && (
+          <section className="mt-14 pt-10 border-t border-slate-200/80">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-orange-600">
+                  More on WARESHOP
+                </p>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-950 mt-1">
+                  Related Commercial Listings
+                </h2>
+              </div>
+              <Link
+                to={`/providers?category=${encodeURIComponent(categorySlug)}`}
+                className="text-xs sm:text-sm font-bold text-orange-600 hover:underline"
+              >
+                View all →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {relatedList.map((rel) => (
+                <ProviderCard key={rel._id || rel.slug || rel.id} provider={rel} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

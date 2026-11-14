@@ -1,8 +1,0 @@
-# Dynamic sitemap proxy to backend Render instance
-/sitemap.xml    https://konnevia-backend.onrender.com/sitemap.xml    200!
-
-# Prerendered blog endpoints for crawlers
-/render/blog/*  https://konnevia-backend.onrender.com/render/blog/:splat 200!
-
-# SPA catch-all rule for human browser clients
-/*              /index.html                                          200

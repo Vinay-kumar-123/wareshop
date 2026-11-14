@@ -8,7 +8,9 @@ import adminProviderController from '../controllers/adminProviderController.js';
 const router = express.Router();
 
 function requestRateLimitKey(req) {
-  const suite = env.isTest ? req.get('x-konnevia-test-suite') : null;
+  const suite = env.isTest
+    ? req.get('x-wareshop-test-suite') || req.get('x-konnevia-test-suite')
+    : null;
   if (suite && /^[a-z0-9-]{1,64}$/i.test(suite)) return `test:${suite}`;
   return ipKeyGenerator(req.ip);
 }
@@ -34,18 +36,23 @@ router.get('/auth/me', requireAdmin, adminAuthController.getMe);
 // Dashboard stats
 router.get('/dashboard', requireAdmin, adminProviderController.getDashboardStats);
 
-
 // Partner applications management
 router.get('/applications', requireAdmin, adminProviderController.getApplications);
 router.get('/applications/:id', requireAdmin, adminProviderController.getApplicationById);
 router.post('/applications/:id/approve', requireAdmin, adminProviderController.approveApplication);
 router.post('/applications/:id/reject', requireAdmin, adminProviderController.rejectApplication);
 
-// Provider profiles management & publishing
+// Provider listings management & lifecycle actions
 router.get('/providers', requireAdmin, adminProviderController.getProviders);
 router.get('/providers/:id', requireAdmin, adminProviderController.getProviderById);
 router.put('/providers/:id', requireAdmin, adminProviderController.updateProvider);
+router.post('/providers/:id/publish', requireAdmin, adminProviderController.publishProvider);
+router.post('/providers/:id/unpublish', requireAdmin, adminProviderController.unpublishProvider);
+router.post('/providers/:id/suspend', requireAdmin, adminProviderController.suspendProvider);
+router.post('/providers/:id/reactivate', requireAdmin, adminProviderController.reactivateProvider);
 
+// Provider accounts management
+router.get('/provider-accounts', requireAdmin, adminProviderController.getProviderAccounts);
 
 // Activity Logs
 router.get('/activity-logs', requireAdmin, adminProviderController.getActivityLogs);

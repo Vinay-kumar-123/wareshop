@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { usePageMeta } from '../../hooks/usePageMeta.js';
 import Breadcrumb from '../../components/common/Breadcrumb.jsx';
 import ProviderCard from '../../components/marketplace/ProviderCard.jsx';
@@ -12,62 +12,83 @@ import {
   Filter,
   X,
   SlidersHorizontal,
-  ShieldAlert,
-  RotateCcw
+  AlertCircle,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+
+const popularCities = ['Mumbai', 'Delhi NCR', 'Bengaluru', 'Pune', 'Hyderabad', 'Chennai', 'Ahmedabad'];
 
 export default function ProvidersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // State initialized from URL query parameters
   const [searchTerm, setSearchTerm] = useState(
-    searchParams.get('service') || searchParams.get('search') || ''
+    searchParams.get('search') || searchParams.get('service') || ''
   );
   const [locationTerm, setLocationTerm] = useState(
-    searchParams.get('city') || searchParams.get('location') || ''
+    searchParams.get('location') || searchParams.get('city') || ''
   );
   const [selectedCategory, setSelectedCategory] = useState(
     searchParams.get('category') || ''
   );
 
   const [providersList, setProvidersList] = useState([]);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 12,
+    totalPages: 1,
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   usePageMeta({
-    title: 'Explore Businesses — WARESHOP',
-    description: 'Search shops, offices, warehouses and godowns across India.',
+    title: 'Explore Commercial Properties & Businesses | WARESHOP',
+    description:
+      'Search and filter published commercial shops, offices, warehouses and godowns across India on WARESHOP.',
     canonical: 'https://wareshop.in/providers',
   });
 
-  // Query providerService when searchParams change
   useEffect(() => {
-    const serviceParam = searchParams.get('service') || searchParams.get('search') || '';
-    const cityParam = searchParams.get('city') || searchParams.get('location') || '';
+    const searchParam = searchParams.get('search') || searchParams.get('service') || '';
+    const locParam = searchParams.get('location') || searchParams.get('city') || '';
     const catParam = searchParams.get('category') || '';
+    const pageParam = Math.max(parseInt(searchParams.get('page') || '1', 10) || 1, 1);
 
-    setSearchTerm(serviceParam);
-    setLocationTerm(cityParam);
+    setSearchTerm(searchParam);
+    setLocationTerm(locParam);
     setSelectedCategory(catParam);
 
     let isMounted = true;
     setIsLoading(true);
+    setLoadError(null);
 
     providerService
       .getProviders({
         categorySlug: catParam,
-        location: cityParam,
-        search: serviceParam,
+        location: locParam,
+        search: searchParam,
+        page: pageParam,
+        limit: 12,
       })
       .then((res) => {
         if (isMounted) {
-          setProvidersList(res.data);
+          setProvidersList(res.data || []);
+          setPagination({
+            total: res.total ?? (res.data || []).length,
+            page: res.page || pageParam,
+            limit: res.limit || 12,
+            totalPages: res.totalPages || 1,
+          });
           setIsLoading(false);
         }
       })
       .catch((err) => {
         if (isMounted) {
-          console.error('Failed to fetch providers', err);
           setProvidersList([]);
+          setLoadError(err.message || 'Unable to load commercial listings right now.');
           setIsLoading(false);
         }
       });
@@ -75,16 +96,25 @@ export default function ProvidersPage() {
     return () => {
       isMounted = false;
     };
-  }, [searchParams]);
+  }, [searchParams, retryCount]);
 
-  // Synchronize form filter actions to URL
+  const updateUrlParams = ({ search, location, category, page = 1 }) => {
+    const params = new URLSearchParams();
+    if (search && search.trim()) params.set('search', search.trim());
+    if (location && location.trim()) params.set('location', location.trim());
+    if (category && category.trim()) params.set('category', category.trim());
+    if (page > 1) params.set('page', String(page));
+    setSearchParams(params);
+  };
+
   const handleApplyFilters = (e) => {
     if (e) e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchTerm.trim()) params.set('search', searchTerm.trim());
-    if (locationTerm.trim()) params.set('city', locationTerm.trim());
-    if (selectedCategory) params.set('category', selectedCategory);
-    setSearchParams(params);
+    updateUrlParams({
+      search: searchTerm,
+      location: locationTerm,
+      category: selectedCategory,
+      page: 1,
+    });
   };
 
   const handleClearFilters = () => {
@@ -94,70 +124,89 @@ export default function ProvidersPage() {
     setSearchParams(new URLSearchParams());
   };
 
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    updateUrlParams({
+      search: searchTerm,
+      location: locationTerm,
+      category: selectedCategory,
+      page: newPage,
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const hasActiveFilters = Boolean(
-    searchParams.get('service') ||
     searchParams.get('search') ||
-    searchParams.get('city') ||
-    searchParams.get('location') ||
-    searchParams.get('category')
+      searchParams.get('service') ||
+      searchParams.get('location') ||
+      searchParams.get('city') ||
+      searchParams.get('category')
   );
 
+  const selectedCategoryObj = categories.find((item) => item.slug === selectedCategory);
+
   return (
-    <div className="bg-background min-h-screen">
-      {/* Top Banner & Breadcrumb */}
-      <div className="bg-white border-b border-border/80">
-        <div className="container-max py-3 px-4 sm:px-6 lg:px-8">
-          <Breadcrumb items={[{ label: 'Business directory' }]} />
+    <div className="bg-[#F8FAFC] min-h-screen">
+      {/* Breadcrumb Bar */}
+      <div className="bg-white border-b border-slate-200/80">
+        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
+          <Breadcrumb
+            items={[
+              { label: 'Commercial Directory', href: '/providers' },
+              ...(selectedCategoryObj ? [{ label: selectedCategoryObj.pluralName || selectedCategoryObj.name }] : []),
+            ]}
+          />
         </div>
       </div>
 
-      <div className="container-max py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
-        <div className="max-w-3xl mb-8">
-          <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2 block">
-            Business Directory
+        <div className="max-w-3xl mb-7">
+          <span className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-1.5 block">
+            WARESHOP Commercial Directory
           </span>
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-primary tracking-tight leading-tight mb-2">
-            {selectedCategory ? `${categories.find((item) => item.slug === selectedCategory)?.name || 'Commercial'} listings` : 'Explore businesses'}
+          <h1 className="text-2xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight mb-2">
+            {selectedCategoryObj
+              ? `Published ${selectedCategoryObj.pluralName || selectedCategoryObj.name}`
+              : 'Explore Commercial Properties & Businesses'}
           </h1>
-          <p className="text-text-muted text-sm sm:text-base leading-relaxed">
-            Find shops, offices, warehouses and godowns by business type, service or location.
+          <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+            Search published shops, offices, warehouses and godowns across India and connect directly
+            with business owners.
           </p>
         </div>
 
-        {/* Development Preview Banner */}
-        <div className="mb-8 p-4 bg-amber-50/90 border border-amber-200/90 rounded-xl text-xs sm:text-sm text-amber-900 flex items-start gap-3 shadow-xs">
-          <ShieldAlert className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="leading-relaxed">
-            <strong>Development sample data:</strong> These fictional listings demonstrate the directory experience. Real businesses appear only after review and publication.
-          </div>
-        </div>
-
-        {/* Search & Filter Bar */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-border/80 shadow-xs mb-8">
+        {/* Search & Filter Panel */}
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-xs mb-6">
           <form onSubmit={handleApplyFilters} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Keyword / Service Input */}
-              <div className="relative">
-                <label htmlFor="search-service-input" className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5">
-                  Service or Keyword
+              {/* Keyword / Business Name */}
+              <div>
+                <label
+                  htmlFor="search-service-input"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5"
+                >
+                  Keyword, Business or Service
                 </label>
                 <div className="relative flex items-center">
-                  <Search className="w-4 h-4 text-text-muted absolute left-3 pointer-events-none" aria-hidden="true" />
+                  <Search
+                    className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none"
+                    aria-hidden="true"
+                  />
                   <input
                     id="search-service-input"
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="e.g. showroom, storage, managed office"
-                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 border border-border rounded-lg text-primary focus:outline-none focus:border-accent focus:bg-white transition-colors"
+                    placeholder="e.g. retail showroom, logistics hub, coworking"
+                    className="w-full pl-10 pr-8 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
                   />
                   {searchTerm && (
                     <button
                       type="button"
                       onClick={() => setSearchTerm('')}
-                      className="absolute right-3 text-text-muted hover:text-primary"
-                      aria-label="Clear service input"
+                      className="absolute right-3 text-slate-400 hover:text-slate-700"
+                      aria-label="Clear keyword input"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -166,25 +215,31 @@ export default function ProvidersPage() {
               </div>
 
               {/* Location Input */}
-              <div className="relative">
-                <label htmlFor="search-location-input" className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5">
+              <div>
+                <label
+                  htmlFor="search-location-input"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5"
+                >
                   City or Location
                 </label>
                 <div className="relative flex items-center">
-                  <MapPin className="w-4 h-4 text-text-muted absolute left-3 pointer-events-none" aria-hidden="true" />
+                  <MapPin
+                    className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none"
+                    aria-hidden="true"
+                  />
                   <input
                     id="search-location-input"
                     type="text"
                     value={locationTerm}
                     onChange={(e) => setLocationTerm(e.target.value)}
-                    placeholder="e.g. Mumbai, Delhi, Bengaluru"
-                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 border border-border rounded-lg text-primary focus:outline-none focus:border-accent focus:bg-white transition-colors"
+                    placeholder="e.g. Mumbai, Delhi, Bengaluru, Pune"
+                    className="w-full pl-10 pr-8 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
                   />
                   {locationTerm && (
                     <button
                       type="button"
                       onClick={() => setLocationTerm('')}
-                      className="absolute right-3 text-text-muted hover:text-primary"
+                      className="absolute right-3 text-slate-400 hover:text-slate-700"
                       aria-label="Clear location input"
                     >
                       <X className="w-4 h-4" />
@@ -193,47 +248,50 @@ export default function ProvidersPage() {
                 </div>
               </div>
 
-              {/* Category Dropdown */}
+              {/* Category Select */}
               <div>
-                <label htmlFor="category-select" className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-1.5">
-                  Property category
+                <label
+                  htmlFor="category-select"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5"
+                >
+                  Property Category
                 </label>
-                <div className="relative flex items-center">
-                  <select
-                    id="category-select"
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-border rounded-lg text-primary focus:outline-none focus:border-accent focus:bg-white transition-colors cursor-pointer appearance-none"
-                  >
-                    <option value="">All Categories</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.slug}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  id="category-select"
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+                >
+                  <option value="">All Categories (Shop, Office, Warehouse, Godown)</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.slug}>
+                      {cat.pluralName || cat.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            {/* Filter Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/60">
-              <div className="text-xs text-text-muted font-medium">
+            {/* Filter Footer Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div className="text-xs text-slate-600 font-medium">
                 {isLoading ? (
                   <span>Searching directory...</span>
                 ) : (
                   <span>
-                    Showing <strong className="text-primary">{providersList.length}</strong> matching provider{providersList.length === 1 ? '' : 's'}
+                    Showing <strong className="text-slate-950">{providersList.length}</strong> of{' '}
+                    <strong className="text-slate-950">{pagination.total}</strong> published listing
+                    {pagination.total === 1 ? '' : 's'}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={handleClearFilters}
-                    className="btn-ghost text-xs py-2 px-3 flex items-center gap-1.5 text-text-muted hover:text-primary"
+                    className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Reset Filters</span>
@@ -242,47 +300,180 @@ export default function ProvidersPage() {
 
                 <button
                   type="submit"
-                  className="btn-primary text-xs py-2 px-5 font-semibold flex items-center gap-1.5 shadow-xs"
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 >
                   <Filter className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Apply Search</span>
+                  <span>Search Listings</span>
                 </button>
               </div>
             </div>
           </form>
         </div>
 
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="Quick category filters">
-          <button type="button" onClick={() => { setSelectedCategory(''); setSearchParams(new URLSearchParams()); }} className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold border ${!selectedCategory ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-muted'}`}>All listings</button>
-          {categories.map((category) => <button key={category.slug} type="button" onClick={() => { const params = new URLSearchParams(searchParams); params.set('category', category.slug); setSearchParams(params); }} className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold border ${selectedCategory === category.slug ? 'bg-accent text-white border-accent' : 'bg-white border-border text-text-muted hover:border-accent'}`}>{category.name}</button>)}
-        </div>
-
-        {/* Results Grid / Empty State */}
-        {isLoading ? (
-          <div className="py-20 text-center">
-            <div className="w-8 h-8 border-3 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-text-muted">Loading providers...</p>
-          </div>
-        ) : providersList.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {providersList.map((provider) => (
-              <ProviderCard key={provider.id} provider={provider} />
+        {/* Category & Location Quick Pills */}
+        <div className="mb-7 space-y-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1" aria-label="Category quick filters">
+            <span className="text-xs font-bold text-slate-500 shrink-0 mr-1">Categories:</span>
+            <button
+              type="button"
+              onClick={() =>
+                updateUrlParams({
+                  search: searchTerm,
+                  location: locationTerm,
+                  category: '',
+                  page: 1,
+                })
+              }
+              className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
+                !selectedCategory
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-orange-300'
+              }`}
+            >
+              All Categories
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.slug}
+                type="button"
+                onClick={() =>
+                  updateUrlParams({
+                    search: searchTerm,
+                    location: locationTerm,
+                    category: category.slug,
+                    page: 1,
+                  })
+                }
+                className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
+                  selectedCategory === category.slug
+                    ? 'bg-orange-500 text-white border-orange-500'
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-orange-300'
+                }`}
+              >
+                {category.pluralName || category.name}
+              </button>
             ))}
           </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1" aria-label="Location quick filters">
+            <span className="text-xs font-bold text-slate-500 shrink-0 mr-1">Locations:</span>
+            {popularCities.map((city) => {
+              const isSelected = locationTerm.toLowerCase() === city.toLowerCase();
+              return (
+                <button
+                  key={city}
+                  type="button"
+                  onClick={() =>
+                    updateUrlParams({
+                      search: searchTerm,
+                      location: isSelected ? '' : city,
+                      category: selectedCategory,
+                      page: 1,
+                    })
+                  }
+                  className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'bg-orange-100 text-orange-800 border-orange-300'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
+                  }`}
+                >
+                  {city}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Listing Results / States */}
+        {isLoading ? (
+          <div className="py-20 text-center bg-white rounded-2xl border border-slate-200/80">
+            <div className="w-9 h-9 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-slate-500 font-medium">Loading commercial listings...</p>
+          </div>
+        ) : loadError ? (
+          <div
+            role="alert"
+            className="bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center max-w-xl mx-auto my-6"
+          >
+            <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-3" aria-hidden="true" />
+            <h2 className="text-base font-bold text-rose-900 mb-1">
+              Unable to Load Business Directory
+            </h2>
+            <p className="text-xs sm:text-sm text-rose-700 leading-relaxed mb-5">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => setRetryCount((c) => c + 1)}
+              className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Retry</span>
+            </button>
+          </div>
+        ) : providersList.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {providersList.map((provider) => (
+                <ProviderCard
+                  key={provider._id || provider.slug || provider.id}
+                  provider={provider}
+                />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {pagination.totalPages > 1 && (
+              <nav
+                className="mt-10 flex items-center justify-center gap-2"
+                aria-label="Directory pagination"
+              >
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-orange-400 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Previous</span>
+                </button>
+
+                <span className="px-4 py-2 text-xs font-bold text-slate-700">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page >= pagination.totalPages}
+                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-orange-400 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </nav>
+            )}
+          </>
         ) : (
           <EmptyState
             icon={SlidersHorizontal}
-            title="No Matching Providers Found"
-            description="We couldn't find any provider matching your filter criteria. Try broadening your keywords or clearing the location filter."
-            action={
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="btn-primary text-xs py-2.5 px-5 mt-2"
-              >
-                Clear All Filters
-              </button>
+            title="No Matching Listings Found"
+            description={
+              hasActiveFilters
+                ? "We couldn't find any published property or business matching your search filters. Try broadening your keyword or clearing the location filter."
+                : 'No published commercial listings are available right now. Are you a property or business owner? Submit your listing for review.'
             }
+            action={
+              hasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold mt-2 cursor-pointer"
+                >
+                  Clear All Filters
+                </button>
+              ) : undefined
+            }
+            actionLabel={!hasActiveFilters ? 'List Your Property' : undefined}
+            actionHref={!hasActiveFilters ? '/become-a-partner' : undefined}
           />
         )}
       </div>

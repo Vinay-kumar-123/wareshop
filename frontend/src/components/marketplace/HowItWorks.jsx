@@ -30,7 +30,7 @@ export function HowItWorksSection() {
         <SectionHeading
           id="hiw-title"
           tag="Simple & Controlled Workflow"
-          title="How KONNEVIA Works"
+          title="How WARESHOP Works"
           subtitle="A disciplined, human-assisted process connecting customers with verified professionals without algorithmic guesswork."
           align="center"
         />
@@ -105,7 +105,7 @@ export function TrustSection() {
         <SectionHeading
           id="trust-title"
           tag="Integrity & Transparency"
-          title="Why Customers & Providers Trust KONNEVIA"
+          title="Why Customers & Providers Trust WARESHOP"
           subtitle="Built on high-touch quality assurance and consent-first data governance, not lead spam directories."
           align="center"
         />

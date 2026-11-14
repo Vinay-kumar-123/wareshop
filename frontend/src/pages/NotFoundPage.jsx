@@ -7,7 +7,7 @@ import Button from '../components/common/Button.jsx';
 export default function NotFoundPage() {
   usePageMeta({
     title: 'Page Not Found (404)',
-    description: 'The requested page could not be found on KONNEVIA.',
+    description: 'The requested page could not be found on WARESHOP.',
   });
 
   return (

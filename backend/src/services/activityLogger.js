@@ -10,7 +10,7 @@ export async function logAdminActivity({
   req = null,
 }) {
   try {
-    const ip = req ? req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || '' : '';
+    const ip = req ? req.ip || req.socket?.remoteAddress || '' : '';
     const userAgent = req ? req.headers['user-agent'] || '' : '';
 
     // Mask sensitive details if any
@@ -18,6 +18,7 @@ export async function logAdminActivity({
     delete safeDetails.password;
     delete safeDetails.token;
     delete safeDetails.sessionToken;
+    delete safeDetails.sessionTokenHash;
 
     await ActivityLog.create({
       adminEmail: (adminEmail || 'system').toLowerCase(),

@@ -1,9 +1,9 @@
 # KONNEVIA — Production Readiness & Deployment Forensic Audit Report
 
-**Audit Date:** November 12, 2026  
-**Auditor Roles:** Senior Backend Engineer, Security Auditor, Technical SEO Specialist, DevOps Lead  
-**Audit Target:** Codebase, Infrastructure Configurations, Security Controls & Deployment Pipeline  
-**Repository Directory:** `D:\projects\LeadManagment\`  
+**Audit Date:** November 12, 2026
+**Auditor Roles:** Senior Backend Engineer, Security Auditor, Technical SEO Specialist, DevOps Lead
+**Audit Target:** Codebase, Infrastructure Configurations, Security Controls & Deployment Pipeline
+**Repository Directory:** `D:\projects\LeadManagment\`
 
 ---
 
@@ -11,10 +11,10 @@
 
 ### Overall Launch Verdict: **CONDITIONALLY READY / BLOCKED BY EXTERNAL PROVISIONING & CREDENTIAL ROTATION**
 
-The software engineering implementation of the KONNEVIA Service Marketplace and its Basic Admin Panel MVP is **100% functional, structurally sound, and fully verified across all 73 automated regression and integration tests**. 
+The software engineering implementation of the KONNEVIA Service Marketplace and its Basic Admin Panel MVP is **100% functional, structurally sound, and fully verified across all 73 automated regression and integration tests**.
 
 However, **KONNEVIA cannot be declared ready for public production traffic at this moment** due to four specific operational and infrastructure blockers outside the local codebase:
-1. **Critical Secret Exposure:** The actual MongoDB Atlas username and database password (`rajupendra15_db_user:v1iXUOE70KKJyuFC`) were previously placed into `backend/.env.example`. This credential must be rotated in the MongoDB Atlas dashboard immediately prior to production launch.
+1. **Critical Secret Exposure:** The actual MongoDB Atlas username and database password (`<redacted_db_user>:<redacted_password>`) were previously placed into `backend/.env.example`. This credential must be rotated in the MongoDB Atlas dashboard immediately prior to production launch.
 2. **Production Hosting Inactivity:** The Render backend service `konnevia-backend.onrender.com` returned HTTP 404 (`x-render-routing: no-server`) and `konnevia.in` has no active DNS nameserver resolution. Tests on the actual live production domain cannot be verified until the services are provisioned.
 3. **Session Cookie vs. LocalStorage Cross-Origin Boundary:** The frontend stores the admin session token in `localStorage` to bypass cross-origin cookie restrictions between Vercel and Render. While functional, it exposes the admin session to XSS. A same-origin Vercel rewrite or proxy is recommended to transition to pure `HttpOnly` cookies.
 4. **Backup Runbook:** Backups currently rely solely on unverified MongoDB Atlas cloud automation without an offline snapshot or restore verification drill.
@@ -165,8 +165,8 @@ TOTAL AUTOMATED TEST CASES:                   73 / 73 PASSED (100% SUCCESS RATE)
 ### 🛑 CRITICAL LAUNCH BLOCKERS (Must be resolved before public traffic)
 
 1. **Rotate Exposed MongoDB Atlas Database Password:**
-   - **Issue:** The password `v1iXUOE70KKJyuFC` for user `rajupendra15_db_user` was present in `backend/.env.example`.
-   - **Remediation:** Log into MongoDB Atlas -> Database Access -> Edit user `rajupendra15_db_user` -> Auto-generate a new secure 32-character password. Replace the connection string in your local `.env` and Render environment variables. Replace the password in `.env.example` with `<password>`.
+   - **Issue:** The password `<redacted_password>` for user `<redacted_db_user>` was present in `backend/.env.example`.
+   - **Remediation:** Log into MongoDB Atlas -> Database Access -> Edit user `<redacted_db_user>` -> Auto-generate a new secure 32-character password. Replace the connection string in your local `.env` and Render environment variables. Replace the password in `.env.example` with `<password>`.
 2. **Deploy Backend Service on Render:**
    - **Issue:** `https://konnevia-backend.onrender.com` returns 404 `no-server`.
    - **Remediation:** Create a Web Service in Render -> Link repository -> Set Root Directory to `backend` -> Set Build Command to `npm install` -> Set Start Command to `npm start` -> Set environment variables (`NODE_ENV=production`, `PORT=5000`, `MONGODB_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`).

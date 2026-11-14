@@ -1,7 +1,7 @@
 {
-  "name": "konnevia-backend",
+  "name": "wareshop-backend",
   "version": "1.0.0",
-  "description": "KONNEVIA Marketplace Express Backend & API Services",
+  "description": "WARESHOP Commercial Property & Business Discovery Marketplace Backend API",
   "private": true,
   "type": "module",
   "main": "server.js",
@@ -11,9 +11,9 @@
     "bootstrap:admin": "node src/scripts/bootstrapAdmin.js",
     "seed:demo": "node src/scripts/seedDemoProviders.js",
     "seed:categories": "node src/scripts/seedCategories.js",
-    "test:server": "node test-server.js",
-    "test": "node test-production-upgrade.cjs",
-    "test:all": "node test-production-upgrade.cjs && node test-admin-mvp.cjs && node test-phase52.cjs && node test-seo-infrastructure.cjs && node run-phase41-tests.js"
+    "test:phase1": "node test-phase1-security.js",
+    "test:mvp": "node test-mvp-complete.js",
+    "test": "node test-phase1-security.js && node test-mvp-complete.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

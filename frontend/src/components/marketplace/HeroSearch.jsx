@@ -1,110 +1,121 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, ArrowRight } from 'lucide-react';
+import { Search, MapPin, Building2, ArrowRight } from 'lucide-react';
+import { categories } from '../../data/categories.js';
 
 export default function HeroSearch({ onSearch }) {
-  const [serviceQuery, setServiceQuery] = useState('');
-  const [cityQuery, setCityQuery] = useState('');
-  const [validationError, setValidationError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locationQuery, setLocationQuery] = useState('');
+  const [categoryQuery, setCategoryQuery] = useState('');
   const navigate = useNavigate();
 
   const handleSearch = (e) => {
     e.preventDefault();
 
-    const trimmedService = serviceQuery.trim();
-    const trimmedCity = cityQuery.trim();
-
-    if (!trimmedService && !trimmedCity) {
-      setValidationError('Please enter a service, category, or city to search.');
-      return;
-    }
-
-    setValidationError('');
+    const trimmedSearch = searchQuery.trim();
+    const trimmedLocation = locationQuery.trim();
 
     const params = new URLSearchParams();
-    if (trimmedService) params.append('service', trimmedService);
-    if (trimmedCity) params.append('city', trimmedCity);
+    if (trimmedSearch) params.set('search', trimmedSearch);
+    if (trimmedLocation) params.set('location', trimmedLocation);
+    if (categoryQuery) params.set('category', categoryQuery);
 
     if (onSearch) {
-      onSearch({ service: trimmedService, city: trimmedCity });
+      onSearch({
+        search: trimmedSearch,
+        location: trimmedLocation,
+        category: categoryQuery,
+      });
     }
 
-    navigate(`/providers?${params.toString()}`);
+    const qs = params.toString();
+    navigate(qs ? `/providers?${qs}` : '/providers');
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full max-w-5xl">
       <form
         onSubmit={handleSearch}
-        className="bg-white rounded-lg sm:rounded-xl shadow-lg border border-border/80 p-2 sm:p-3 transition-all duration-200 focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent"
+        className="bg-white rounded-2xl shadow-lg border border-slate-200/90 p-2 sm:p-2.5 transition-all duration-200 focus-within:ring-4 focus-within:ring-orange-500/15 focus-within:border-orange-500"
         role="search"
-        aria-label="Find service providers"
+        aria-label="Search commercial properties and businesses"
       >
-        <div className="flex flex-col md:flex-row items-stretch gap-2">
-          {/* Service / Category Input */}
-          <div className="flex-1 flex items-center gap-3 px-3.5 py-2.5 sm:py-3 bg-slate-50/70 md:bg-transparent rounded-md border md:border-none border-border/60">
-            <Search className="w-5 h-5 text-accent flex-shrink-0" aria-hidden="true" />
+        <div className="flex flex-col lg:flex-row items-stretch gap-2">
+          {/* Keyword / Business Name Input */}
+          <div className="flex-[1.4] flex items-center gap-3 px-3.5 py-2.5 sm:py-3 bg-slate-50/80 lg:bg-transparent rounded-xl border lg:border-none border-slate-200">
+            <Search className="w-5 h-5 text-orange-500 shrink-0" aria-hidden="true" />
             <div className="w-full text-left">
-              <label htmlFor="hero-service-input" className="sr-only">
-                Service or Category
+              <label htmlFor="hero-keyword-input" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Keyword or Business
               </label>
               <input
-                id="hero-service-input"
+                id="hero-keyword-input"
                 type="text"
-                value={serviceQuery}
-                onChange={(e) => {
-                  setServiceQuery(e.target.value);
-                  if (validationError) setValidationError('');
-                }}
-                placeholder="Search shops, offices, warehouses or services"
-                className="w-full bg-transparent text-text-primary text-sm sm:text-base placeholder-text-muted outline-none font-medium"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search shops, offices, warehouses, godowns..."
+                className="w-full bg-transparent text-slate-900 text-sm sm:text-base placeholder:text-slate-400 outline-none font-medium"
                 autoComplete="off"
               />
             </div>
           </div>
 
-          {/* Divider on desktop */}
-          <div className="hidden md:block w-px bg-border/80 my-2" aria-hidden="true" />
+          <div className="hidden lg:block w-px bg-slate-200 my-2" aria-hidden="true" />
 
-          {/* City / Location Input */}
-          <div className="flex-1 flex items-center gap-3 px-3.5 py-2.5 sm:py-3 bg-slate-50/70 md:bg-transparent rounded-md border md:border-none border-border/60">
-            <MapPin className="w-5 h-5 text-accent flex-shrink-0" aria-hidden="true" />
+          {/* Location / City Input */}
+          <div className="flex-1 flex items-center gap-3 px-3.5 py-2.5 sm:py-3 bg-slate-50/80 lg:bg-transparent rounded-xl border lg:border-none border-slate-200">
+            <MapPin className="w-5 h-5 text-orange-500 shrink-0" aria-hidden="true" />
             <div className="w-full text-left">
-              <label htmlFor="hero-city-input" className="sr-only">
+              <label htmlFor="hero-location-input" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 City or Location
               </label>
               <input
-                id="hero-city-input"
+                id="hero-location-input"
                 type="text"
-                value={cityQuery}
-                onChange={(e) => {
-                  setCityQuery(e.target.value);
-                  if (validationError) setValidationError('');
-                }}
-                placeholder="City, state or PIN code"
-                className="w-full bg-transparent text-text-primary text-sm sm:text-base placeholder-text-muted outline-none font-medium"
+                value={locationQuery}
+                onChange={(e) => setLocationQuery(e.target.value)}
+                placeholder="Mumbai, Delhi NCR, Bengaluru, Pune..."
+                className="w-full bg-transparent text-slate-900 text-sm sm:text-base placeholder:text-slate-400 outline-none font-medium"
                 autoComplete="off"
               />
             </div>
           </div>
 
-          {/* Submit Action Button */}
+          <div className="hidden lg:block w-px bg-slate-200 my-2" aria-hidden="true" />
+
+          {/* Category Selector */}
+          <div className="lg:w-48 flex items-center gap-2.5 px-3.5 py-2.5 sm:py-3 bg-slate-50/80 lg:bg-transparent rounded-xl border lg:border-none border-slate-200">
+            <Building2 className="w-5 h-5 text-orange-500 shrink-0" aria-hidden="true" />
+            <div className="w-full text-left">
+              <label htmlFor="hero-category-select" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Property Type
+              </label>
+              <select
+                id="hero-category-select"
+                value={categoryQuery}
+                onChange={(e) => setCategoryQuery(e.target.value)}
+                className="w-full bg-transparent text-slate-900 text-sm sm:text-base outline-none font-medium cursor-pointer"
+              >
+                <option value="">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>
+                    {cat.pluralName || cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Submit Search Button */}
           <button
             type="submit"
-            className="btn-primary py-3 px-6 sm:px-8 text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 flex-shrink-0"
+            className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl py-3.5 px-6 sm:px-8 text-sm sm:text-base font-bold shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
-            <span>Search Businesses</span>
+            <span>Search</span>
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       </form>
-
-      {/* Validation Message */}
-      {validationError && (
-        <p className="mt-2.5 text-xs sm:text-sm text-amber-200 bg-amber-950/40 border border-amber-500/30 rounded-md py-1.5 px-3.5 text-center font-medium animate-fadeIn">
-          {validationError}
-        </p>
-      )}
     </div>
   );
 }

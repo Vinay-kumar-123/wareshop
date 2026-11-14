@@ -7,10 +7,8 @@ import crypto from 'crypto';
  * Note: While 8 hex characters (32 bits = ~4.29 billion combinations) dramatically reduce collisions,
  * absolute uniqueness at database level is guaranteed by unique indexing and application-level retry handling.
  */
-export function generateReferenceId(type = 'enquiry') {
-  let prefix = 'KNV-ENQ';
-  if (type === 'partner') prefix = 'KNV-PTR';
-  if (type === 'contact') prefix = 'KNV-CNT';
+export function generateReferenceId(type = 'partner') {
+  const prefix = type === 'partner' ? 'WSH-PTR' : 'WSH-APP';
   const randomPart = crypto.randomBytes(4).toString('hex').toUpperCase();
   return `${prefix}-${randomPart}`;
 }

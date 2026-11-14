@@ -1,14 +1,282 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Layers } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Search, Pencil, CheckCircle2, XCircle, FolderPlus } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import api from '../../services/api.js';
 
-const blank = { name: '', description: '', icon: 'Layers', displayOrder: 0, status: 'ACTIVE' };
+const blankCategory = {
+  name: '',
+  shortDescription: '',
+  description: '',
+  icon: 'Layers',
+  displayOrder: 0,
+  status: 'ACTIVE',
+};
+
 export default function AdminCategoriesPage() {
-  const [items, setItems] = useState([]); const [query, setQuery] = useState(''); const [form, setForm] = useState(null); const [message, setMessage] = useState(''); const [loading, setLoading] = useState(true);
-  const load = () => { setLoading(true); api.get('/categories/admin/all').then((r) => setItems(r.data || [])).catch((e) => setMessage(e.message)).finally(() => setLoading(false)); };
-  useEffect(load, []);
-  const save = async (event) => { event.preventDefault(); try { const method = form._id ? 'put' : 'post'; const endpoint = form._id ? `/categories/admin/${form._id}` : '/categories/admin'; const result = await api[method](endpoint, form); setMessage(result.message || 'Saved'); setForm(null); load(); } catch (e) { setMessage(e.message); } };
-  const filtered = items.filter((item) => `${item.name} ${item.slug}`.toLowerCase().includes(query.toLowerCase()));
-  return <AdminLayout title="Categories" subtitle="Manage active business categories and their display order."><div className="flex flex-wrap justify-between gap-3 mb-6"><div className="relative w-full sm:w-72"><Search className="w-4 h-4 absolute left-3 top-3 text-text-muted" /><input value={query} onChange={(e) => setQuery(e.target.value)} className="input-field py-2 pl-9 text-sm" placeholder="Search categories" /></div><button onClick={() => setForm(blank)} className="btn-primary text-sm py-2.5 px-4"><Plus className="w-4 h-4" /> Add category</button></div>{message && <div className="mb-4 p-3 rounded-lg bg-orange-50 text-orange-800 text-sm border border-orange-200">{message}</div>}{form && <form onSubmit={save} className="mb-6 rounded-xl bg-white border border-border p-5 grid sm:grid-cols-2 gap-4"><h2 className="sm:col-span-2 font-bold text-primary">{form._id ? 'Edit category' : 'Add category'}</h2><input required className="input-field" placeholder="Category name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><input className="input-field" placeholder="Lucide icon identifier" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} /><textarea className="input-field sm:col-span-2" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /><input type="number" min="0" className="input-field" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: Number(e.target.value) })} /><select className="input-field" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select><div className="sm:col-span-2 flex gap-3"><button className="btn-primary text-sm py-2">Save category</button><button type="button" className="btn-ghost text-sm" onClick={() => setForm(null)}>Cancel</button></div></form>}<div className="bg-white border border-border rounded-xl overflow-hidden"><div className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_100px_90px] gap-3 px-5 py-3 border-b border-border text-xs font-bold uppercase tracking-wide text-text-muted"><span>Category</span><span className="hidden sm:block">Businesses</span><span className="hidden sm:block">Status</span><span>Action</span></div>{loading ? <div className="p-8 text-sm text-text-muted">Loading categories…</div> : filtered.map((item) => <div key={item._id} className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_100px_90px] gap-3 px-5 py-4 border-b border-border last:border-0 items-center"><div><p className="font-bold text-primary text-sm">{item.name}</p><p className="text-xs text-text-muted">/{item.slug} · {item.description}</p></div><span className="hidden sm:block text-sm">{item.businessCount}</span><span className={`hidden sm:inline text-xs font-bold ${item.status === 'ACTIVE' ? 'text-emerald-700' : 'text-zinc-500'}`}>{item.status}</span><button onClick={() => setForm(item)} className="text-accent font-bold text-xs inline-flex gap-1"><Pencil className="w-3.5 h-3.5" /> Edit</button></div>)}</div></AdminLayout>;
+  const [items, setItems] = useState([]);
+  const [query, setQuery] = useState('');
+  const [form, setForm] = useState(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    setError('');
+    api
+      .get('/categories/admin/all')
+      .then((r) => setItems(r.data || []))
+      .catch((e) => setError(e.message || 'Unable to load categories'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = async (event) => {
+    event.preventDefault();
+    setMessage('');
+    setError('');
+    try {
+      const method = form._id ? 'put' : 'post';
+      const endpoint = form._id ? `/categories/admin/${form._id}` : '/categories/admin';
+      const result = await api[method](endpoint, form);
+      setMessage(result.message || 'Category saved successfully.');
+      setForm(null);
+      load();
+    } catch (e) {
+      setError(e.message || 'Unable to save category');
+    }
+  };
+
+  const toggleStatus = async (item) => {
+    setMessage('');
+    setError('');
+    const nextStatus = item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    try {
+      await api.put(`/categories/admin/${item._id}`, { status: nextStatus });
+      setMessage(`Category "${item.name}" is now ${nextStatus}.`);
+      load();
+    } catch (e) {
+      setError(e.message || 'Unable to update category status');
+    }
+  };
+
+  const filtered = items.filter((item) =>
+    `${item.name} ${item.slug} ${item.description || ''}`
+      .toLowerCase()
+      .includes(query.toLowerCase())
+  );
+
+  return (
+    <AdminLayout
+      title="Category Management"
+      subtitle="Create, edit, reorder, and activate/deactivate commercial property categories"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full py-2 pl-9 pr-3 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
+            placeholder="Search categories..."
+          />
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <Link
+            to="/admin/category-requests"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-orange-400 text-xs font-bold text-slate-800"
+          >
+            <FolderPlus className="w-4 h-4 text-orange-500" />
+            <span>Review Custom Requests</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setForm(blankCategory)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Category</span>
+          </button>
+        </div>
+      </div>
+
+      {message && (
+        <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200">
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 p-3.5 rounded-xl bg-rose-50 text-rose-800 text-xs font-semibold border border-rose-200">
+          {error}
+        </div>
+      )}
+
+      {form && (
+        <form
+          onSubmit={save}
+          className="mb-6 rounded-2xl bg-white border border-slate-200 p-6 grid sm:grid-cols-2 gap-4 shadow-xs"
+        >
+          <h2 className="sm:col-span-2 font-extrabold text-slate-900 text-base">
+            {form._id ? `Edit Category: ${form.name}` : 'Create New Category'}
+          </h2>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Category Name *
+            </label>
+            <input
+              required
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              placeholder="e.g. Cold Storage"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Short Subtitle
+            </label>
+            <input
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              placeholder="e.g. Temperature-Controlled Storage"
+              value={form.shortDescription || ''}
+              onChange={(e) => setForm({ ...form, shortDescription: e.target.value })}
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Description
+            </label>
+            <textarea
+              rows={2}
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              placeholder="Category description..."
+              value={form.description || ''}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Display Order
+            </label>
+            <input
+              type="number"
+              min="0"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              value={form.displayOrder ?? 0}
+              onChange={(e) => setForm({ ...form, displayOrder: Number(e.target.value) })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Status
+            </label>
+            <select
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-semibold"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            >
+              <option value="ACTIVE">ACTIVE (Accepting Submissions & Visible)</option>
+              <option value="INACTIVE">INACTIVE (Hidden & Closed to Submissions)</option>
+            </select>
+          </div>
+
+          <div className="sm:col-span-2 flex gap-2.5 pt-2">
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+            >
+              Save Category
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
+              onClick={() => setForm(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+        <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_100px_120px_110px_160px] gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          <span>Category & Slug</span>
+          <span className="hidden sm:block">Order</span>
+          <span className="hidden sm:block">Listings</span>
+          <span className="hidden sm:block">Status</span>
+          <span className="text-right">Actions</span>
+        </div>
+
+        {loading ? (
+          <div className="p-10 text-center text-xs text-slate-500">Loading categories…</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-10 text-center text-xs text-slate-500">No categories found.</div>
+        ) : (
+          filtered.map((item) => (
+            <div
+              key={item._id}
+              className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_100px_120px_110px_160px] gap-3 px-5 py-4 border-b border-slate-100 last:border-0 items-center text-xs"
+            >
+              <div>
+                <p className="font-bold text-slate-900 text-sm">{item.name}</p>
+                <p className="text-xs text-slate-500">
+                  /{item.slug} {item.shortDescription ? `· ${item.shortDescription}` : ''}
+                </p>
+              </div>
+              <span className="hidden sm:block font-mono text-slate-600">
+                #{item.displayOrder ?? 0}
+              </span>
+              <span className="hidden sm:block text-slate-700 font-semibold">
+                {item.publishedCount ?? 0} pub / {item.businessCount ?? 0} total
+              </span>
+              <span className="hidden sm:block">
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                    item.status === 'ACTIVE'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}
+                >
+                  {item.status === 'ACTIVE' ? (
+                    <CheckCircle2 className="w-3 h-3" />
+                  ) : (
+                    <XCircle className="w-3 h-3" />
+                  )}
+                  <span>{item.status}</span>
+                </span>
+              </span>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleStatus(item)}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 cursor-pointer"
+                >
+                  {item.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm(item)}
+                  className="px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Pencil className="w-3 h-3" />
+                  <span>Edit</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </AdminLayout>
+  );
 }

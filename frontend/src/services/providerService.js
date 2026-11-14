@@ -1,90 +1,86 @@
-import api from './api.js';
-import { providers as seedProviders, getProviderBySlug as getSeedProviderBySlug } from '../data/providers.js';
+import api, { ApiError } from './api.js';
 
 /**
  * Provider Service Layer
- * Queries backend REST endpoints (/api/v1/providers) for live published providers.
- * Seamlessly integrates fallback to development seed providers when database is empty or offline.
+ * Queries backend REST endpoints (/api/v1/providers and /api/v1/categories) for live VERIFIED + PUBLISHED listings.
+ * Never falls back to fabricated/demo listings when the database is empty or the API is unavailable.
  */
 export const providerService = {
-  async getProviders({ categorySlug = '', location = '', search = '' } = {}) {
-    try {
-      const params = new URLSearchParams();
-      if (categorySlug) params.set('category', categorySlug);
-      if (location) params.set('location', location);
-      if (search) params.set('search', search);
+  async getProviders({
+    categorySlug = '',
+    location = '',
+    city = '',
+    search = '',
+    page = 1,
+    limit = 12,
+  } = {}) {
+    const params = new URLSearchParams();
+    if (categorySlug && categorySlug !== 'all') params.set('category', categorySlug);
+    if (location) params.set('location', location);
+    if (city) params.set('city', city);
+    if (search) params.set('search', search);
+    if (page) params.set('page', String(page));
+    if (limit) params.set('limit', String(limit));
 
-      const res = await api.get(`/providers?${params.toString()}`);
-      if (res && res.success && res.data && res.data.providers && res.data.providers.length > 0) {
-        return {
-          data: res.data.providers,
-          total: res.data.total || res.data.providers.length,
-        };
-      }
-    } catch (err) {
-      // Fall through to seed providers if backend is unavailable or returns 0
-    }
+    const queryString = params.toString();
+    const endpoint = queryString ? `/providers?${queryString}` : '/providers';
+    const res = await api.get(endpoint);
 
-    // Fallback: Query in-memory seed providers for development preview
-    let list = [...seedProviders];
-
-    if (categorySlug) {
-      list = list.filter((p) => p.categorySlug === categorySlug);
-    }
-
-    if (location) {
-      const locLower = location.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.location.toLowerCase().includes(locLower) ||
-          (Array.isArray(p.serviceAreas) && p.serviceAreas.some((area) => area.toLowerCase().includes(locLower)))
+    if (!res || !res.success || !Array.isArray(res.data?.providers)) {
+      throw new ApiError(
+        res?.message || 'Unable to load commercial listings from the server.',
+        502,
+        res
       );
     }
 
-    if (search) {
-      const qLower = search.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.businessName.toLowerCase().includes(qLower) ||
-          (p.mainService && p.mainService.toLowerCase().includes(qLower)) ||
-          (Array.isArray(p.servicesOffered) && p.servicesOffered.some((s) => s.toLowerCase().includes(qLower))) ||
-          (Array.isArray(p.services) && p.services.some((s) => s.toLowerCase().includes(qLower)))
-      );
-    }
+    const genuineProviders = res.data.providers.filter(
+      (provider) => !provider.isDemo && !provider.isDevSample
+    );
 
     return {
-      data: list,
-      total: list.length,
+      data: genuineProviders,
+      total: typeof res.data.total === 'number' ? res.data.total : genuineProviders.length,
+      page: res.data.page || Number(page) || 1,
+      limit: res.data.limit || Number(limit) || 12,
+      totalPages: res.data.totalPages || 1,
     };
   },
 
   async getProviderBySlug(slug) {
     const cleanSlug = String(slug || '').toLowerCase().trim();
-
-    try {
-      const res = await api.get(`/providers/${cleanSlug}`);
-      if (res && res.success && res.data) {
-        return res.data;
-      }
-    } catch (err) {
-      // Fall through to seed data if not found in MongoDB
+    if (!cleanSlug) {
+      throw new ApiError('A valid business listing slug is required.', 400);
     }
 
-    const seed = getSeedProviderBySlug(cleanSlug);
-    if (seed) return seed;
+    const res = await api.get(`/providers/${encodeURIComponent(cleanSlug)}`);
+    if (!res || !res.success || !res.data || res.data.isDemo || res.data.isDevSample) {
+      throw new ApiError(
+        res?.message || `Business profile for "${cleanSlug}" was not found.`,
+        404
+      );
+    }
 
-    throw new Error(`Provider profile for slug "${cleanSlug}" not found.`);
+    return res.data;
   },
 
   async getPublicContact(slug) {
     const cleanSlug = String(slug || '').toLowerCase().trim();
-    const res = await api.get(`/providers/${cleanSlug}/contact`);
+    const res = await api.get(`/providers/${encodeURIComponent(cleanSlug)}/contact`);
     return res.data;
   },
 
-  async getProvidersByCategory(categorySlug) {
-    const res = await this.getProviders({ categorySlug });
+  async getProvidersByCategory(categorySlug, options = {}) {
+    const res = await this.getProviders({ categorySlug, ...options });
     return res.data || [];
+  },
+
+  async getPublicCategories() {
+    const res = await api.get('/categories');
+    if (res && res.success && Array.isArray(res.data)) {
+      return res.data;
+    }
+    return [];
   },
 };
 

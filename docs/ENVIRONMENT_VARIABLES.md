@@ -1,6 +1,6 @@
 # KONNEVIA Environment Variables Specification
-**Document Version**: 2.0 (Production Release)  
-**Security Level**: Confidential Configuration Template  
+**Document Version**: 2.0 (Production Release)
+**Security Level**: Confidential Configuration Template
 
 ---
 
@@ -33,5 +33,5 @@
 | `VITE_API_BASE_URL` | Yes | `http://localhost:5000/api/v1` | Base REST API URL of the Express backend. In production, set this to the deployed Render API URL ending in `/api/v1`. |
 
 > [!CAUTION]
-> **Vite Environment Variable Security**:  
+> **Vite Environment Variable Security**:
 > Only variables prefixed with `VITE_` are bundled into browser assets. Never prefix database URIs, passwords, or cloud storage secrets with `VITE_`.

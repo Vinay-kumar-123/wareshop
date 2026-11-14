@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { siteConfig } from '../utils/seo.js';
+import { buildCanonical, buildPageTitle, siteConfig } from '../utils/seo.js';
 
 /**
  * Custom hook to manage document title, core meta tags, Open Graph, Twitter Cards,
@@ -10,21 +10,29 @@ export function usePageMeta({
   description,
   canonical,
   ogType = 'website',
-  ogImage = '/assets/og-image.jpg',
+  ogImage = siteConfig.defaultImage,
   article = null,
   jsonLd = null,
+  noIndex = false,
 }) {
+  const articlePublishedAt = article?.publishedAt || '';
+  const articleUpdatedAt = article?.updatedAt || '';
+  const articleAuthor = article?.author?.name || '';
+  const articleCategory = article?.category || '';
+  const articleTags = Array.isArray(article?.tags) ? article.tags : [];
+  const articleTagsKey = articleTags.join('\u0000');
+  const jsonLdContent = jsonLd ? JSON.stringify(jsonLd) : '';
+
   useEffect(() => {
-    // 1. Update Title
-    const formattedTitle = title
-      ? (title.includes(siteConfig.name) ? title : `${title} — ${siteConfig.name}`)
-      : `${siteConfig.name} — ${siteConfig.tagline}`;
+    const formattedTitle = buildPageTitle(title);
     document.title = formattedTitle;
 
-    // Helper to set/create <meta> tags by name or property
     const setMetaTag = (attr, key, content) => {
-      if (!content) return;
       let el = document.querySelector(`meta[${attr}="${key}"]`);
+      if (content == null || content === '') {
+        if (el) el.remove();
+        return;
+      }
       if (!el) {
         el = document.createElement('meta');
         el.setAttribute(attr, key);
@@ -33,78 +41,84 @@ export function usePageMeta({
       el.setAttribute('content', content);
     };
 
-    // 2. Standard Meta Description
     const metaDescContent = description || siteConfig.description;
     setMetaTag('name', 'description', metaDescContent);
 
-    // 3. Update Canonical URL
-    const canonicalHref = canonical || (typeof window !== 'undefined' ? window.location.href : siteConfig.url);
+    const canonicalHref = canonical === false
+      ? ''
+      : canonical || buildCanonical(window.location.pathname);
     let linkCanonical = document.querySelector('link[rel="canonical"]');
-    if (!linkCanonical) {
+    if (canonicalHref && !linkCanonical) {
       linkCanonical = document.createElement('link');
       linkCanonical.rel = 'canonical';
       document.head.appendChild(linkCanonical);
     }
-    linkCanonical.href = canonicalHref;
+    if (canonicalHref) {
+      linkCanonical.href = canonicalHref;
+    } else if (linkCanonical) {
+      linkCanonical.remove();
+    }
 
-    // 4. Open Graph Tags
+    setMetaTag('name', 'robots', noIndex ? 'noindex, nofollow' : '');
     setMetaTag('property', 'og:title', formattedTitle);
     setMetaTag('property', 'og:description', metaDescContent);
     setMetaTag('property', 'og:type', ogType);
     setMetaTag('property', 'og:url', canonicalHref);
     setMetaTag('property', 'og:site_name', siteConfig.name);
-    
-    // Resolve absolute image URL if needed
-    const absoluteOgImage = ogImage.startsWith('http')
-      ? ogImage
-      : `${siteConfig.url}${ogImage.startsWith('/') ? '' : '/'}${ogImage}`;
+    const absoluteOgImage = new URL(ogImage, `${siteConfig.url}/`).href;
     setMetaTag('property', 'og:image', absoluteOgImage);
 
-    // 5. Twitter Card Tags
     setMetaTag('name', 'twitter:card', 'summary_large_image');
     setMetaTag('name', 'twitter:title', formattedTitle);
     setMetaTag('name', 'twitter:description', metaDescContent);
     setMetaTag('name', 'twitter:image', absoluteOgImage);
 
-    // Article Specific OG Metadata if provided
-    if (article) {
-      if (article.publishedAt) {
-        setMetaTag('property', 'article:published_time', new Date(article.publishedAt).toISOString());
-      }
-      if (article.updatedAt) {
-        setMetaTag('property', 'article:modified_time', new Date(article.updatedAt).toISOString());
-      }
-      if (article.author?.name) {
-        setMetaTag('property', 'article:author', article.author.name);
-      }
-      if (article.category) {
-        setMetaTag('property', 'article:section', article.category);
-      }
-      if (Array.isArray(article.tags)) {
-        article.tags.forEach((tag) => {
-          setMetaTag('property', 'article:tag', tag);
-        });
-      }
-    }
+    const toIsoDate = (value) => {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+    };
+    setMetaTag('property', 'article:published_time', toIsoDate(articlePublishedAt));
+    setMetaTag('property', 'article:modified_time', toIsoDate(articleUpdatedAt));
+    setMetaTag('property', 'article:author', articleAuthor);
+    setMetaTag('property', 'article:section', articleCategory);
 
-    // 6. JSON-LD Structured Data
+    document.querySelectorAll('meta[property="article:tag"]').forEach((tag) => tag.remove());
+    articleTags.forEach((tag) => {
+      const articleTag = document.createElement('meta');
+      articleTag.setAttribute('property', 'article:tag');
+      articleTag.setAttribute('content', tag);
+      document.head.appendChild(articleTag);
+    });
+
     let scriptJsonLd = document.querySelector('script[data-schema="dynamic-jsonld"]');
-    if (jsonLd) {
+    if (jsonLdContent) {
       if (!scriptJsonLd) {
         scriptJsonLd = document.createElement('script');
         scriptJsonLd.type = 'application/ld+json';
         scriptJsonLd.setAttribute('data-schema', 'dynamic-jsonld');
         document.head.appendChild(scriptJsonLd);
       }
-      scriptJsonLd.textContent = JSON.stringify(jsonLd);
+      scriptJsonLd.textContent = jsonLdContent;
     } else if (scriptJsonLd) {
       scriptJsonLd.remove();
     }
 
     return () => {
-      // Optional cleanup on unmount: remove article tags or dynamic json-ld if navigating away
       const dynamicSchema = document.querySelector('script[data-schema="dynamic-jsonld"]');
       if (dynamicSchema) dynamicSchema.remove();
     };
-  }, [title, description, canonical, ogType, ogImage, article, jsonLd]);
+  }, [
+    title,
+    description,
+    canonical,
+    ogType,
+    ogImage,
+    noIndex,
+    articlePublishedAt,
+    articleUpdatedAt,
+    articleAuthor,
+    articleCategory,
+    articleTagsKey,
+    jsonLdContent,
+  ]);
 }

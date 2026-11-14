@@ -1,35 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import api from '../../services/api.js';
 import {
-  Building2,
   Save,
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
   ExternalLink,
-  Phone,
-  Eye,
-  Globe,
-  Trash2,
   Image as ImageIcon,
-  ShieldCheck,
-  MapPin,
+  ShieldAlert,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function AdminProviderEditPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [provider, setProvider] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     businessName: '',
     providerName: '',
-    slug: '',
     description: '',
     category: '',
-    categorySlug: '',
     services: '',
     contactNumber: '',
     email: '',
@@ -52,6 +45,15 @@ export default function AdminProviderEditPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
+    api
+      .get('/categories/admin/all')
+      .then((res) => {
+        if (Array.isArray(res?.data)) setCategories(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const loadProvider = useCallback(() => {
     setIsLoading(true);
     api
       .get(`/admin/providers/${id}`)
@@ -62,10 +64,8 @@ export default function AdminProviderEditPage() {
           setFormData({
             businessName: p.businessName || '',
             providerName: p.providerName || '',
-            slug: p.slug || '',
             description: p.description || '',
             category: p.category || '',
-            categorySlug: p.categorySlug || '',
             services: Array.isArray(p.services) ? p.services.join(', ') : '',
             contactNumber: p.contactNumber || '',
             email: p.email || '',
@@ -93,6 +93,10 @@ export default function AdminProviderEditPage() {
       });
   }, [id]);
 
+  useEffect(() => {
+    loadProvider();
+  }, [loadProvider]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -110,17 +114,40 @@ export default function AdminProviderEditPage() {
     setSuccessMsg('');
 
     try {
+      // Only send allow-listed fields (never send read-only slug or _id)
       const payload = {
-        ...formData,
-        services: formData.services.split(',').map((s) => s.trim()).filter(Boolean),
-        serviceAreas: formData.serviceAreas.split(',').map((s) => s.trim()).filter(Boolean),
+        businessName: formData.businessName.trim(),
+        providerName: formData.providerName.trim(),
+        description: formData.description.trim(),
+        category: formData.category.trim(),
+        services: formData.services
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        contactNumber: formData.contactNumber.trim(),
+        email: formData.email.trim(),
+        city: formData.city.trim(),
+        state: formData.state.trim(),
+        address: formData.address.trim(),
+        pinCode: formData.pinCode.trim(),
+        serviceAreas: formData.serviceAreas
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        website: formData.website.trim(),
+        verificationStatus: formData.verificationStatus,
+        publicationStatus: formData.publicationStatus,
+        consentToDisplayPhone: Boolean(formData.consentToDisplayPhone),
+        metaTitle: formData.metaTitle.trim(),
+        metaDescription: formData.metaDescription.trim(),
       };
 
       const res = await api.put(`/admin/providers/${id}`, payload);
 
       if (res.success && res.data) {
         setProvider(res.data);
-        setSuccessMsg('Provider profile and publication settings updated successfully!');
+        setSuccessMsg('Listing profile and publication settings updated successfully!');
+        loadProvider();
       } else {
         setErrorMsg(res.message || 'Failed to update provider');
       }
@@ -131,16 +158,18 @@ export default function AdminProviderEditPage() {
     }
   };
 
-  const togglePublication = async (newStatus) => {
+  const handleLifecycleAction = async (action) => {
     setIsSaving(true);
+    setErrorMsg('');
+    setSuccessMsg('');
     try {
-      const res = await api.put(`/admin/providers/${id}`, { publicationStatus: newStatus });
+      const res = await api.post(`/admin/providers/${id}/${action}`, {});
       if (res.success) {
-        setFormData((prev) => ({ ...prev, publicationStatus: newStatus }));
-        setSuccessMsg(`Provider publication status changed to ${newStatus}.`);
+        setSuccessMsg(res.message || `Action ${action} completed.`);
+        loadProvider();
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Error updating publication status');
+      setErrorMsg(err.message || `Unable to ${action} listing`);
     } finally {
       setIsSaving(false);
     }
@@ -148,18 +177,21 @@ export default function AdminProviderEditPage() {
 
   if (isLoading) {
     return (
-      <AdminLayout title="Edit Provider" subtitle="Loading profile...">
+      <AdminLayout title="Edit Listing" subtitle="Loading profile...">
         <div className="py-20 flex flex-col items-center justify-center">
-          <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin mb-3" />
+          <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-3" />
         </div>
       </AdminLayout>
     );
   }
 
+  const isSuspended =
+    provider?.status === 'SUSPENDED' || provider?.providerAccount?.status === 'SUSPENDED';
+
   return (
     <AdminLayout
-      title={`Edit Profile: ${provider?.businessName}`}
-      subtitle={`Slug: /providers/${provider?.slug}`}
+      title={`Edit Listing: ${provider?.businessName || ''}`}
+      subtitle={`Public URL: /providers/${provider?.slug || ''}`}
     >
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Link
@@ -167,39 +199,63 @@ export default function AdminProviderEditPage() {
           className="text-xs font-semibold text-slate-500 hover:text-slate-900 inline-flex items-center gap-1.5"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to All Providers</span>
+          <span>Back to All Listings</span>
         </Link>
 
-        {/* Quick Publication Actions */}
-        <div className="flex items-center gap-2">
+        {/* Lifecycle Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
           {formData.publicationStatus === 'PUBLISHED' ? (
             <>
               <a
                 href={`/providers/${provider?.slug}`}
                 target="_blank"
                 rel="noreferrer"
-                className="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
+                className="py-2 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
               >
-                <span>Live Profile</span>
+                <span>Live Public Page</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
               <button
                 type="button"
-                onClick={() => togglePublication('DRAFT')}
+                onClick={() => handleLifecycleAction('unpublish')}
                 disabled={isSaving}
-                className="py-1.5 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold"
+                className="py-2 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold cursor-pointer"
               >
                 Unpublish to Draft
               </button>
             </>
           ) : (
+            !isSuspended && (
+              <button
+                type="button"
+                onClick={() => handleLifecycleAction('publish')}
+                disabled={isSaving || formData.verificationStatus !== 'VERIFIED'}
+                className="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+              >
+                Publish to Marketplace
+              </button>
+            )
+          )}
+
+          {isSuspended ? (
             <button
               type="button"
-              onClick={() => togglePublication('PUBLISHED')}
-              disabled={isSaving || formData.verificationStatus !== 'VERIFIED'}
-              className="btn-primary py-1.5 px-3.5 text-xs font-bold disabled:opacity-50"
+              onClick={() => handleLifecycleAction('reactivate')}
+              disabled={isSaving}
+              className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
             >
-              Publish to Marketplace
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reactivate Provider</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleLifecycleAction('suspend')}
+              disabled={isSaving}
+              className="py-2 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Suspend Provider</span>
             </button>
           )}
         </div>
@@ -221,31 +277,30 @@ export default function AdminProviderEditPage() {
 
       <form onSubmit={handleSave} className="space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Column */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Shop Image Display */}
             {provider?.shopImage?.url && (
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Verified Shop / Establishment Photo</span>
+                  <ImageIcon className="w-3.5 h-3.5 text-orange-500" />
+                  <span>Property / Establishment Photograph</span>
                 </h3>
                 <div className="flex items-center gap-4">
                   <img
                     src={provider.shopImage.url}
-                    alt="Shop Establishment"
-                    className="w-32 h-24 object-cover rounded-xl border border-slate-200 shadow-sm"
+                    alt="Property"
+                    className="w-36 h-24 object-cover rounded-xl border border-slate-200 shadow-sm"
                   />
                   <div className="text-xs text-slate-600 space-y-1">
-                    <p className="font-semibold text-slate-900">{provider.shopImage.originalName || 'Shop Image'}</p>
-                    <p className="text-slate-400">Stored Key: {provider.shopImage.publicId}</p>
+                    <p className="font-semibold text-slate-900">
+                      {provider.shopImage.originalName || 'Property Image'}
+                    </p>
                     <a
                       href={provider.shopImage.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-teal-600 hover:underline inline-flex items-center gap-1 font-semibold"
+                      className="text-orange-600 hover:underline inline-flex items-center gap-1 font-semibold"
                     >
-                      <span>View full image</span>
+                      <span>Open full image</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
@@ -253,16 +308,15 @@ export default function AdminProviderEditPage() {
               </div>
             )}
 
-            {/* Core Business Information */}
             <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
-                Core Identity
+                Core Listing Information
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                    Business Name *
+                    Business / Property Name *
                   </label>
                   <input
                     type="text"
@@ -270,7 +324,7 @@ export default function AdminProviderEditPage() {
                     value={formData.businessName}
                     onChange={handleChange}
                     required
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
@@ -283,33 +337,36 @@ export default function AdminProviderEditPage() {
                     name="providerName"
                     value={formData.providerName}
                     onChange={handleChange}
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                  Public Profile Slug (URL) *
+                  Category *
                 </label>
-                <div className="flex items-center">
-                  <span className="text-xs text-slate-400 bg-slate-100 px-3 py-3 border border-r-0 border-slate-200 rounded-l-xl">
-                    /providers/
-                  </span>
-                  <input
-                    type="text"
-                    name="slug"
-                    value={formData.slug}
-                    onChange={handleChange}
-                    required
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-teal-400 font-mono"
-                  />
-                </div>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  required
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 font-semibold"
+                >
+                  <option value="">Select Active Category</option>
+                  {categories
+                    .filter((c) => c.status === 'ACTIVE' || c.name === formData.category)
+                    .map((c) => (
+                      <option key={c._id || c.slug} value={c.name}>
+                        {c.name} ({c.status})
+                      </option>
+                    ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                  Business Description *
+                  Description *
                 </label>
                 <textarea
                   name="description"
@@ -317,55 +374,24 @@ export default function AdminProviderEditPage() {
                   value={formData.description}
                   onChange={handleChange}
                   required
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                 />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                    Category Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    required
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                    Category Slug *
-                  </label>
-                  <input
-                    type="text"
-                    name="categorySlug"
-                    value={formData.categorySlug}
-                    onChange={handleChange}
-                    required
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 font-mono"
-                  />
-                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                  Offered Services (Comma-separated)
+                  Services Offered (Comma-separated)
                 </label>
                 <input
                   type="text"
                   name="services"
                   value={formData.services}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                 />
               </div>
             </div>
 
-            {/* Address & Geographic Scope */}
             <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
                 Location & Coverage
@@ -373,49 +399,57 @@ export default function AdminProviderEditPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">City *</label>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                    City *
+                  </label>
                   <input
                     type="text"
                     name="city"
                     value={formData.city}
                     onChange={handleChange}
                     required
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">State</label>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                    State
+                  </label>
                   <input
                     type="text"
                     name="state"
                     value={formData.state}
                     onChange={handleChange}
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">PIN Code</label>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                    PIN Code
+                  </label>
                   <input
                     type="text"
                     name="pinCode"
                     value={formData.pinCode}
                     onChange={handleChange}
                     maxLength={6}
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Street Address</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                  Street Address
+                </label>
                 <input
                   type="text"
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -428,17 +462,17 @@ export default function AdminProviderEditPage() {
                   name="serviceAreas"
                   value={formData.serviceAreas}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                 />
               </div>
             </div>
           </div>
 
-          {/* Right Column: Governance, Contact & Publication */}
+          {/* Right Column */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
-                Governance & Status
+                Governance & Lifecycle
               </h3>
 
               <div>
@@ -449,9 +483,9 @@ export default function AdminProviderEditPage() {
                   name="verificationStatus"
                   value={formData.verificationStatus}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 font-semibold"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 font-semibold"
                 >
-                  <option value="VERIFIED">VERIFIED (Vetted)</option>
+                  <option value="VERIFIED">VERIFIED (Approved)</option>
                   <option value="UNVERIFIED">UNVERIFIED (Pending)</option>
                   <option value="REVOKED">REVOKED (Delisted)</option>
                 </select>
@@ -465,11 +499,11 @@ export default function AdminProviderEditPage() {
                   name="publicationStatus"
                   value={formData.publicationStatus}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 font-semibold"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 font-semibold"
                 >
                   <option value="DRAFT">DRAFT (Hidden from Public)</option>
                   <option value="PUBLISHED">PUBLISHED (Live Marketplace)</option>
-                  <option value="ARCHIVED">ARCHIVED (Decommissioned)</option>
+                  <option value="ARCHIVED">ARCHIVED (Unlisted)</option>
                 </select>
               </div>
 
@@ -480,11 +514,11 @@ export default function AdminProviderEditPage() {
                     name="consentToDisplayPhone"
                     checked={formData.consentToDisplayPhone}
                     onChange={handleChange}
-                    className="w-4 h-4 text-teal-600 rounded mt-0.5 focus:ring-teal-400"
+                    className="w-4 h-4 text-orange-600 rounded mt-0.5"
                   />
                   <span className="text-xs text-slate-700 leading-relaxed">
-                    <strong>Display Phone Publicly:</strong> When checked, contact number is shown on
-                    public provider card.
+                    <strong>Display Phone Publicly:</strong> Allow customers to reveal and call this
+                    owner’s phone number.
                   </span>
                 </label>
               </div>
@@ -492,39 +526,46 @@ export default function AdminProviderEditPage() {
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
-                Direct Coordinates
+                Owner Contact Details
               </h3>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Phone Number</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                  Verified Phone Number (Locked to Account)
+                </label>
                 <input
                   type="text"
                   name="contactNumber"
                   value={formData.contactNumber}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 font-mono"
+                  readOnly={Boolean(provider?.providerAccountId)}
+                  className="w-full text-xs p-3 bg-slate-100 border border-slate-200 rounded-xl font-mono text-slate-800"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Email Address</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Website URL</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+                  Website URL
+                </label>
                 <input
                   type="url"
                   name="website"
                   value={formData.website}
                   onChange={handleChange}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
                 />
               </div>
             </div>
@@ -532,10 +573,10 @@ export default function AdminProviderEditPage() {
             <button
               type="submit"
               disabled={isSaving}
-              className="btn-primary w-full py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+              className="w-full py-3.5 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>{isSaving ? 'Saving Changes...' : 'Save All Changes'}</span>
+              <span>{isSaving ? 'Saving Changes...' : 'Save Listing Changes'}</span>
             </button>
           </div>
         </div>

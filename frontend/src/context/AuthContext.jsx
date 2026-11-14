@@ -1,51 +1,32 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api from '../services/api.js';
+import api, { setAuthToken, clearAuthToken } from '../services/api.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [admin, setAdmin] = useState(() => {
-    try {
-      const saved = localStorage.getItem('konnevia_admin_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [token, setToken] = useState(() => {
-    try {
-      return localStorage.getItem('konnevia_admin_token') || null;
-    } catch {
-      return null;
-    }
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  // Admin credentials and Bearer session token are kept strictly in React memory (never persisted in localStorage)
+  const [admin, setAdmin] = useState(null);
+  const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const clearLocalSession = useCallback(() => {
+    clearAuthToken();
     setToken(null);
     setAdmin(null);
-    try {
-      localStorage.removeItem('konnevia_admin_token');
-      localStorage.removeItem('konnevia_admin_user');
-    } catch {
-      // Ignore storage errors
-    }
   }, []);
 
   useEffect(() => {
     let isMounted = true;
 
-    // Validate existing session on mount
     if (token) {
+      setIsLoading(true);
+      setAuthToken(token);
       api
         .get('/admin/auth/me')
         .then((res) => {
           if (!isMounted) return;
           if (res.success && res.data) {
             setAdmin(res.data);
-            try {
-              localStorage.setItem('konnevia_admin_user', JSON.stringify(res.data));
-            } catch {}
           } else {
             clearLocalSession();
           }
@@ -71,15 +52,12 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const res = await api.post('/admin/auth/login', { email, password });
-    if (res.success && res.data) {
+    if (res.success && res.data && res.data.token) {
       const { token: sessionToken, email: adminEmail, role } = res.data;
       const user = { email: adminEmail, role };
+      setAuthToken(sessionToken);
       setToken(sessionToken);
       setAdmin(user);
-      try {
-        localStorage.setItem('konnevia_admin_token', sessionToken);
-        localStorage.setItem('konnevia_admin_user', JSON.stringify(user));
-      } catch {}
       return { success: true };
     }
     throw new Error(res.message || 'Login failed');
@@ -87,14 +65,16 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     const activeToken = token;
-    clearLocalSession();
-    if (activeToken) {
-      try {
-        await api.post('/admin/auth/logout', {});
-      } catch {
-        // Session already cleared locally
-      }
+    try {
+      await api.post(
+        '/admin/auth/logout',
+        {},
+        activeToken ? { headers: { Authorization: `Bearer ${activeToken}` } } : {}
+      );
+    } catch {
+      // Ignore network error during logout cleanup
     }
+    clearLocalSession();
   };
 
   return (
@@ -105,7 +85,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         isLoading,
-        isAuthenticated: !!token && !!admin,
+        isAuthenticated: Boolean(admin),
       }}
     >
       {children}

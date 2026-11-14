@@ -6,96 +6,85 @@ const leadSchema = new mongoose.Schema(
       type: String,
       unique: true,
       required: true,
-      index: true,
     },
     type: {
       type: String,
-      enum: ['enquiry', 'partner', 'contact'],
-      default: 'enquiry',
+      enum: ['partner'],
+      default: 'partner',
       index: true,
     },
-    // Customer / Contact Person
+    providerAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ProviderAccount',
+      required: [true, 'Authenticated provider account is required'],
+      index: true,
+    },
+    linkedListingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Provider',
+      default: null,
+    },
+    businessName: {
+      type: String,
+      required: [true, 'Business or property name is required'],
+      trim: true,
+      maxlength: 120,
+    },
+    contactPerson: {
+      type: String,
+      required: [true, 'Contact person name is required'],
+      trim: true,
+      maxlength: 100,
+    },
     name: {
       type: String,
-      required: [true, 'Name is required'],
       trim: true,
+      maxlength: 100,
+      default: '',
     },
     phone: {
       type: String,
-      required: [true, 'Phone number is required'],
+      required: [true, 'Verified mobile number is required'],
       trim: true,
+      match: [/^[6-9]\d{9}$/, 'A valid 10-digit Indian mobile number is required'],
     },
     email: {
       type: String,
       trim: true,
       lowercase: true,
+      maxlength: 120,
       default: '',
     },
-    // Service Scope
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+      default: null,
+    },
     category: {
       type: String,
+      required: [true, 'Category is required'],
       trim: true,
-      default: '',
+      maxlength: 80,
       index: true,
     },
-    service: {
+    categorySlug: {
       type: String,
       trim: true,
+      lowercase: true,
+      maxlength: 80,
       default: '',
     },
-    // Geographic Info
-    city: {
-      type: String,
-      required: [true, 'City is required'],
-      trim: true,
-      index: true,
-    },
-    location: {
+    customCategoryName: {
       type: String,
       trim: true,
-      default: '', // locality / area
-    },
-    address: {
-      type: String,
-      trim: true,
+      maxlength: 80,
       default: '',
     },
-    state: {
+    businessDescription: {
       type: String,
+      required: [true, 'Business description is required'],
       trim: true,
-      default: '',
-    },
-    pinCode: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    // Requirements / Scope
-    requirements: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    estimatedBudget: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    expectedTimeline: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    // Partner Specific Fields
-    businessName: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    contactPerson: {
-      type: String,
-      trim: true,
-      default: '',
+      maxlength: 2000,
     },
     servicesOffered: {
       type: [String],
@@ -105,19 +94,43 @@ const leadSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    address: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+      default: '',
+    },
+    city: {
+      type: String,
+      required: [true, 'City is required'],
+      trim: true,
+      maxlength: 80,
+      index: true,
+    },
+    location: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: '',
+    },
+    state: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: '',
+    },
+    pinCode: {
+      type: String,
+      trim: true,
+      maxlength: 10,
+      default: '',
+    },
     website: {
       type: String,
       trim: true,
+      maxlength: 250,
       default: '',
     },
-    businessDescription: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    customCategoryName: { type: String, trim: true, default: '' },
-    providerAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProviderAccount', default: null, index: true },
-    // Shop & Business Image Metadata
     shopImage: {
       url: { type: String, default: '' },
       publicId: { type: String, default: '' },
@@ -126,28 +139,35 @@ const leadSchema = new mongoose.Schema(
       size: { type: Number, default: 0 },
       uploadedAt: { type: Date, default: null },
     },
-    // Operational Workflow Status
     status: {
       type: String,
-      enum: ['new', 'contacted', 'qualified', 'assigned', 'converted', 'closed', 'rejected'],
-      default: 'new',
+      enum: ['SUBMITTED', 'APPROVED', 'REJECTED', 'new', 'qualified', 'rejected'],
+      default: 'SUBMITTED',
       index: true,
     },
-    assignedProviderId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Provider',
+    rejectionReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: '',
+    },
+    rejectedAt: {
+      type: Date,
       default: null,
-      index: true,
     },
-    // Consents & Legal Governance
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+    reviewedBy: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     consentToContact: {
       type: Boolean,
       required: true,
-      default: false,
-    },
-    consentProviderSharing: {
-      type: Boolean,
-      default: false,
+      default: true,
     },
     consentToDisplayPhone: {
       type: Boolean,
@@ -161,25 +181,6 @@ const leadSchema = new mongoose.Schema(
       type: String,
       default: '2026.1',
     },
-    // Google Sheets Sync Status & Retry Audit Fields
-    googleSheetsSynced: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-    googleSheetsSyncedAt: {
-      type: Date,
-    },
-    googleSheetsError: {
-      type: String,
-    },
-    syncAttempts: {
-      type: Number,
-      default: 0,
-    },
-    lastRetryAt: {
-      type: Date,
-    },
     metadata: {
       type: Map,
       of: String,
@@ -192,6 +193,8 @@ const leadSchema = new mongoose.Schema(
 );
 
 leadSchema.index({ type: 1, status: 1, createdAt: -1 });
+leadSchema.index({ providerAccountId: 1, createdAt: -1 });
 
 export const Lead = mongoose.model('Lead', leadSchema);
+export const ListingApplication = Lead;
 export default Lead;

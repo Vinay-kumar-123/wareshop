@@ -1,7 +1,37 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8001/api/v1';
 
 // Default request timeout in milliseconds (15s for file uploads or slow cold starts)
 const REQUEST_TIMEOUT_MS = 15_000;
+
+// In-memory only admin Bearer token (never written to localStorage)
+let inMemoryAuthToken = null;
+
+// In-memory provider Bearer token (paired with HttpOnly wareshop_provider_session cookie)
+let inMemoryProviderToken = null;
+
+export function setAuthToken(token) {
+  inMemoryAuthToken = typeof token === 'string' && token.trim() ? token.trim() : null;
+}
+
+export function clearAuthToken() {
+  inMemoryAuthToken = null;
+}
+
+export function getAuthToken() {
+  return inMemoryAuthToken;
+}
+
+export function setProviderToken(token) {
+  inMemoryProviderToken = typeof token === 'string' && token.trim() ? token.trim() : null;
+}
+
+export function clearProviderToken() {
+  inMemoryProviderToken = null;
+}
+
+export function getProviderToken() {
+  return inMemoryProviderToken;
+}
 
 export class ApiError extends Error {
   constructor(message, status = 500, data = null) {
@@ -12,6 +42,14 @@ export class ApiError extends Error {
   }
 }
 
+function isProviderEndpoint(endpoint) {
+  return (
+    endpoint.startsWith('/provider-auth') ||
+    endpoint.startsWith('/provider-portal') ||
+    endpoint.startsWith('/leads/partner')
+  );
+}
+
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -19,32 +57,29 @@ async function request(endpoint, options = {}) {
   const timeoutMs = options.timeoutMs || REQUEST_TIMEOUT_MS;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // Retrieve stored admin session token if available
-  let authToken = null;
-  try {
-    authToken = localStorage.getItem('konnevia_admin_token');
-  } catch {
-    // LocalStorage inaccessible (e.g. strict private browsing)
-  }
+  const defaultHeaders = {
+    'X-Requested-With': 'XMLHttpRequest',
+  };
 
-  const defaultHeaders = {};
   // Only set application/json if body is not FormData
   if (!(options.body instanceof FormData)) {
     defaultHeaders['Content-Type'] = 'application/json';
   }
 
-  if (authToken && !options.headers?.Authorization && !options.headers?.authorization) {
-    defaultHeaders['Authorization'] = `Bearer ${authToken}`;
+  const activeToken = isProviderEndpoint(endpoint) ? inMemoryProviderToken : inMemoryAuthToken;
+
+  if (activeToken && !options.headers?.Authorization && !options.headers?.authorization) {
+    defaultHeaders['Authorization'] = `Bearer ${activeToken}`;
   }
 
   const config = {
     method: options.method || 'GET',
-    credentials: 'include', // Ensures cookies are transmitted in cross-origin / same-origin requests
+    credentials: 'include',
+    ...options,
     headers: {
       ...defaultHeaders,
       ...options.headers,
     },
-    ...options,
     signal: controller.signal,
   };
 
@@ -76,7 +111,7 @@ async function request(endpoint, options = {}) {
       );
     }
     throw new ApiError(
-      'Unable to connect to the KONNEVIA server. Please verify your connection or try again shortly.',
+      'Unable to connect to the WARESHOP server. Please verify your connection or try again shortly.',
       0
     );
   }

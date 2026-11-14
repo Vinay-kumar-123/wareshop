@@ -1,10 +1,116 @@
-// WARESHOP's intentionally small, property-first directory taxonomy.
+// WARESHOP's property-first commercial business directory taxonomy.
 export const categories = [
-  { id: 'shop', slug: 'shop', name: 'Shop', description: 'Retail spaces, showrooms and ready-to-use commercial shops for every business stage.', shortDescription: 'Retail & Showrooms', icon: 'Store', color: '#C2410C', bgColor: '#FFF0E7', subcategories: [{ id: 'retail-shop', name: 'Retail shops', description: 'High-street and neighbourhood retail spaces.' }, { id: 'showroom', name: 'Showrooms', description: 'Display-ready spaces for products and brands.' }], popularServices: ['Retail Shop', 'Showroom Space', 'High Street Store'] },
-  { id: 'office', slug: 'office', name: 'Office', description: 'Flexible offices, managed workspaces and commercial addresses for growing teams.', shortDescription: 'Commercial & Co-work', icon: 'Building2', color: '#1D4ED8', bgColor: '#EAF1FF', subcategories: [{ id: 'managed-office', name: 'Managed offices', description: 'Ready-to-move private offices.' }, { id: 'coworking', name: 'Co-working', description: 'Flexible desks and collaborative spaces.' }], popularServices: ['Managed Office', 'Co-working Desk', 'Private Cabin'] },
-  { id: 'warehouse', slug: 'warehouse', name: 'Warehouse', description: 'Large-scale logistics, distribution and industrial warehousing options across India.', shortDescription: 'Logistics & Large Hubs', icon: 'Warehouse', color: '#047857', bgColor: '#E6F8F0', subcategories: [{ id: 'distribution-hub', name: 'Distribution hubs', description: 'Multi-dock logistics facilities.' }, { id: 'industrial-warehouse', name: 'Industrial warehouses', description: 'High-capacity operational storage.' }], popularServices: ['Distribution Hub', 'Fulfilment Centre', 'Industrial Storage'] },
-  { id: 'godown', slug: 'godown', name: 'Godown', description: 'Practical storage depots and secure godowns for inventory, goods and local distribution.', shortDescription: 'Storage & Small Depot', icon: 'Package', color: '#7C3AED', bgColor: '#F2ECFF', subcategories: [{ id: 'storage-depot', name: 'Storage depots', description: 'Secure local inventory storage.' }, { id: 'goods-storage', name: 'Goods storage', description: 'Flexible short and long-term space.' }], popularServices: ['Goods Storage', 'Local Depot', 'Inventory Storage'] },
+  {
+    id: 'shop',
+    slug: 'shop',
+    name: 'Shop',
+    pluralName: 'Shops',
+    seoTitle: 'Commercial Shops & Showrooms',
+    description:
+      'Retail shops, commercial showrooms and high-street storefronts for brands, dealers and distributors.',
+    shortDescription: 'Retail & Showrooms',
+    icon: 'Store',
+    imageUrl: '/images/categories/shop.jpg',
+    color: '#EA580C',
+    bgColor: '#FFF7ED',
+    subcategories: [
+      {
+        id: 'retail-shop',
+        name: 'Retail Shops',
+        description: 'High-street, main market and commercial complex retail units.',
+      },
+      {
+        id: 'showroom',
+        name: 'Showrooms',
+        description: 'Display-ready ground and multi-level showrooms with wide frontage.',
+      },
+    ],
+    popularServices: ['Retail Shop', 'Showroom Space', 'High Street Storefront', 'Corner Commercial Unit'],
+  },
+  {
+    id: 'office',
+    slug: 'office',
+    name: 'Office',
+    pluralName: 'Offices',
+    seoTitle: 'Commercial Offices & Coworking',
+    description:
+      'Corporate office suites, managed workspaces and commercial business centres across major Indian cities.',
+    shortDescription: 'Commercial & Co-work',
+    icon: 'Building2',
+    imageUrl: '/images/categories/office.jpg',
+    color: '#1D4ED8',
+    bgColor: '#EFF6FF',
+    subcategories: [
+      {
+        id: 'managed-office',
+        name: 'Commercial Offices',
+        description: 'Furnished and bare-shell corporate office floors and suites.',
+      },
+      {
+        id: 'coworking',
+        name: 'Coworking & Business Centres',
+        description: 'Managed desks, private cabins and plug-and-play workspaces.',
+      },
+    ],
+    popularServices: ['Commercial Office', 'Managed Workspace', 'Coworking Hub', 'Corporate Suite'],
+  },
+  {
+    id: 'warehouse',
+    slug: 'warehouse',
+    name: 'Warehouse',
+    pluralName: 'Warehouses',
+    seoTitle: 'Warehouses & Logistics Hubs',
+    description:
+      'Large-scale distribution centres, industrial warehouses and multi-dock logistics facilities.',
+    shortDescription: 'Logistics & Large Hubs',
+    icon: 'Warehouse',
+    imageUrl: '/images/categories/warehouse.jpg',
+    color: '#047857',
+    bgColor: '#ECFDF5',
+    subcategories: [
+      {
+        id: 'distribution-hub',
+        name: 'Distribution Hubs',
+        description: 'Multi-dock logistics and regional fulfilment hubs near highways.',
+      },
+      {
+        id: 'industrial-warehouse',
+        name: 'Industrial Warehouses',
+        description: 'High-clearance PEB sheds and industrial storage facilities.',
+      },
+    ],
+    popularServices: ['Distribution Hub', 'Fulfilment Centre', 'Industrial Warehouse', 'Cold & Dry Logistics'],
+  },
+  {
+    id: 'godown',
+    slug: 'godown',
+    name: 'Godown',
+    pluralName: 'Godowns',
+    seoTitle: 'Godowns & Storage Depots',
+    description:
+      'Small and medium storage facilities, wholesale stock depots and city-accessible inventory godowns.',
+    shortDescription: 'Storage & Small Depot',
+    icon: 'Package',
+    imageUrl: '/images/categories/godown.jpg',
+    color: '#7C3AED',
+    bgColor: '#F5F3FF',
+    subcategories: [
+      {
+        id: 'storage-depot',
+        name: 'Storage Depots',
+        description: 'City-edge and market-adjacent depots for wholesale traders.',
+      },
+      {
+        id: 'goods-storage',
+        name: 'Goods & Inventory Godowns',
+        description: 'Secure commercial storage units for stock and distribution.',
+      },
+    ],
+    popularServices: ['Goods Storage', 'Wholesale Godown', 'Local Stock Depot', 'Inventory Storage'],
+  },
 ];
 
-export const getCategoryBySlug = (slug) => categories.find((category) => category.slug === slug);
+export const getCategoryBySlug = (slug) =>
+  categories.find((category) => category.slug === String(slug || '').toLowerCase());
+
 export const getAllCategorySlugs = () => categories.map((category) => category.slug);

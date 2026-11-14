@@ -4,11 +4,10 @@ import MainLayout from '../layouts/MainLayout.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ProtectedRoute from '../components/admin/ProtectedRoute.jsx';
 
-// Lazy-loaded public page bundles
+// Lazy-loaded public marketplace pages (strictly scoped to Part 4E routes)
 const HomePage = lazy(() => import('../pages/home/HomePage.jsx'));
 const CategoriesPage = lazy(() => import('../pages/categories/CategoriesPage.jsx'));
 const CategoryDetailPage = lazy(() => import('../pages/categories/CategoryDetailPage.jsx'));
-const ServiceDetailPage = lazy(() => import('../pages/services/ServiceDetailPage.jsx'));
 const ProvidersPage = lazy(() => import('../pages/providers/ProvidersPage.jsx'));
 const ProviderProfilePage = lazy(() => import('../pages/providers/ProviderProfilePage.jsx'));
 const BecomePartnerPage = lazy(() => import('../pages/partners/BecomePartnerPage.jsx'));
@@ -17,14 +16,19 @@ const PrivacyPolicyPage = lazy(() => import('../pages/legal/PrivacyPolicyPage.js
 const TermsPage = lazy(() => import('../pages/legal/TermsPage.jsx'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage.jsx'));
 
-// Lazy-loaded Admin Portal bundles
+// Lazy-loaded Admin Portal pages
 const AdminLoginPage = lazy(() => import('../pages/admin/AdminLoginPage.jsx'));
 const AdminDashboardPage = lazy(() => import('../pages/admin/AdminDashboardPage.jsx'));
 const AdminApplicationsPage = lazy(() => import('../pages/admin/AdminApplicationsPage.jsx'));
-const AdminApplicationDetailPage = lazy(() => import('../pages/admin/AdminApplicationDetailPage.jsx'));
+const AdminApplicationDetailPage = lazy(
+  () => import('../pages/admin/AdminApplicationDetailPage.jsx')
+);
 const AdminProvidersPage = lazy(() => import('../pages/admin/AdminProvidersPage.jsx'));
 const AdminProviderEditPage = lazy(() => import('../pages/admin/AdminProviderEditPage.jsx'));
 const AdminCategoriesPage = lazy(() => import('../pages/admin/AdminCategoriesPage.jsx'));
+const AdminCategoryRequestsPage = lazy(
+  () => import('../pages/admin/AdminCategoryRequestsPage.jsx')
+);
 const AdminActivityLogsPage = lazy(() => import('../pages/admin/AdminActivityLogsPage.jsx'));
 const AdminSettingsPage = lazy(() => import('../pages/admin/AdminSettingsPage.jsx'));
 
@@ -36,7 +40,6 @@ function PageFallback() {
   );
 }
 
-// Wrapper for public marketplace pages with standard customer Navbar and Footer
 function PublicLayoutWrapper() {
   return (
     <MainLayout>
@@ -54,7 +57,6 @@ export default function AppRoutes() {
           <Route path="/" element={<HomePage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/categories/:slug" element={<CategoryDetailPage />} />
-          <Route path="/services/:slug" element={<ServiceDetailPage />} />
           <Route path="/providers" element={<ProvidersPage />} />
           <Route path="/providers/:slug" element={<ProviderProfilePage />} />
           <Route path="/become-a-partner" element={<BecomePartnerPage />} />
@@ -64,7 +66,7 @@ export default function AppRoutes() {
           <Route path="*" element={<NotFoundPage />} />
         </Route>
 
-        {/* Standalone Admin Portal Routes (No customer Navbar/Footer) */}
+        {/* Standalone Admin Portal Routes */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route
           path="/admin"
@@ -111,6 +113,14 @@ export default function AppRoutes() {
           element={
             <ProtectedRoute>
               <AdminCategoriesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/category-requests"
+          element={
+            <ProtectedRoute>
+              <AdminCategoryRequestsPage />
             </ProtectedRoute>
           }
         />

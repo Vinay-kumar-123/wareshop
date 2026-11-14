@@ -1,8 +1,8 @@
 # KONNEVIA — Basic Admin Panel MVP Implementation Report
 
-**Document Status:** Production Complete  
-**Date:** November 12, 2026  
-**Engineering Team:** Senior Full-Stack Architect, Security Engineer, Database Specialist & SEO Lead  
+**Document Status:** Production Complete
+**Date:** November 12, 2026
+**Engineering Team:** Senior Full-Stack Architect, Security Engineer, Database Specialist & SEO Lead
 **Repository Path:** `D:\projects\LeadManagment\`
 
 ---
@@ -58,17 +58,17 @@ Engineered with decoupled verification and publication states.
   shortBio: { type: String },
   description: { type: String },
   servicesOffered: [{ type: String }],
-  verificationStatus: { 
-    type: String, 
-    enum: ['UNVERIFIED', 'VERIFIED', 'REVOKED'], 
-    default: 'UNVERIFIED', 
-    index: true 
+  verificationStatus: {
+    type: String,
+    enum: ['UNVERIFIED', 'VERIFIED', 'REVOKED'],
+    default: 'UNVERIFIED',
+    index: true
   },
-  publicationStatus: { 
-    type: String, 
-    enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'], 
-    default: 'DRAFT', 
-    index: true 
+  publicationStatus: {
+    type: String,
+    enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'],
+    default: 'DRAFT',
+    index: true
   },
   publishedAt: { type: Date },
   rejectionReason: { type: String }

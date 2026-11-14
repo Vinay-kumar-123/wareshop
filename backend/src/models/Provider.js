@@ -2,14 +2,22 @@ import mongoose from 'mongoose';
 
 const providerSchema = new mongoose.Schema(
   {
+    providerAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ProviderAccount',
+      default: null,
+      index: true,
+    },
     businessName: {
       type: String,
       required: [true, 'Business name is required'],
       trim: true,
+      maxlength: 120,
     },
     providerName: {
       type: String,
       trim: true,
+      maxlength: 100,
       default: '',
     },
     slug: {
@@ -18,17 +26,25 @@ const providerSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       lowercase: true,
-      index: true,
+      maxlength: 140,
     },
     description: {
       type: String,
       required: [true, 'Description is required'],
       trim: true,
+      maxlength: 2000,
+    },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+      default: null,
+      index: true,
     },
     category: {
       type: String,
       required: [true, 'Category is required'],
       trim: true,
+      maxlength: 80,
       index: true,
     },
     categorySlug: {
@@ -36,7 +52,14 @@ const providerSchema = new mongoose.Schema(
       required: true,
       trim: true,
       lowercase: true,
+      maxlength: 80,
       index: true,
+    },
+    customCategoryName: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: '',
     },
     services: {
       type: [String],
@@ -45,33 +68,39 @@ const providerSchema = new mongoose.Schema(
     contactNumber: {
       type: String,
       trim: true,
+      match: [/^([6-9]\d{9})?$/, 'Contact number must be a valid 10-digit Indian mobile number'],
       default: '',
     },
     email: {
       type: String,
       trim: true,
       lowercase: true,
+      maxlength: 120,
       default: '',
     },
     address: {
       type: String,
       trim: true,
+      maxlength: 300,
       default: '',
     },
     city: {
       type: String,
       required: [true, 'City is required'],
       trim: true,
+      maxlength: 80,
       index: true,
     },
     state: {
       type: String,
       trim: true,
+      maxlength: 80,
       default: '',
     },
     pinCode: {
       type: String,
       trim: true,
+      maxlength: 10,
       default: '',
     },
     serviceAreas: {
@@ -81,6 +110,7 @@ const providerSchema = new mongoose.Schema(
     website: {
       type: String,
       trim: true,
+      maxlength: 250,
       default: '',
     },
     logo: {
@@ -107,17 +137,22 @@ const providerSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Lead',
       default: null,
-      index: true,
     },
     sourceReferenceId: {
       type: String,
       default: '',
       index: true,
     },
+    status: {
+      type: String,
+      enum: ['SUBMITTED', 'APPROVED', 'PUBLISHED', 'UNPUBLISHED', 'REJECTED', 'SUSPENDED'],
+      default: 'SUBMITTED',
+      index: true,
+    },
     verificationStatus: {
       type: String,
       enum: ['UNVERIFIED', 'VERIFIED', 'REVOKED'],
-      default: 'VERIFIED',
+      default: 'UNVERIFIED',
       index: true,
     },
     publicationStatus: {
@@ -126,11 +161,22 @@ const providerSchema = new mongoose.Schema(
       default: 'DRAFT',
       index: true,
     },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: '',
+    },
+    suspensionReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: '',
+    },
     publicationConsent: {
       type: Boolean,
       default: false,
     },
-    // Explicit guardrail for development fixtures. Production queries can exclude these records.
     isDemo: {
       type: Boolean,
       default: false,
@@ -151,11 +197,13 @@ const providerSchema = new mongoose.Schema(
     metaTitle: {
       type: String,
       trim: true,
+      maxlength: 160,
       default: '',
     },
     metaDescription: {
       type: String,
       trim: true,
+      maxlength: 320,
       default: '',
     },
   },
@@ -164,9 +212,14 @@ const providerSchema = new mongoose.Schema(
   }
 );
 
-// Compound index for optimized public provider queries
+// Unique sparse index on sourceApplicationId to prevent duplicate listings per application
+providerSchema.index({ sourceApplicationId: 1 }, { unique: true, sparse: true });
+
+// Compound indexes for optimized public provider queries
+providerSchema.index({ verificationStatus: 1, publicationStatus: 1, publishedAt: -1 });
 providerSchema.index({ verificationStatus: 1, publicationStatus: 1, categorySlug: 1 });
 providerSchema.index({ verificationStatus: 1, publicationStatus: 1, city: 1 });
 
 export const Provider = mongoose.model('Provider', providerSchema);
+export const ProviderListing = Provider;
 export default Provider;

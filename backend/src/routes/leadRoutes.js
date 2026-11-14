@@ -2,18 +2,20 @@ import express from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import env from '../config/env.js';
 import leadController from '../controllers/leadController.js';
+import { requireProvider, requireActiveProvider } from '../middleware/auth.js';
 import { validatePartner } from '../middleware/validate.js';
 import { handleShopImageUpload } from '../middleware/upload.js';
 
 const router = express.Router();
 
 function requestRateLimitKey(req) {
-  const suite = env.isTest ? req.get('x-konnevia-test-suite') : null;
+  const suite = env.isTest
+    ? req.get('x-wareshop-test-suite') || req.get('x-konnevia-test-suite')
+    : null;
   if (suite && /^[a-z0-9-]{1,64}$/i.test(suite)) return `test:${suite}`;
   return ipKeyGenerator(req.ip);
 }
 
-// Rate limiting: 10 submissions per 15 minutes per IP
 const leadSubmissionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -29,6 +31,8 @@ const leadSubmissionLimiter = rateLimit({
 router.post(
   '/partner',
   leadSubmissionLimiter,
+  requireProvider,
+  requireActiveProvider,
   handleShopImageUpload,
   validatePartner,
   leadController.submitPartnerEnquiry

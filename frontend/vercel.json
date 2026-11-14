@@ -1,24 +1,32 @@
 {
-  "rewrites": [
+  "headers": [
     {
-      "source": "/sitemap.xml",
-      "destination": "https://konnevia-backend.onrender.com/sitemap.xml"
-    },
-    {
-      "source": "/render/blog/:slug",
-      "destination": "https://konnevia-backend.onrender.com/render/blog/:slug"
-    },
-    {
-      "source": "/blog/:slug",
-      "has": [
+      "source": "/(.*)",
+      "headers": [
         {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora\\ link\\ preview|showyoubot|outbrain|pinterest|slackbot|vkshare|w3c_validator|whatsapp|flipboard|tumblr|bitlybot|skypeuripreview|nuzzel|discordbot|google-structured-data-testing-tool|petalbot).*"
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://res.cloudinary.com https://*.cloudinary.com https://images.unsplash.com; connect-src 'self' https: http://localhost:*; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         }
-      ],
-      "destination": "https://konnevia-backend.onrender.com/render/blog/:slug"
-    },
+      ]
+    }
+  ],
+  "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"

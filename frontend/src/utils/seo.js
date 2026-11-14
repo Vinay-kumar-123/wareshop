@@ -1,14 +1,17 @@
 export const siteConfig = {
-  name: 'KONNEVIA',
-  tagline: 'Discover. Connect. Get Things Done.',
-  url: 'https://konnevia.in',
-  description: 'KONNEVIA is a Pan-India service marketplace connecting customers with verified professionals across Home & Construction, Events & Lifestyle, Business & Property, Digital & Professional, and Education & Career services.',
-  supportEmail: 'hello@konnevia.in',
+  name: 'WARESHOP',
+  defaultTitle: 'WARESHOP | Find Commercial Spaces & Businesses',
+  url: 'https://wareshop.in',
+  description: 'Find commercial shops, offices, warehouses and godowns across India with WARESHOP.',
+  defaultImage: '/og-image.png',
 };
 
 export function buildPageTitle(pageTitle) {
-  if (!pageTitle) return `${siteConfig.name} — ${siteConfig.tagline}`;
-  return `${pageTitle} — ${siteConfig.name}`;
+  if (!pageTitle) return siteConfig.defaultTitle;
+  if (pageTitle.startsWith(`${siteConfig.name} |`) || pageTitle.endsWith(`| ${siteConfig.name}`)) {
+    return pageTitle;
+  }
+  return `${pageTitle} | ${siteConfig.name}`;
 }
 
 export function buildCanonical(path = '') {

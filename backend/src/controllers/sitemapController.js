@@ -3,16 +3,19 @@ import Provider from '../models/Provider.js';
 import env from '../config/env.js';
 import logger from '../utils/logger.js';
 
-const SITE_URL = 'https://konnevia.in';
+const SITE_URL = 'https://wareshop.in';
 
 // Static public pages that belong in the sitemap
 const STATIC_ROUTES = [
   { loc: '/', changefreq: 'weekly', priority: '1.0' },
   { loc: '/categories', changefreq: 'weekly', priority: '0.9' },
+  { loc: '/categories/shop', changefreq: 'weekly', priority: '0.8' },
+  { loc: '/categories/office', changefreq: 'weekly', priority: '0.8' },
+  { loc: '/categories/warehouse', changefreq: 'weekly', priority: '0.8' },
+  { loc: '/categories/godown', changefreq: 'weekly', priority: '0.8' },
   { loc: '/providers', changefreq: 'weekly', priority: '0.8' },
   { loc: '/become-a-partner', changefreq: 'monthly', priority: '0.8' },
   { loc: '/about', changefreq: 'monthly', priority: '0.6' },
-  { loc: '/contact', changefreq: 'monthly', priority: '0.6' },
   { loc: '/privacy-policy', changefreq: 'yearly', priority: '0.4' },
   { loc: '/terms', changefreq: 'yearly', priority: '0.4' },
 ];

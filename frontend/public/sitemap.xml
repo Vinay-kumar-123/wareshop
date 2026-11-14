@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://konnevia.in/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>
-  <url><loc>https://konnevia.in/categories</loc><priority>0.9</priority><changefreq>weekly</changefreq></url>
-  <url><loc>https://konnevia.in/providers</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
-  <url><loc>https://konnevia.in/get-quote</loc><priority>0.9</priority><changefreq>monthly</changefreq></url>
-  <url><loc>https://konnevia.in/become-a-partner</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
-  <url><loc>https://konnevia.in/blog</loc><priority>0.8</priority><changefreq>daily</changefreq></url>
-  <url><loc>https://konnevia.in/about</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
-  <url><loc>https://konnevia.in/contact</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
-  <url><loc>https://konnevia.in/privacy-policy</loc><priority>0.4</priority><changefreq>yearly</changefreq></url>
-  <url><loc>https://konnevia.in/terms</loc><priority>0.4</priority><changefreq>yearly</changefreq></url>
+  <url><loc>https://wareshop.in/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://wareshop.in/categories</loc><priority>0.9</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://wareshop.in/categories/shop</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://wareshop.in/categories/office</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://wareshop.in/categories/warehouse</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://wareshop.in/categories/godown</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://wareshop.in/providers</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://wareshop.in/become-a-partner</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
+  <url><loc>https://wareshop.in/about</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
+  <url><loc>https://wareshop.in/privacy-policy</loc><priority>0.4</priority><changefreq>yearly</changefreq></url>
+  <url><loc>https://wareshop.in/terms</loc><priority>0.4</priority><changefreq>yearly</changefreq></url>
 </urlset>

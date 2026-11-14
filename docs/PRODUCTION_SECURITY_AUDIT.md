@@ -1,8 +1,8 @@
 # KONNEVIA Production Security Audit & Hardening Specification
-**Document Version**: 2.0 (Production Release)  
-**Classification**: Engineering & Operations  
-**Platform**: KONNEVIA Multi-Category Marketplace  
-**Auditor**: Application Security Engineering Team  
+**Document Version**: 2.0 (Production Release)
+**Classification**: Engineering & Operations
+**Platform**: KONNEVIA Multi-Category Marketplace
+**Auditor**: Application Security Engineering Team
 
 ---
 

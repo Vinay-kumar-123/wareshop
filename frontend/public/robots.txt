@@ -4,4 +4,4 @@ Disallow: /api/
 Disallow: /admin
 Disallow: /admin/
 
-Sitemap: https://konnevia.in/sitemap.xml
+Sitemap: https://wareshop.in/sitemap.xml

@@ -1,6 +1,6 @@
 # KONNEVIA Provider Onboarding & Shop Image Upload Architecture
-**Document Version**: 2.0 (Production Release)  
-**Modules**: Partner Onboarding Flow, Media Upload Pipeline, Storage Abstraction  
+**Document Version**: 2.0 (Production Release)
+**Modules**: Partner Onboarding Flow, Media Upload Pipeline, Storage Abstraction
 
 ---
 

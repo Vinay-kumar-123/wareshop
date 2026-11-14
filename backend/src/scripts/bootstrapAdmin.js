@@ -1,57 +1,52 @@
 import connectDB, { disconnectDB } from '../config/db.js';
-import Admin from '../models/Admin.js';
-import env from '../config/env.js';
+import env, { isStrongPassword } from '../config/env.js';
+import authService from '../services/authService.js';
 import logger from '../utils/logger.js';
 
 /**
- * CLI script to provision or rotate owner (SUPER_ADMIN) account.
+ * Explicit CLI script to provision or rotate owner (SUPER_ADMIN) account.
  * Usage:
  *   node src/scripts/bootstrapAdmin.js
  *   node src/scripts/bootstrapAdmin.js <email> <password>
  */
 async function run() {
   const args = process.argv.slice(2);
-  const email = (args[0] || env.admin.email || 'admin@konnevia.in').trim().toLowerCase();
-  const password = args[1] || env.admin.password || 'Konnevia@Admin2026!';
+  const email = (args[0] || env.admin.email || '').trim().toLowerCase();
+  const password = args[1] || env.admin.password || '';
 
-  if (!email || !password || password.length < 8) {
-    console.error('Usage: node src/scripts/bootstrapAdmin.js <email> <password (min 8 chars)>');
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    console.error('Error: A valid administrator email is required via CLI argument or ADMIN_EMAIL env var.');
     process.exit(1);
   }
 
-  await connectDB();
+  if (!isStrongPassword(password)) {
+    console.error(
+      'Error: Password must be at least 12 characters and include uppercase, lowercase, number, and symbol.'
+    );
+    process.exit(1);
+  }
+
+  const conn = await connectDB();
+  if (!conn) {
+    console.error('Error: Database connection is required to bootstrap administrator account.');
+    process.exit(1);
+  }
 
   try {
-    const { salt, passwordHash } = Admin.hashPassword(password);
-    let admin = await Admin.findOne({ email });
+    const admin = await authService.bootstrapAdmin({
+      email,
+      password,
+      forceRotate: true,
+      allowInProduction: true,
+    });
 
-    if (admin) {
-      admin.passwordHash = passwordHash;
-      admin.salt = salt;
-      admin.role = 'SUPER_ADMIN';
-      admin.sessionToken = null;
-      admin.sessionExpiresAt = null;
-      admin.passwordRotatedAt = new Date();
-      await admin.save();
-      logger.info(`Existing owner account rotated: ${email}`);
-    } else {
-      admin = new Admin({
-        email,
-        passwordHash,
-        salt,
-        role: 'SUPER_ADMIN',
-        passwordRotatedAt: new Date(),
-      });
-      await admin.save();
-      logger.info(`New owner account provisioned: ${email}`);
-    }
-
-    console.log(`\n========================================================`);
-    console.log(` OWNER ACCOUNT CONFIGURED: ${email}`);
-    console.log(` Role: SUPER_ADMIN`);
-    console.log(` Password Rotated: ${admin.passwordRotatedAt}`);
-    console.log(` Status: Active & Secured`);
-    console.log(`========================================================\n`);
+    console.log('\n========================================================');
+    console.log(` OWNER ACCOUNT CONFIGURED: ${admin.email}`);
+    console.log(` Role: ${admin.role}`);
+    console.log(` Password Rotated: ${admin.passwordRotatedAt?.toISOString()}`);
+    console.log(' Status: Active & Secured (all active sessions revoked)');
+    console.log('========================================================\n');
   } catch (err) {
     logger.error('Failed to bootstrap owner account', { error: err.message });
     process.exit(1);

@@ -1,25 +1,60 @@
 import mongoose from 'mongoose';
-import env from '../config/env.js';
+
+const dbStateMap = {
+  0: 'disconnected',
+  1: 'connected',
+  2: 'connecting',
+  3: 'disconnecting',
+};
 
 export const healthController = {
-  getHealth(req, res) {
-    const dbStateMap = {
-      0: 'disconnected',
-      1: 'connected',
-      2: 'connecting',
-      3: 'disconnecting',
-    };
-
-    const isConnected = mongoose.connection.readyState === 1;
-
+  /**
+   * Liveness probe: confirms the HTTP server process is responsive.
+   */
+  getLiveness(req, res) {
     return res.status(200).json({
-      status: 'ok',
-      service: 'konnevia-backend',
-      environment: env.nodeEnv,
+      status: 'alive',
+      service: 'wareshop-backend',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(process.uptime()),
+    });
+  },
+
+  /**
+   * Readiness probe: confirms MongoDB connection is ready to serve traffic.
+   * Returns HTTP 503 when database is not connected.
+   */
+  getReadiness(req, res) {
+    const readyState = mongoose.connection.readyState;
+    const isConnected = readyState === 1;
+
+    return res.status(isConnected ? 200 : 503).json({
+      status: isConnected ? 'ok' : 'unavailable',
+      ready: isConnected,
+      service: 'wareshop-backend',
+      timestamp: new Date().toISOString(),
+      database: {
+        status: dbStateMap[readyState] || 'unknown',
+        connected: isConnected,
+      },
+    });
+  },
+
+  /**
+   * Combined health check: never returns healthy (200/ok) when database readiness fails.
+   */
+  getHealth(req, res) {
+    const readyState = mongoose.connection.readyState;
+    const isConnected = readyState === 1;
+
+    return res.status(isConnected ? 200 : 503).json({
+      status: isConnected ? 'ok' : 'unavailable',
+      ready: isConnected,
+      service: 'wareshop-backend',
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
       database: {
-        status: dbStateMap[mongoose.connection.readyState] || 'unknown',
+        status: dbStateMap[readyState] || 'unknown',
         connected: isConnected,
       },
     });
