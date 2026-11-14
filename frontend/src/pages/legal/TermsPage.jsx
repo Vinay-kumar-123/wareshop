@@ -12,20 +12,20 @@ export default function TermsPage() {
   });
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen">
-      <div className="bg-white border-b border-slate-200/80">
+    <div className="bg-[#F7F8FA] min-h-screen pb-16">
+      <div className="bg-white border-b border-slate-200/90">
         <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
           <Breadcrumb items={[{ label: 'Terms & Conditions' }]} />
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-bold uppercase tracking-wider mb-3">
-            <Scale className="w-3.5 h-3.5" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#FFF5EF] border border-[#FFE6D5] text-[#B4400E] text-xs font-bold uppercase tracking-wider mb-3">
+            <Scale className="w-3.5 h-3.5 text-[#F36B21]" />
             <span>Marketplace Terms</span>
           </span>
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight mb-2">
+          <h1 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-2">
             WARESHOP Terms & Conditions
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
@@ -33,9 +33,9 @@ export default function TermsPage() {
           </p>
         </div>
 
-        <div className="bg-white p-6 sm:p-10 rounded-2xl border border-slate-200/90 shadow-xs space-y-8 text-slate-700 text-sm sm:text-base leading-relaxed">
+        <div className="bg-white p-6 sm:p-10 rounded-xl border border-slate-200/90 shadow-card space-y-8 text-slate-700 text-xs sm:text-sm leading-relaxed">
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               1. Role of WARESHOP
             </h2>
             <p>
@@ -47,18 +47,19 @@ export default function TermsPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               2. Provider Registration & Listing Rules
             </h2>
-            <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-600">
+            <ul className="list-disc list-inside space-y-1.5 text-slate-600">
               <li>
                 Providers must authenticate using their own valid 10-digit Indian mobile number via
                 2Factor SMS OTP. Submitting another person’s phone number is prohibited.
               </li>
               <li>
-                All submitted listings enter the <strong className="text-slate-900">SUBMITTED</strong>{' '}
-                review state. Only authorized WARESHOP administrators may approve, reject, publish,
-                unpublish, or suspend listings.
+                All submitted listings enter the{' '}
+                <strong className="text-[#171717]">SUBMITTED</strong> review state. Only authorized
+                WARESHOP administrators may approve, reject, publish, unpublish, or suspend
+                listings.
               </li>
               <li>
                 Edits made to a published or approved listing automatically re-enter administrator
@@ -72,7 +73,7 @@ export default function TermsPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               3. Customer Due Diligence
             </h2>
             <p>
@@ -84,10 +85,10 @@ export default function TermsPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               4. Prohibited Conduct
             </h2>
-            <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-600">
+            <ul className="list-disc list-inside space-y-1.5 text-slate-600">
               <li>Automated scraping or bulk harvesting of listing descriptions or phone numbers.</li>
               <li>Submitting fraudulent, misleading, or unauthorized property listings.</li>
               <li>Abusing OTP generation or contact-reveal endpoints.</li>
@@ -95,7 +96,7 @@ export default function TermsPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               5. Governing Law
             </h2>
             <p>

@@ -114,7 +114,7 @@ export default function AdminApplicationsPage() {
       subtitle="Review, filter, approve, or reject submitted commercial property and business applications"
     >
       {/* Search & Filter Header */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 mb-6 space-y-4">
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 mb-6 space-y-4 shadow-2xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Status Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto">
@@ -128,9 +128,9 @@ export default function AdminApplicationsPage() {
                 key={tab.value}
                 type="button"
                 onClick={() => handleTabChange(tab.value)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
                   currentStatus === tab.value
-                    ? 'bg-slate-900 text-white'
+                    ? 'bg-slate-950 text-white'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -142,7 +142,7 @@ export default function AdminApplicationsPage() {
           <button
             type="button"
             onClick={handleReset}
-            className="text-xs font-bold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 cursor-pointer"
+            className="text-xs font-bold text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Filters</span>
@@ -154,7 +154,7 @@ export default function AdminApplicationsPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500"
+            className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#F36B21] focus:bg-white"
             aria-label="Filter by category"
           >
             <option value="all">All Categories</option>
@@ -171,7 +171,7 @@ export default function AdminApplicationsPage() {
             value={cityFilter}
             onChange={(e) => setCityFilter(e.target.value)}
             placeholder="Filter by city (e.g. Mumbai)..."
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-orange-500"
+            className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#F36B21] focus:bg-white"
           />
 
           <div className="relative sm:col-span-2 flex items-center gap-2">
@@ -182,12 +182,12 @@ export default function AdminApplicationsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search business name, contact person, phone, reference ID..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-orange-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#F36B21] focus:bg-white"
               />
             </div>
             <button
               type="submit"
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+              className="px-4 py-2 bg-[#F36B21] hover:bg-[#D95513] text-white rounded-lg text-xs font-bold cursor-pointer shadow-2xs"
             >
               Filter
             </button>
@@ -196,16 +196,16 @@ export default function AdminApplicationsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs">
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
           {error}
         </div>
       )}
 
       {/* Applications Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center">
-            <div className="w-7 h-7 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-2" />
+            <div className="w-7 h-7 border-3 border-[#F36B21] border-t-transparent rounded-full animate-spin mb-2" />
             <p className="text-xs text-slate-500">Querying partner applications...</p>
           </div>
         ) : applications.length === 0 ? (
@@ -221,13 +221,13 @@ export default function AdminApplicationsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="py-3 px-4">Business / Property</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">City</th>
-                  <th className="py-3 px-4">Owner Contact</th>
-                  <th className="py-3 px-4">Reference ID</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
+                  <th className="py-3.5 px-4">Business / Property</th>
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">City</th>
+                  <th className="py-3.5 px-4">Owner Contact</th>
+                  <th className="py-3.5 px-4">Reference ID</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -259,7 +259,7 @@ export default function AdminApplicationsPage() {
                     <td className="py-3.5 px-4 text-right">
                       <Link
                         to={`/admin/applications/${app._id}`}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-orange-400 text-[11px] font-bold text-slate-800 inline-flex items-center gap-1"
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-[#F36B21] text-[11px] font-bold text-slate-800 inline-flex items-center gap-1 transition-colors"
                       >
                         <span>Review</span>
                         <ArrowRight className="w-3 h-3" />

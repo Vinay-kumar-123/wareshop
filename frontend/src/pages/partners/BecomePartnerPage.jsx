@@ -6,6 +6,7 @@ import Alert from '../../components/common/Alert.jsx';
 import leadService from '../../services/leadService.js';
 import api from '../../services/api.js';
 import { categories as fallbackCategories } from '../../data/categories.js';
+import { getCategoryVisual, heroCommercialImg } from '../../assets/categories/index.js';
 import {
   CheckCircle2,
   Clock,
@@ -25,32 +26,46 @@ import {
   AlertTriangle,
   ShieldCheck,
   RefreshCw,
+  MapPin,
+  Image as ImageIcon,
+  Smartphone,
+  KeyRound,
+  Store,
+  Briefcase,
+  Warehouse as WarehouseIcon,
+  Package,
 } from 'lucide-react';
 
 const STATUS_BADGES = {
   SUBMITTED: {
     label: 'Pending Admin Review',
     classes: 'bg-amber-50 text-amber-800 border-amber-200',
+    dot: 'bg-amber-500',
   },
   APPROVED: {
     label: 'Approved (Ready to Publish)',
     classes: 'bg-blue-50 text-blue-800 border-blue-200',
+    dot: 'bg-blue-500',
   },
   PUBLISHED: {
     label: 'Published Live',
     classes: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    dot: 'bg-emerald-500',
   },
   UNPUBLISHED: {
     label: 'Unpublished (Draft)',
     classes: 'bg-slate-100 text-slate-700 border-slate-300',
+    dot: 'bg-slate-400',
   },
   REJECTED: {
     label: 'Rejected',
     classes: 'bg-rose-50 text-rose-800 border-rose-200',
+    dot: 'bg-rose-500',
   },
   SUSPENDED: {
     label: 'Suspended',
     classes: 'bg-red-100 text-red-900 border-red-300',
+    dot: 'bg-red-600',
   },
 };
 
@@ -522,9 +537,11 @@ export default function BecomePartnerPage() {
 
   if (checkingSession) {
     return (
-      <div className="bg-[#F8FAFC] min-h-[70vh] flex flex-col items-center justify-center p-8">
-        <div className="w-9 h-9 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-xs sm:text-sm text-slate-500 font-medium">Loading Provider Portal...</p>
+      <div className="bg-[#F7F8FA] min-h-[70vh] flex flex-col items-center justify-center p-8">
+        <div className="w-10 h-10 border-3 border-[#F36B21] border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-xs sm:text-sm text-slate-600 font-semibold">
+          Loading WARESHOP Provider Portal...
+        </p>
       </div>
     );
   }
@@ -534,86 +551,168 @@ export default function BecomePartnerPage() {
   // ============================================================================
   if (!account) {
     return (
-      <div className="bg-[#F8FAFC] min-h-screen pb-16">
-        <div className="bg-white border-b border-slate-200/80">
+      <div className="bg-[#F7F8FA] min-h-screen pb-16">
+        <div className="bg-white border-b border-slate-200">
           <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
             <Breadcrumb items={[{ label: 'Provider Portal' }]} />
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left Column: Value Proposition */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+            {/* Left Column: Value Proposition & Visual Showcase */}
             <div className="lg:col-span-6 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold uppercase tracking-wider">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Provider Portal & OTP Authentication</span>
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF5EF] border border-[#FFE6D5] text-[#D95513] text-xs font-extrabold uppercase tracking-wider mb-3">
+                  <ShieldCheck className="w-4 h-4 text-[#F36B21]" />
+                  <span>Provider Portal & OTP Authentication</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-950 tracking-tight leading-tight">
+                  List Your Commercial Property or Business on WARESHOP
+                </h1>
+                <p className="text-slate-600 text-sm sm:text-base leading-relaxed mt-3">
+                  Register or sign in with your Indian mobile number via 2Factor SMS OTP. Once
+                  authenticated, you can submit new listings for{' '}
+                  <strong className="text-slate-900">
+                    Shops, Offices, Warehouses, and Godowns
+                  </strong>
+                  , track approval status, and manage your published profiles.
+                </p>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight">
-                List Your Commercial Property or Business on WARESHOP
-              </h1>
-              <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-                Register or sign in with your Indian mobile number via 2Factor SMS OTP. Once
-                authenticated, you can submit new listings for{' '}
-                <strong className="text-slate-900">Shops, Offices, Warehouses, and Godowns</strong>,
-                track approval status, and edit your published profiles.
-              </p>
 
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 space-y-4 shadow-xs">
-                <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
-                  Why List on WARESHOP?
-                </h2>
-                <ul className="space-y-3 text-xs sm:text-sm text-slate-600">
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      <strong className="text-slate-900">Direct Customer Calls:</strong> Customers
-                      call you directly on your verified phone number.
+              {/* Supported Categories Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { name: 'Shop', sub: 'Retail & Showrooms', icon: Store },
+                  { name: 'Office', sub: 'Business Suites', icon: Briefcase },
+                  { name: 'Warehouse', sub: 'Logistics Hubs', icon: WarehouseIcon },
+                  { name: 'Godown', sub: 'Bulk Storage', icon: Package },
+                ].map((cat) => {
+                  const Icon = cat.icon;
+                  return (
+                    <div
+                      key={cat.name}
+                      className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[#FFF5EF] text-[#F36B21] flex items-center justify-center mb-2">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <p className="text-xs font-extrabold text-slate-950">{cat.name}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{cat.sub}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Why List Card */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                <div className="relative h-36 bg-slate-900 overflow-hidden">
+                  <img
+                    src={heroCommercialImg}
+                    alt="WARESHOP Commercial Properties"
+                    loading="lazy"
+                    className="w-full h-full object-cover opacity-55"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+                  <div className="absolute bottom-3.5 left-5 right-5 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#F36B21]">
+                        Direct Commercial Discovery
+                      </span>
+                      <h2 className="text-sm sm:text-base font-black text-white">
+                        Why Property Owners Choose WARESHOP
+                      </h2>
+                    </div>
+                    <span className="px-2.5 py-1 rounded bg-white/10 backdrop-blur-xs text-[11px] font-bold text-white border border-white/15">
+                      Zero Commission
                     </span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      <strong className="text-slate-900">Verified Ownership:</strong> Your listing’s
-                      contact number is locked to your OTP-verified mobile number so no one can
-                      impersonate your phone.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      <strong className="text-slate-900">Full Lifecycle Dashboard:</strong> Track
-                      pending applications, rejection reasons, and live published listings in one
-                      place.
-                    </span>
-                  </li>
-                </ul>
+                  </div>
+                </div>
+                <div className="p-5 sm:p-6">
+                  <ul className="space-y-3.5 text-xs sm:text-sm text-slate-600">
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-slate-900">Direct Customer Calls:</strong>{' '}
+                        Verified commercial buyers and tenants call you directly on your phone
+                        number without middlemen.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-slate-900">OTP-Locked Ownership:</strong> Your
+                        listing’s contact number is locked to your OTP-verified mobile number so no
+                        one can impersonate your business.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong className="text-slate-900">Full Lifecycle Control:</strong> Track
+                        pending applications, view moderation feedback, and update published
+                        listings anytime.
+                      </span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
 
             {/* Right Column: OTP Login / Registration Card */}
             <div className="lg:col-span-6">
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-sm">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <span className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-card">
+                {/* Step Indicator */}
+                <div className="flex items-center gap-2 pb-5 mb-6 border-b border-slate-100">
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                      !otpSent
+                        ? 'bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5]'
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>1. Mobile Number</span>
+                  </div>
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                      otpSent
+                        ? 'bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5]'
+                        : 'bg-slate-100 text-slate-400 border border-slate-200'
+                    }`}
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>2. Verify SMS OTP</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="w-11 h-11 rounded-xl bg-[#FFF5EF] border border-[#FFE6D5] text-[#F36B21] flex items-center justify-center shrink-0">
                     <PhoneCall className="w-5 h-5" />
                   </span>
                   <div>
                     <h2 className="text-xl font-black text-slate-950">
                       Provider Sign In / Register
                     </h2>
-                    <p className="text-xs text-slate-500">
-                      New and returning providers sign in using mobile OTP
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      New and returning property owners sign in using 2Factor SMS OTP
                     </p>
                   </div>
                 </div>
 
                 {authError && (
-                  <Alert type="error" title="Authentication Error" message={authError} className="mt-4" />
+                  <Alert
+                    type="error"
+                    title="Authentication Error"
+                    message={authError}
+                    className="mt-4"
+                  />
                 )}
                 {authNotice && (
-                  <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium">
-                    {authNotice}
+                  <div className="mt-4 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{authNotice}</span>
                   </div>
                 )}
 
@@ -624,12 +723,14 @@ export default function BecomePartnerPage() {
                   <div>
                     <label
                       htmlFor="provider-auth-phone"
-                      className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                     >
                       Indian Mobile Number <span className="text-red-500">*</span>
                     </label>
                     <div className="relative flex items-center">
-                      <span className="absolute left-3.5 text-sm font-bold text-slate-500">+91</span>
+                      <span className="absolute left-3.5 text-sm font-extrabold text-slate-500 select-none">
+                        +91
+                      </span>
                       <input
                         id="provider-auth-phone"
                         type="tel"
@@ -641,13 +742,13 @@ export default function BecomePartnerPage() {
                           if (otpSent) setOtpSent(false);
                         }}
                         placeholder="98XXXXXXXX"
-                        className="w-full pl-12 pr-4 py-3 text-sm sm:text-base font-semibold bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                        className="w-full pl-12 pr-4 py-3 text-sm sm:text-base font-bold bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:ring-2 focus:ring-[#F36B21]/15 focus:bg-white transition-all"
                         required
                       />
                     </div>
                     <p className="mt-1.5 text-[11px] text-slate-500">
                       This verified mobile number will be used for direct customer calls on your
-                      listings.
+                      published listings.
                     </p>
                   </div>
 
@@ -656,7 +757,7 @@ export default function BecomePartnerPage() {
                       <div>
                         <label
                           htmlFor="provider-auth-name"
-                          className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                         >
                           Your Name (Optional for Returning Providers)
                         </label>
@@ -666,28 +767,43 @@ export default function BecomePartnerPage() {
                           value={authName}
                           onChange={(e) => setAuthName(e.target.value)}
                           placeholder="e.g. Rajesh Sharma"
-                          className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:ring-2 focus:ring-[#F36B21]/15 focus:bg-white transition-all"
                         />
                       </div>
 
                       <button
                         type="submit"
                         disabled={authLoading}
-                        className="w-full py-3.5 px-6 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                        className="w-full py-3.5 px-6 rounded-lg bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                       >
-                        <span>{authLoading ? 'Sending OTP via 2Factor...' : 'Request SMS OTP'}</span>
+                        <span>
+                          {authLoading ? 'Sending OTP via 2Factor...' : 'Request SMS OTP'}
+                        </span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
                     </>
                   ) : (
                     <>
                       <div>
-                        <label
-                          htmlFor="provider-auth-otp"
-                          className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
-                        >
-                          Enter 6-Digit SMS OTP <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label
+                            htmlFor="provider-auth-otp"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700"
+                          >
+                            Enter 6-Digit SMS OTP <span className="text-red-500">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOtpSent(false);
+                              setAuthOtp('');
+                              setAuthNotice('');
+                            }}
+                            className="text-[11px] font-bold text-[#F36B21] hover:underline cursor-pointer"
+                          >
+                            Change Number
+                          </button>
+                        </div>
                         <input
                           id="provider-auth-otp"
                           type="text"
@@ -696,7 +812,7 @@ export default function BecomePartnerPage() {
                           value={authOtp}
                           onChange={(e) => setAuthOtp(e.target.value.replace(/\D/g, ''))}
                           placeholder="••••••"
-                          className="w-full px-4 py-3 text-center tracking-[0.4em] text-lg font-black bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          className="w-full px-4 py-3 text-center tracking-[0.45em] text-lg font-black bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:ring-2 focus:ring-[#F36B21]/15 focus:bg-white"
                           required
                         />
                       </div>
@@ -705,7 +821,7 @@ export default function BecomePartnerPage() {
                         <button
                           type="submit"
                           disabled={authLoading}
-                          className="flex-1 py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                          className="flex-1 py-3.5 px-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                         >
                           <span>
                             {authLoading ? 'Verifying OTP...' : 'Verify OTP & Enter Dashboard'}
@@ -716,7 +832,7 @@ export default function BecomePartnerPage() {
                           type="button"
                           disabled={authLoading}
                           onClick={handleSendOtp}
-                          className="py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
+                          className="py-3 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
                         >
                           Resend OTP
                         </button>
@@ -724,6 +840,17 @@ export default function BecomePartnerPage() {
                     </>
                   )}
                 </form>
+
+                <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                  <span>Looking for commercial spaces instead?</span>
+                  <Link
+                    to="/providers"
+                    className="font-bold text-[#F36B21] hover:text-[#D95513] inline-flex items-center gap-1"
+                  >
+                    <span>Browse Directory</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -744,16 +871,16 @@ export default function BecomePartnerPage() {
   ];
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen pb-16">
+    <div className="bg-[#F7F8FA] min-h-screen pb-16">
       {/* Top Portal Bar */}
       <div className="bg-slate-950 text-white border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-400 mb-1">
+            <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-400 mb-1.5">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>OTP-Verified Provider Session (+91 {account.phone})</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               {account.name ? `Welcome, ${account.name}` : 'WARESHOP Provider Dashboard'}
             </h1>
           </div>
@@ -762,7 +889,7 @@ export default function BecomePartnerPage() {
             <button
               type="button"
               onClick={startNewListing}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-xs"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Add New Listing</span>
@@ -770,7 +897,7 @@ export default function BecomePartnerPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-200 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-slate-700 hover:border-slate-500 text-slate-200 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -782,7 +909,7 @@ export default function BecomePartnerPage() {
       {/* Suspension Notice if Account is Suspended */}
       {account.status === 'SUSPENDED' && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-          <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 flex items-start gap-3">
+          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div className="text-xs sm:text-sm">
               <strong className="font-bold block">Provider Account Suspended</strong>
@@ -794,11 +921,20 @@ export default function BecomePartnerPage() {
       )}
 
       {/* Main Portal Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           {/* Sidebar Navigation */}
           <aside className="lg:col-span-3">
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-3 shadow-xs space-y-1">
+            <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-1">
+              <div className="px-3.5 py-2.5 mb-1 border-b border-slate-100">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  Verified Mobile Account
+                </span>
+                <span className="text-xs font-extrabold text-slate-900 block mt-0.5">
+                  +91 {account.phone}
+                </span>
+              </div>
+
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive =
@@ -808,13 +944,17 @@ export default function BecomePartnerPage() {
                     key={item.id}
                     type="button"
                     onClick={() => (item.id === 'submit' ? startNewListing() : switchTab(item.id))}
-                    className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-colors text-left cursor-pointer ${
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-colors text-left cursor-pointer ${
                       isActive
-                        ? 'bg-orange-50 text-orange-600'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                        ? 'bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5]'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950 border border-transparent'
                     }`}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? 'text-[#F36B21]' : 'text-slate-400'
+                      }`}
+                    />
                     <span>{item.label}</span>
                   </button>
                 );
@@ -824,7 +964,7 @@ export default function BecomePartnerPage() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
                   <span>Sign Out</span>
@@ -839,54 +979,66 @@ export default function BecomePartnerPage() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
                       Total Listings
                     </span>
                     <p className="text-2xl sm:text-3xl font-black text-slate-950 mt-1">
                       {stats.total}
                     </p>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      All submitted properties
+                    </span>
                   </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-600">
                       Published Live
                     </span>
                     <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">
                       {stats.published}
                     </p>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Visible in directory
+                    </span>
                   </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                    <span className="text-xs font-bold uppercase tracking-wider text-amber-600">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-600">
                       Pending Review
                     </span>
                     <p className="text-2xl sm:text-3xl font-black text-amber-700 mt-1">
                       {stats.submitted}
                     </p>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Awaiting moderation
+                    </span>
                   </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600">
                       Approved
                     </span>
                     <p className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">
                       {stats.approved}
                     </p>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Verified by admin
+                    </span>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
+                  <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
                     <div>
                       <h2 className="text-lg font-extrabold text-slate-950">
                         Your Recent Commercial Listings
                       </h2>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         Manage your properties and monitor administrator review status.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={loadDashboardData}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-orange-600 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 hover:text-[#F36B21] cursor-pointer transition-colors"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Refresh</span>
@@ -894,18 +1046,18 @@ export default function BecomePartnerPage() {
                   </div>
 
                   {listings.length === 0 ? (
-                    <div className="py-10 text-center border-2 border-dashed border-slate-200 rounded-xl">
-                      <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                    <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                      <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2.5" />
                       <h3 className="text-sm font-bold text-slate-900">
                         You haven’t submitted any listings yet
                       </h3>
-                      <p className="text-xs text-slate-500 mt-1 mb-4">
+                      <p className="text-xs text-slate-500 mt-1 mb-5 max-w-md mx-auto">
                         Submit your first Shop, Office, Warehouse, or Godown listing for review.
                       </p>
                       <button
                         type="button"
                         onClick={startNewListing}
-                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
                       >
                         <PlusCircle className="w-4 h-4" />
                         <span>Submit First Listing</span>
@@ -915,31 +1067,46 @@ export default function BecomePartnerPage() {
                     <div className="space-y-3">
                       {listings.slice(0, 5).map((item) => {
                         const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                        const hasOwnerPhoto = Boolean(item.shopImage?.url);
+                        const thumbUrl = hasOwnerPhoto
+                          ? item.shopImage.url
+                          : getCategoryVisual(item.categorySlug || item.category);
                         return (
                           <div
                             key={item.id}
-                            className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                            className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
                           >
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                                  {item.businessName}
-                                </h3>
-                                <span
-                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
-                                >
-                                  {badge.label}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-500 mt-1">
-                                {item.category} • {item.city}
-                                {item.referenceId ? ` • Ref: ${item.referenceId}` : ''}
-                              </p>
-                              {item.rejectionReason && (
-                                <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg">
-                                  <strong>Rejection Reason:</strong> {item.rejectionReason}
+                            <div className="flex items-start gap-3.5">
+                              <img
+                                src={thumbUrl}
+                                alt={item.businessName}
+                                loading="lazy"
+                                className="w-16 h-14 rounded-lg object-cover border border-slate-200 shrink-0 hidden sm:block"
+                              />
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                                    {item.businessName}
+                                  </h3>
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
+                                  >
+                                    {badge.label}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  <span className="font-semibold text-slate-700">
+                                    {item.category}
+                                  </span>{' '}
+                                  • {item.city}
+                                  {item.referenceId ? ` • Ref: ${item.referenceId}` : ''}
                                 </p>
-                              )}
+                                {item.rejectionReason && (
+                                  <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg">
+                                    <strong>Rejection Reason:</strong> {item.rejectionReason}
+                                  </p>
+                                )}
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
@@ -956,7 +1123,7 @@ export default function BecomePartnerPage() {
                                 <button
                                   type="button"
                                   onClick={() => startEditListing(item)}
-                                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 text-xs font-bold cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5] hover:bg-[#FFE6D5]/60 text-xs font-bold cursor-pointer"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                   <span>Edit</span>
@@ -974,18 +1141,20 @@ export default function BecomePartnerPage() {
 
             {/* TAB 2: MY LISTINGS */}
             {activeTab === 'listings' && (
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
                   <div>
-                    <h2 className="text-xl font-extrabold text-slate-950">My Commercial Listings</h2>
-                    <p className="text-xs text-slate-500">
+                    <h2 className="text-xl font-extrabold text-slate-950">
+                      My Commercial Listings
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
                       View and edit your submitted, approved, and published listings.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={startNewListing}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
                   >
                     <PlusCircle className="w-4 h-4" />
                     <span>Add New Listing</span>
@@ -993,12 +1162,13 @@ export default function BecomePartnerPage() {
                 </div>
 
                 {listings.length === 0 ? (
-                  <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                  <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
                     <p className="text-sm font-bold text-slate-800 mb-2">No listings found</p>
                     <button
                       type="button"
                       onClick={startNewListing}
-                      className="px-4 py-2 rounded-xl bg-orange-500 text-white text-xs font-bold"
+                      className="px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
                     >
                       Add Your First Listing
                     </button>
@@ -1007,63 +1177,88 @@ export default function BecomePartnerPage() {
                   <div className="space-y-4">
                     {listings.map((item) => {
                       const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                      const hasOwnerPhoto = Boolean(item.shopImage?.url);
+                      const thumbUrl = hasOwnerPhoto
+                        ? item.shopImage.url
+                        : getCategoryVisual(item.categorySlug || item.category);
                       return (
                         <div
                           key={item.id}
-                          className="p-5 rounded-2xl border border-slate-200 flex flex-col md:flex-row justify-between gap-5"
+                          className="p-5 rounded-xl border border-slate-200 hover:border-slate-300 flex flex-col md:flex-row justify-between gap-5 transition-colors"
                         >
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-2.5 py-0.5 rounded">
-                                {item.category}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 flex-1 min-w-0">
+                            <div className="relative w-full sm:w-36 h-28 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                              <img
+                                src={thumbUrl}
+                                alt={item.businessName}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-slate-900/75 text-white text-[9px] font-bold">
+                                {hasOwnerPhoto ? 'Owner Photo' : 'Category Visual'}
                               </span>
-                              <span
-                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
-                              >
-                                {badge.label}
-                              </span>
-                              {item.referenceId && (
-                                <span className="text-xs font-mono text-slate-400">
-                                  {item.referenceId}
-                                </span>
-                              )}
                             </div>
 
-                            <h3 className="text-lg font-extrabold text-slate-900">
-                              {item.businessName}
-                            </h3>
-                            <p className="text-xs text-slate-600 line-clamp-2">
-                              {item.description}
-                            </p>
-                            <p className="text-xs text-slate-500 font-medium">
-                              Location: {[item.address, item.city, item.state, item.pinCode].filter(Boolean).join(', ')}
-                            </p>
+                            <div className="space-y-2 flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-[#D95513] bg-[#FFF5EF] border border-[#FFE6D5] px-2.5 py-0.5 rounded">
+                                  {item.category}
+                                </span>
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
+                                >
+                                  {badge.label}
+                                </span>
+                                {item.referenceId && (
+                                  <span className="text-xs font-mono text-slate-400">
+                                    {item.referenceId}
+                                  </span>
+                                )}
+                              </div>
 
-                            {item.customCategoryRequest && (
-                              <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg inline-block">
-                                Custom Category Request ({item.customCategoryRequest.requestedName}):{' '}
-                                <strong>{item.customCategoryRequest.status}</strong>
+                              <h3 className="text-lg font-extrabold text-slate-900">
+                                {item.businessName}
+                              </h3>
+                              <p className="text-xs text-slate-600 line-clamp-2">
+                                {item.description}
                               </p>
-                            )}
+                              <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 text-[#F36B21] shrink-0" />
+                                <span className="truncate">
+                                  {[item.address, item.city, item.state, item.pinCode]
+                                    .filter(Boolean)
+                                    .join(', ')}
+                                </span>
+                              </p>
 
-                            {item.rejectionReason && (
-                              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
-                                <strong>Administrator Rejection Note:</strong> {item.rejectionReason}
-                              </div>
-                            )}
+                              {item.customCategoryRequest && (
+                                <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg inline-block">
+                                  Custom Category Request (
+                                  {item.customCategoryRequest.requestedName}):{' '}
+                                  <strong>{item.customCategoryRequest.status}</strong>
+                                </p>
+                              )}
 
-                            {item.suspensionReason && (
-                              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900">
-                                <strong>Suspension Note:</strong> {item.suspensionReason}
-                              </div>
-                            )}
+                              {item.rejectionReason && (
+                                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                                  <strong>Administrator Rejection Note:</strong>{' '}
+                                  {item.rejectionReason}
+                                </div>
+                              )}
+
+                              {item.suspensionReason && (
+                                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-900">
+                                  <strong>Suspension Note:</strong> {item.suspensionReason}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex md:flex-col justify-end gap-2 shrink-0">
                             {item.status === 'PUBLISHED' && item.slug && (
                               <Link
                                 to={`/providers/${item.slug}`}
-                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800"
+                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800"
                               >
                                 <span>Public Profile</span>
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -1073,7 +1268,7 @@ export default function BecomePartnerPage() {
                               <button
                                 type="button"
                                 onClick={() => startEditListing(item)}
-                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                                 <span>Edit Listing</span>
@@ -1090,7 +1285,7 @@ export default function BecomePartnerPage() {
 
             {/* TAB 3: ADD / EDIT LISTING FORM */}
             {(activeTab === 'submit' || activeTab === 'edit') && (
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-xs">
+              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-xs">
                 {submissionSuccess ? (
                   <div className="text-center py-6">
                     <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-200">
@@ -1107,7 +1302,7 @@ export default function BecomePartnerPage() {
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 max-w-md mx-auto text-left text-xs space-y-2 mb-6">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Reference ID:</span>
-                        <span className="font-mono font-bold text-orange-600">
+                        <span className="font-mono font-bold text-[#F36B21]">
                           {submissionSuccess.referenceId}
                         </span>
                       </div>
@@ -1126,14 +1321,14 @@ export default function BecomePartnerPage() {
                       <button
                         type="button"
                         onClick={() => switchTab('listings')}
-                        className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+                        className="px-5 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
                       >
                         View My Listings
                       </button>
                       <button
                         type="button"
                         onClick={startNewListing}
-                        className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                        className="px-5 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold cursor-pointer"
                       >
                         Add Another Listing
                       </button>
@@ -1143,7 +1338,9 @@ export default function BecomePartnerPage() {
                   <>
                     <div className="mb-6 pb-4 border-b border-slate-100">
                       <h2 className="text-xl font-black text-slate-950">
-                        {editingListingId ? 'Edit Commercial Listing' : 'Add New Commercial Listing'}
+                        {editingListingId
+                          ? 'Edit Commercial Listing'
+                          : 'Add New Commercial Listing'}
                       </h2>
                       <p className="text-xs text-slate-500 mt-1">
                         {editingListingId
@@ -1162,12 +1359,12 @@ export default function BecomePartnerPage() {
                     )}
 
                     <form onSubmit={handleListingSubmit} className="space-y-6" noValidate>
-                      {/* Business Name & Category */}
+                      {/* Section 1: Property & Category */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div className="sm:col-span-2">
                           <label
                             htmlFor="listing-businessName"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Business / Property Name <span className="text-red-500">*</span>
                           </label>
@@ -1178,17 +1375,19 @@ export default function BecomePartnerPage() {
                             value={formData.businessName}
                             onChange={handleFormChange}
                             placeholder="e.g. Apex Industrial Warehouse & Logistics Park"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.businessName && (
-                            <p className="mt-1 text-xs text-red-600">{errors.businessName}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.businessName}
+                            </p>
                           )}
                         </div>
 
                         <div>
                           <label
                             htmlFor="listing-category"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Category <span className="text-red-500">*</span>
                           </label>
@@ -1197,7 +1396,7 @@ export default function BecomePartnerPage() {
                             name="category"
                             value={formData.category}
                             onChange={handleFormChange}
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white cursor-pointer"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white cursor-pointer"
                           >
                             <option value="">Select Category</option>
                             {availableCategories.map((c) => (
@@ -1208,7 +1407,9 @@ export default function BecomePartnerPage() {
                             <option value="other">Other — Request Custom Category</option>
                           </select>
                           {errors.category && (
-                            <p className="mt-1 text-xs text-red-600">{errors.category}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.category}
+                            </p>
                           )}
                         </div>
 
@@ -1216,7 +1417,7 @@ export default function BecomePartnerPage() {
                           <div>
                             <label
                               htmlFor="listing-customCategoryName"
-                              className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                             >
                               Requested Custom Category <span className="text-red-500">*</span>
                             </label>
@@ -1227,10 +1428,10 @@ export default function BecomePartnerPage() {
                               value={formData.customCategoryName}
                               onChange={handleFormChange}
                               placeholder="e.g. Cold Storage Facility"
-                              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                             />
                             {errors.customCategoryName && (
-                              <p className="mt-1 text-xs text-red-600">
+                              <p className="mt-1 text-xs font-medium text-red-600">
                                 {errors.customCategoryName}
                               </p>
                             )}
@@ -1240,7 +1441,7 @@ export default function BecomePartnerPage() {
                         <div className={formData.category === 'other' ? 'sm:col-span-2' : ''}>
                           <label
                             htmlFor="listing-servicesOffered"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Services / Facilities Offered <span className="text-red-500">*</span>
                           </label>
@@ -1251,10 +1452,12 @@ export default function BecomePartnerPage() {
                             value={formData.servicesOffered}
                             onChange={handleFormChange}
                             placeholder="e.g. Retail Frontage, Loading Dock, 24x7 Security"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.servicesOffered && (
-                            <p className="mt-1 text-xs text-red-600">{errors.servicesOffered}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.servicesOffered}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -1263,7 +1466,7 @@ export default function BecomePartnerPage() {
                       <div>
                         <label
                           htmlFor="listing-businessDescription"
-                          className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                          className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                         >
                           Property / Business Description <span className="text-red-500">*</span>
                         </label>
@@ -1274,10 +1477,12 @@ export default function BecomePartnerPage() {
                           value={formData.businessDescription}
                           onChange={handleFormChange}
                           placeholder="Describe the commercial property or business, access roads, suitability, and key highlights..."
-                          className="w-full p-3.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                          className="w-full p-3.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                         />
                         {errors.businessDescription && (
-                          <p className="mt-1 text-xs text-red-600">{errors.businessDescription}</p>
+                          <p className="mt-1 text-xs font-medium text-red-600">
+                            {errors.businessDescription}
+                          </p>
                         )}
                       </div>
 
@@ -1286,7 +1491,7 @@ export default function BecomePartnerPage() {
                         <div>
                           <label
                             htmlFor="listing-contactPerson"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Contact Person <span className="text-red-500">*</span>
                           </label>
@@ -1297,18 +1502,20 @@ export default function BecomePartnerPage() {
                             value={formData.contactPerson}
                             onChange={handleFormChange}
                             placeholder="Full Name"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.contactPerson && (
-                            <p className="mt-1 text-xs text-red-600">{errors.contactPerson}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.contactPerson}
+                            </p>
                           )}
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                             Verified Mobile (Locked)
                           </label>
-                          <div className="w-full px-3.5 py-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 font-bold flex items-center justify-between">
+                          <div className="w-full px-3.5 py-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 font-bold flex items-center justify-between">
                             <span>+91 {account.phone}</span>
                             <Lock className="w-3.5 h-3.5 text-emerald-700" />
                           </div>
@@ -1317,7 +1524,7 @@ export default function BecomePartnerPage() {
                         <div>
                           <label
                             htmlFor="listing-email"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Email (Optional)
                           </label>
@@ -1328,10 +1535,10 @@ export default function BecomePartnerPage() {
                             value={formData.email}
                             onChange={handleFormChange}
                             placeholder="owner@business.com"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.email && (
-                            <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">{errors.email}</p>
                           )}
                         </div>
                       </div>
@@ -1341,7 +1548,7 @@ export default function BecomePartnerPage() {
                         <div className="sm:col-span-3">
                           <label
                             htmlFor="listing-address"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Street Address / Landmark <span className="text-red-500">*</span>
                           </label>
@@ -1352,17 +1559,19 @@ export default function BecomePartnerPage() {
                             value={formData.address}
                             onChange={handleFormChange}
                             placeholder="Plot / Shop No., Industrial Area or Commercial Complex"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.address && (
-                            <p className="mt-1 text-xs text-red-600">{errors.address}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.address}
+                            </p>
                           )}
                         </div>
 
                         <div>
                           <label
                             htmlFor="listing-city"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             City <span className="text-red-500">*</span>
                           </label>
@@ -1373,17 +1582,17 @@ export default function BecomePartnerPage() {
                             value={formData.city}
                             onChange={handleFormChange}
                             placeholder="e.g. Mumbai"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.city && (
-                            <p className="mt-1 text-xs text-red-600">{errors.city}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">{errors.city}</p>
                           )}
                         </div>
 
                         <div>
                           <label
                             htmlFor="listing-state"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             State <span className="text-red-500">*</span>
                           </label>
@@ -1394,17 +1603,17 @@ export default function BecomePartnerPage() {
                             value={formData.state}
                             onChange={handleFormChange}
                             placeholder="e.g. Maharashtra"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.state && (
-                            <p className="mt-1 text-xs text-red-600">{errors.state}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">{errors.state}</p>
                           )}
                         </div>
 
                         <div>
                           <label
                             htmlFor="listing-pinCode"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             PIN Code <span className="text-red-500">*</span>
                           </label>
@@ -1416,17 +1625,19 @@ export default function BecomePartnerPage() {
                             value={formData.pinCode}
                             onChange={handleFormChange}
                             placeholder="400001"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.pinCode && (
-                            <p className="mt-1 text-xs text-red-600">{errors.pinCode}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.pinCode}
+                            </p>
                           )}
                         </div>
 
                         <div className="sm:col-span-2">
                           <label
                             htmlFor="listing-website"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Website URL (Optional)
                           </label>
@@ -1437,17 +1648,19 @@ export default function BecomePartnerPage() {
                             value={formData.website}
                             onChange={handleFormChange}
                             placeholder="https://www.yourbusiness.in"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                           {errors.website && (
-                            <p className="mt-1 text-xs text-red-600">{errors.website}</p>
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.website}
+                            </p>
                           )}
                         </div>
 
                         <div>
                           <label
                             htmlFor="listing-serviceAreas"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                           >
                             Nearby Localities
                           </label>
@@ -1458,14 +1671,14 @@ export default function BecomePartnerPage() {
                             value={formData.serviceAreas}
                             onChange={handleFormChange}
                             placeholder="Andheri, Bhiwandi, Navi Mumbai"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                           />
                         </div>
                       </div>
 
                       {/* Image Upload */}
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                           Property / Business Photograph (JPEG, PNG, WebP — Max 5MB)
                         </label>
                         <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 bg-slate-50 text-center">
@@ -1482,12 +1695,12 @@ export default function BecomePartnerPage() {
                                 <img
                                   src={shopImagePreview}
                                   alt="Preview"
-                                  className="w-36 h-24 object-cover rounded-lg border border-slate-200"
+                                  className="w-40 h-28 object-cover rounded-lg border border-slate-200"
                                 />
                                 <button
                                   type="button"
                                   onClick={handleRemoveImage}
-                                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center"
+                                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center cursor-pointer"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
@@ -1495,7 +1708,7 @@ export default function BecomePartnerPage() {
                               <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+                                className="text-xs font-bold text-[#F36B21] hover:underline cursor-pointer"
                               >
                                 Choose a different photo
                               </button>
@@ -1504,17 +1717,23 @@ export default function BecomePartnerPage() {
                             <button
                               type="button"
                               onClick={() => fileInputRef.current?.click()}
-                              className="inline-flex flex-col items-center gap-1.5 cursor-pointer"
+                              className="inline-flex flex-col items-center gap-1.5 cursor-pointer py-2"
                             >
-                              <Upload className="w-6 h-6 text-orange-500" />
-                              <span className="text-xs font-bold text-orange-600">
+                              <Upload className="w-6 h-6 text-[#F36B21]" />
+                              <span className="text-xs font-bold text-[#F36B21]">
                                 Click to upload property or business image
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                If no photo is uploaded, a clearly labeled category illustration
+                                will be shown.
                               </span>
                             </button>
                           )}
                         </div>
                         {errors.shopImage && (
-                          <p className="mt-1 text-xs text-red-600">{errors.shopImage}</p>
+                          <p className="mt-1 text-xs font-medium text-red-600">
+                            {errors.shopImage}
+                          </p>
                         )}
                       </div>
 
@@ -1526,7 +1745,7 @@ export default function BecomePartnerPage() {
                             name="consentToDisplayPhone"
                             checked={formData.consentToDisplayPhone}
                             onChange={handleFormChange}
-                            className="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                            className="mt-0.5 rounded border-slate-300 text-[#F36B21] focus:ring-[#F36B21]"
                           />
                           <span className="text-slate-700">
                             <strong className="text-slate-900">
@@ -1543,7 +1762,7 @@ export default function BecomePartnerPage() {
                             name="consentToContact"
                             checked={formData.consentToContact}
                             onChange={handleFormChange}
-                            className="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                            className="mt-0.5 rounded border-slate-300 text-[#F36B21] focus:ring-[#F36B21]"
                           />
                           <span className="text-slate-700">
                             I confirm that I am the authorized owner or representative of this
@@ -1551,7 +1770,9 @@ export default function BecomePartnerPage() {
                           </span>
                         </label>
                         {errors.consentToContact && (
-                          <p className="text-xs text-red-600">{errors.consentToContact}</p>
+                          <p className="text-xs font-medium text-red-600">
+                            {errors.consentToContact}
+                          </p>
                         )}
                       </div>
 
@@ -1560,7 +1781,7 @@ export default function BecomePartnerPage() {
                           <button
                             type="button"
                             onClick={() => switchTab('listings')}
-                            className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
+                            className="px-5 py-2.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -1568,7 +1789,7 @@ export default function BecomePartnerPage() {
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer"
+                          className="px-6 py-3 rounded-lg bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer shadow-xs"
                         >
                           <span>
                             {isSubmitting
@@ -1588,14 +1809,16 @@ export default function BecomePartnerPage() {
 
             {/* TAB 4: APPLICATION STATUS */}
             {activeTab === 'status' && (
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs">
-                <h2 className="text-xl font-extrabold text-slate-950 mb-1">
-                  Application & Review Status
-                </h2>
-                <p className="text-xs text-slate-500 mb-6">
-                  Track every listing application through WARESHOP’s verification lifecycle (
-                  SUBMITTED → APPROVED → PUBLISHED).
-                </p>
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
+                <div className="mb-6 pb-4 border-b border-slate-100">
+                  <h2 className="text-xl font-extrabold text-slate-950 mb-1">
+                    Application & Review Status
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Track every listing application through WARESHOP’s verification lifecycle (
+                    SUBMITTED → APPROVED → PUBLISHED).
+                  </p>
+                </div>
 
                 {listings.length === 0 ? (
                   <p className="text-sm text-slate-500 py-8 text-center">
@@ -1605,17 +1828,25 @@ export default function BecomePartnerPage() {
                   <div className="space-y-4">
                     {listings.map((item) => {
                       const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                      const stepIndex =
+                        item.status === 'PUBLISHED'
+                          ? 3
+                          : item.status === 'APPROVED'
+                            ? 2
+                            : item.status === 'SUBMITTED'
+                              ? 1
+                              : 0;
                       return (
                         <div
                           key={item.id}
-                          className="p-5 rounded-xl border border-slate-200 space-y-3"
+                          className="p-5 rounded-xl border border-slate-200 space-y-4"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div>
                               <span className="text-xs font-mono text-slate-400 block">
                                 Reference: {item.referenceId || item.applicationId}
                               </span>
-                              <h3 className="text-base font-bold text-slate-900">
+                              <h3 className="text-base font-extrabold text-slate-900">
                                 {item.businessName} ({item.category})
                               </h3>
                             </div>
@@ -1626,14 +1857,36 @@ export default function BecomePartnerPage() {
                             </span>
                           </div>
 
+                          {/* Visual Step Tracker for standard pipeline */}
+                          {stepIndex > 0 && (
+                            <div className="grid grid-cols-3 gap-2 pt-1">
+                              {[
+                                { step: 1, label: '1. Submitted' },
+                                { step: 2, label: '2. Approved' },
+                                { step: 3, label: '3. Published Live' },
+                              ].map((st) => (
+                                <div
+                                  key={st.step}
+                                  className={`px-3 py-2 rounded-lg text-center text-xs font-bold border ${
+                                    stepIndex >= st.step
+                                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                                  }`}
+                                >
+                                  {st.label}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
                           {item.rejectionReason && (
-                            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
                               <strong>Reason for Rejection:</strong> {item.rejectionReason}
                             </div>
                           )}
 
                           {item.suspensionReason && (
-                            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900">
+                            <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-900">
                               <strong>Reason for Suspension:</strong> {item.suspensionReason}
                             </div>
                           )}
@@ -1647,7 +1900,7 @@ export default function BecomePartnerPage() {
                               <button
                                 type="button"
                                 onClick={() => startEditListing(item)}
-                                className="font-bold text-orange-600 hover:underline cursor-pointer"
+                                className="font-bold text-[#F36B21] hover:underline cursor-pointer"
                               >
                                 Edit & Resubmit →
                               </button>
@@ -1663,17 +1916,19 @@ export default function BecomePartnerPage() {
 
             {/* TAB 5: ACCOUNT PROFILE */}
             {activeTab === 'profile' && (
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-xs">
-                <h2 className="text-xl font-extrabold text-slate-950 mb-1">
-                  Provider Account Profile
-                </h2>
-                <p className="text-xs text-slate-500 mb-6">
-                  Your mobile number is verified via 2Factor SMS OTP and locked to your provider
-                  account.
-                </p>
+              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+                <div className="mb-6 pb-4 border-b border-slate-100">
+                  <h2 className="text-xl font-extrabold text-slate-950 mb-1">
+                    Provider Account Profile
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Your mobile number is verified via 2Factor SMS OTP and locked to your provider
+                    account.
+                  </p>
+                </div>
 
                 {profileMessage && (
-                  <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
+                  <div className="mb-4 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
                     {profileMessage}
                   </div>
                 )}
@@ -1686,7 +1941,7 @@ export default function BecomePartnerPage() {
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                       Verified Indian Mobile Number
                     </label>
-                    <div className="px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800 flex items-center justify-between">
+                    <div className="px-4 py-3 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800 flex items-center justify-between">
                       <span>+91 {account.phone}</span>
                       <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                         OTP Verified
@@ -1697,7 +1952,7 @@ export default function BecomePartnerPage() {
                   <div>
                     <label
                       htmlFor="profile-name"
-                      className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                     >
                       Account Holder / Owner Name
                     </label>
@@ -1707,14 +1962,14 @@ export default function BecomePartnerPage() {
                       value={profileForm.name}
                       onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
                       placeholder="Your full name"
-                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor="profile-email"
-                      className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                     >
                       Email Address (Optional)
                     </label>
@@ -1724,14 +1979,14 @@ export default function BecomePartnerPage() {
                       value={profileForm.email}
                       onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))}
                       placeholder="you@company.com"
-                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white"
+                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={profileSaving}
-                    className="px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs sm:text-sm font-bold cursor-pointer"
+                    className="px-6 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white text-xs sm:text-sm font-bold cursor-pointer shadow-xs"
                   >
                     {profileSaving ? 'Saving...' : 'Save Account Profile'}
                   </button>

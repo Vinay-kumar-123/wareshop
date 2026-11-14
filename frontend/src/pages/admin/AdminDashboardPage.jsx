@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Activity,
   FolderPlus,
+  RefreshCw,
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import api from '../../services/api.js';
@@ -19,11 +20,13 @@ function StatCard({ label, value, icon: Icon, tone, href, helper }) {
   return (
     <Link
       to={href}
-      className="bg-white border border-slate-200/90 rounded-2xl p-5 hover:border-orange-400 hover:shadow-xs transition-all flex flex-col justify-between"
+      className="bg-white border border-slate-200 rounded-xl p-5 hover:border-[#F36B21] hover:shadow-card transition-all flex flex-col justify-between group"
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500">{label}</p>
-        <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tone}`}>
+        <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500 group-hover:text-slate-800 transition-colors">
+          {label}
+        </p>
+        <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${tone}`}>
           <Icon className="w-4 h-4" />
         </span>
       </div>
@@ -38,13 +41,21 @@ function StatCard({ label, value, icon: Icon, tone, href, helper }) {
 export default function AdminDashboardPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadDashboard = useCallback(() => {
+    setLoading(true);
+    setError('');
     api
       .get('/admin/dashboard')
       .then((res) => setData(res.data))
-      .catch((err) => setError(err.message || 'Unable to load dashboard statistics'));
+      .catch((err) => setError(err.message || 'Unable to load dashboard statistics'))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   const stats = data?.stats;
 
@@ -54,30 +65,43 @@ export default function AdminDashboardPage() {
       subtitle="Real-time commercial marketplace statistics, applications, and audit trail"
     >
       {error && (
-        <div className="p-4 mb-6 text-xs sm:text-sm bg-rose-50 border border-rose-200 text-rose-700 rounded-xl">
+        <div className="p-4 mb-6 text-xs sm:text-sm bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-semibold">
           {error}
         </div>
       )}
 
-      {!data ? (
-        <div className="py-24 text-center text-sm text-slate-500">
-          Loading marketplace operations…
+      {loading && !data ? (
+        <div className="py-24 text-center bg-white rounded-xl border border-slate-200">
+          <div className="w-8 h-8 border-3 border-[#F36B21] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-semibold text-slate-500">
+            Loading marketplace operations…
+          </p>
         </div>
-      ) : (
+      ) : data ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white border border-slate-200 rounded-2xl p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
             <div>
-              <p className="font-bold text-slate-900">Direct Customer-to-Business Marketplace</p>
+              <p className="font-extrabold text-slate-950 text-sm sm:text-base">
+                Direct Customer-to-Business Marketplace Operations
+              </p>
               <p className="text-xs text-slate-500 mt-0.5">
                 Customers contact published property and business owners directly. Use this console
                 to verify applications and manage public listings.
               </p>
             </div>
-            <div className="flex items-center gap-2.5">
-              {stats.pendingCategoryRequests > 0 && (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={loadDashboard}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+              {stats?.pendingCategoryRequests > 0 && (
                 <Link
                   to="/admin/category-requests"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-200"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-200"
                 >
                   <FolderPlus className="w-4 h-4" />
                   <span>{stats.pendingCategoryRequests} Category Requests</span>
@@ -85,87 +109,95 @@ export default function AdminDashboardPage() {
               )}
               <Link
                 to="/admin/applications?status=pending"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold transition-colors shadow-xs"
               >
-                <span>Review Pending ({stats.pendingApplications ?? stats.applications?.pending ?? 0})</span>
+                <span>
+                  Review Pending (
+                  {stats?.pendingApplications ?? stats?.applications?.pending ?? 0})
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
 
-          {/* All 7 Required Admin Dashboard Metrics */}
+          {/* All Required Admin Dashboard KPI Cards from Live API */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="Total Providers"
-              value={stats.totalProviders ?? stats.providers?.totalAccounts ?? 0}
+              value={stats?.totalProviders ?? stats?.providers?.totalAccounts ?? 0}
               icon={Users}
-              tone="bg-blue-50 text-blue-700"
+              tone="bg-blue-50 text-blue-700 border border-blue-200"
               href="/admin/providers"
               helper="OTP-verified provider accounts"
             />
             <StatCard
               label="Total Applications"
-              value={stats.totalApplications ?? stats.applications?.total ?? 0}
+              value={stats?.totalApplications ?? stats?.applications?.total ?? 0}
               icon={FileCheck2}
-              tone="bg-orange-50 text-orange-600"
+              tone="bg-[#FFF5EF] text-[#F36B21] border border-[#FFE6D5]"
               href="/admin/applications?status=all"
               helper="All submitted applications"
             />
             <StatCard
               label="Pending Applications"
-              value={stats.pendingApplications ?? stats.applications?.pending ?? 0}
+              value={stats?.pendingApplications ?? stats?.applications?.pending ?? 0}
               icon={Clock}
-              tone="bg-amber-50 text-amber-700"
+              tone="bg-amber-50 text-amber-700 border border-amber-200"
               href="/admin/applications?status=pending"
               helper="Awaiting administrator review"
             />
             <StatCard
               label="Approved Listings"
-              value={stats.approvedListings ?? stats.providers?.approved ?? 0}
+              value={stats?.approvedListings ?? stats?.providers?.approved ?? 0}
               icon={Building2}
-              tone="bg-indigo-50 text-indigo-700"
+              tone="bg-indigo-50 text-indigo-700 border border-indigo-200"
               href="/admin/providers?publication=DRAFT"
               helper="Verified & ready to publish"
             />
             <StatCard
               label="Published Listings"
-              value={stats.publishedListings ?? stats.providers?.published ?? 0}
+              value={stats?.publishedListings ?? stats?.providers?.published ?? 0}
               icon={CheckCircle2}
-              tone="bg-emerald-50 text-emerald-700"
+              tone="bg-emerald-50 text-emerald-700 border border-emerald-200"
               href="/admin/providers?publication=PUBLISHED"
               helper="Live in public marketplace"
             />
             <StatCard
               label="Rejected Applications"
-              value={stats.rejectedApplications ?? stats.applications?.rejected ?? 0}
+              value={stats?.rejectedApplications ?? stats?.applications?.rejected ?? 0}
               icon={XCircle}
-              tone="bg-rose-50 text-rose-700"
+              tone="bg-rose-50 text-rose-700 border border-rose-200"
               href="/admin/applications?status=rejected"
               helper="Declined with reason"
             />
             <StatCard
               label="Suspended Providers"
-              value={stats.suspendedProviders ?? stats.providers?.suspended ?? 0}
+              value={stats?.suspendedProviders ?? stats?.providers?.suspended ?? 0}
               icon={ShieldAlert}
-              tone="bg-red-100 text-red-800"
+              tone="bg-red-100 text-red-800 border border-red-200"
               href="/admin/providers?status=SUSPENDED"
-              helper={`${stats.suspendedListings ?? 0} suspended listings`}
+              helper={`${stats?.suspendedListings ?? 0} suspended listings`}
             />
             <StatCard
               label="Category Requests"
-              value={stats.pendingCategoryRequests ?? 0}
+              value={stats?.pendingCategoryRequests ?? 0}
               icon={FolderPlus}
-              tone="bg-purple-50 text-purple-700"
+              tone="bg-purple-50 text-purple-700 border border-purple-200"
               href="/admin/category-requests"
               helper="Pending custom categories"
             />
           </div>
 
           <div className="mt-7 grid lg:grid-cols-2 gap-6">
-            <section className="bg-white border border-slate-200 rounded-2xl p-6">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h2 className="font-bold text-slate-900">Recent Applications</h2>
-                <Link className="text-xs font-bold text-orange-600 hover:underline" to="/admin/applications">
+            <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
+                <h2 className="font-extrabold text-slate-950 text-sm sm:text-base">
+                  Recent Applications
+                </h2>
+                <Link
+                  className="text-xs font-bold text-[#F36B21] hover:underline"
+                  to="/admin/applications"
+                >
                   View all →
                 </Link>
               </div>
@@ -186,7 +218,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <Link
                         to={`/admin/applications/${app._id}`}
-                        className="text-xs font-bold text-orange-600 hover:underline shrink-0"
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-[#F36B21] text-xs font-bold text-slate-800 shrink-0 transition-colors"
                       >
                         Review →
                       </Link>
@@ -200,13 +232,16 @@ export default function AdminDashboardPage() {
               )}
             </section>
 
-            <section className="bg-white border border-slate-200 rounded-2xl p-6">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h2 className="font-bold text-slate-900 flex gap-2 items-center">
-                  <Activity className="w-4 h-4 text-orange-500" />
+            <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
+                <h2 className="font-extrabold text-slate-950 text-sm sm:text-base flex gap-2 items-center">
+                  <Activity className="w-4 h-4 text-[#F36B21]" />
                   <span>Recent Activity</span>
                 </h2>
-                <Link className="text-xs font-bold text-orange-600 hover:underline" to="/admin/activity-logs">
+                <Link
+                  className="text-xs font-bold text-[#F36B21] hover:underline"
+                  to="/admin/activity-logs"
+                >
                   Full audit log →
                 </Link>
               </div>
@@ -232,7 +267,7 @@ export default function AdminDashboardPage() {
             </section>
           </div>
         </>
-      )}
+      ) : null}
     </AdminLayout>
   );
 }

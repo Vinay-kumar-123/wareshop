@@ -12,20 +12,20 @@ export default function PrivacyPolicyPage() {
   });
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen">
-      <div className="bg-white border-b border-slate-200/80">
+    <div className="bg-[#F7F8FA] min-h-screen pb-16">
+      <div className="bg-white border-b border-slate-200/90">
         <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
           <Breadcrumb items={[{ label: 'Privacy Policy' }]} />
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-bold uppercase tracking-wider mb-3">
-            <ShieldCheck className="w-3.5 h-3.5" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#FFF5EF] border border-[#FFE6D5] text-[#B4400E] text-xs font-bold uppercase tracking-wider mb-3">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#F36B21]" />
             <span>Privacy Governance</span>
           </span>
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight mb-2">
+          <h1 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-2">
             WARESHOP Privacy Policy
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
@@ -33,9 +33,9 @@ export default function PrivacyPolicyPage() {
           </p>
         </div>
 
-        <div className="bg-white p-6 sm:p-10 rounded-2xl border border-slate-200/90 shadow-xs space-y-8 text-slate-700 text-sm sm:text-base leading-relaxed">
+        <div className="bg-white p-6 sm:p-10 rounded-xl border border-slate-200/90 shadow-card space-y-8 text-slate-700 text-xs sm:text-sm leading-relaxed">
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               1. Overview & Marketplace Model
             </h2>
             <p>
@@ -47,30 +47,30 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               2. Information We Collect
             </h2>
-            <ul className="list-disc list-inside space-y-2 text-sm text-slate-600">
+            <ul className="list-disc list-inside space-y-2 text-slate-600">
               <li>
-                <strong className="text-slate-900">Provider Account & OTP Verification:</strong>{' '}
+                <strong className="text-[#171717]">Provider Account & OTP Verification:</strong>{' '}
                 10-digit Indian mobile number, optional account holder name and email address, and
                 cryptographic OTP challenge metadata used to authenticate business owners via
                 2Factor SMS OTP.
               </li>
               <li>
-                <strong className="text-slate-900">Commercial Listing Information:</strong>{' '}
+                <strong className="text-[#171717]">Commercial Listing Information:</strong>{' '}
                 Business/property name, category (Shop, Office, Warehouse, Godown, or custom
                 category request), description, services offered, contact person, address, city,
                 state, PIN code, optional website, uploaded property photographs, and explicit phone
                 display consent.
               </li>
               <li>
-                <strong className="text-slate-900">Image Privacy & Metadata Stripping:</strong>{' '}
-                Uploaded property images are validated server-side and automatically stripped of embedded
-                EXIF/GPS camera metadata before storage.
+                <strong className="text-[#171717]">Image Privacy & Metadata Stripping:</strong>{' '}
+                Uploaded property images are validated server-side and automatically stripped of
+                embedded EXIF/GPS camera metadata before storage.
               </li>
               <li>
-                <strong className="text-slate-900">Security & Rate-Limit Logs:</strong> Request IP
+                <strong className="text-[#171717]">Security & Rate-Limit Logs:</strong> Request IP
                 addresses and timestamps used strictly to prevent OTP abuse, automated scraping of
                 owner phone numbers, and unauthorized access.
               </li>
@@ -78,7 +78,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               3. Direct Contact & Owner Consent
             </h2>
             <p>
@@ -86,7 +86,7 @@ export default function PrivacyPolicyPage() {
               It is revealed to prospective customers through our rate-limited contact endpoint only
               when:
             </p>
-            <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-600">
+            <ul className="list-disc list-inside space-y-1.5 text-slate-600">
               <li>The listing has been approved and published by a WARESHOP administrator;</li>
               <li>The provider account and category are active; and</li>
               <li>
@@ -97,7 +97,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               4. Session Security & Storage
             </h2>
             <p>
@@ -108,20 +108,20 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section className="space-y-2.5">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-950">
+            <h2 className="text-base sm:text-lg font-bold text-[#171717]">
               5. Infrastructure & Third-Party Processors
             </h2>
-            <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-600">
+            <ul className="list-disc list-inside space-y-1.5 text-slate-600">
               <li>
-                <strong className="text-slate-900">Database:</strong> MongoDB Atlas (encrypted cloud
+                <strong className="text-[#171717]">Database:</strong> MongoDB Atlas (encrypted cloud
                 storage).
               </li>
               <li>
-                <strong className="text-slate-900">SMS OTP Delivery:</strong> 2Factor SMS API (used
+                <strong className="text-[#171717]">SMS OTP Delivery:</strong> 2Factor SMS API (used
                 solely for Indian mobile OTP verification).
               </li>
               <li>
-                <strong className="text-slate-900">Media Hosting:</strong> Cloudinary (for
+                <strong className="text-[#171717]">Media Hosting:</strong> Cloudinary (for
                 published commercial listing images).
               </li>
             </ul>

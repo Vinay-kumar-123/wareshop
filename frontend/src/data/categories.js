@@ -1,3 +1,10 @@
+import {
+  shopVisual,
+  officeVisual,
+  warehouseVisual,
+  godownVisual,
+} from '../assets/categories/index.js';
+
 // WARESHOP's property-first commercial business directory taxonomy.
 export const categories = [
   {
@@ -10,9 +17,9 @@ export const categories = [
       'Retail shops, commercial showrooms and high-street storefronts for brands, dealers and distributors.',
     shortDescription: 'Retail & Showrooms',
     icon: 'Store',
-    imageUrl: '/images/categories/shop.jpg',
-    color: '#EA580C',
-    bgColor: '#FFF7ED',
+    imageUrl: shopVisual,
+    color: '#F36B21',
+    bgColor: '#FFF5EF',
     subcategories: [
       {
         id: 'retail-shop',
@@ -37,7 +44,7 @@ export const categories = [
       'Corporate office suites, managed workspaces and commercial business centres across major Indian cities.',
     shortDescription: 'Commercial & Co-work',
     icon: 'Building2',
-    imageUrl: '/images/categories/office.jpg',
+    imageUrl: officeVisual,
     color: '#1D4ED8',
     bgColor: '#EFF6FF',
     subcategories: [
@@ -64,7 +71,7 @@ export const categories = [
       'Large-scale distribution centres, industrial warehouses and multi-dock logistics facilities.',
     shortDescription: 'Logistics & Large Hubs',
     icon: 'Warehouse',
-    imageUrl: '/images/categories/warehouse.jpg',
+    imageUrl: warehouseVisual,
     color: '#047857',
     bgColor: '#ECFDF5',
     subcategories: [
@@ -91,7 +98,7 @@ export const categories = [
       'Small and medium storage facilities, wholesale stock depots and city-accessible inventory godowns.',
     shortDescription: 'Storage & Small Depot',
     icon: 'Package',
-    imageUrl: '/images/categories/godown.jpg',
+    imageUrl: godownVisual,
     color: '#7C3AED',
     bgColor: '#F5F3FF',
     subcategories: [

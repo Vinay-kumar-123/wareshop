@@ -1,70 +1,78 @@
 import React from 'react';
-import { Search, Send, UserCheck, Shield, CheckCircle2, Lock, FileText } from 'lucide-react';
+import { Search, Building2, PhoneCall, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
 import SectionHeading from '../common/SectionHeading.jsx';
 
 export function HowItWorksSection() {
   const steps = [
     {
       step: '01',
-      title: 'Discover a Service',
-      description: 'Explore approved marketplace categories, review verified offerings, and pinpoint the exact service you require.',
+      title: 'Search by Category & City',
+      description:
+        'Filter commercial shops, offices, warehouses, and godowns by keyword, space type, city, or industrial locality.',
       icon: Search,
+      badge: 'Instant Directory Search',
     },
     {
       step: '02',
-      title: 'Submit an Enquiry',
-      description: 'Share your project scope, location, timeline, and budget through our secure, transparent 2-minute enquiry form.',
-      icon: Send,
+      title: 'Inspect Verified Space Details',
+      description:
+        'Review property descriptions, facilities offered, service coverage, and owner-uploaded photographs.',
+      icon: Building2,
+      badge: 'Admin-Reviewed Profiles',
     },
     {
       step: '03',
-      title: 'Connect with a Suitable Provider',
-      description: 'Our advisory team manually verifies your enquiry and introduces you to vetted professionals with your explicit consent.',
-      icon: UserCheck,
+      title: 'Call the Owner Directly',
+      description:
+        'Reveal the OTP-verified mobile number of the business or property owner and speak with them directly.',
+      icon: PhoneCall,
+      badge: 'Zero Middlemen or Brokerage',
     },
   ];
 
   return (
-    <section className="section-padding bg-slate-50/70 border-y border-border/60" aria-labelledby="hiw-title">
+    <section
+      className="section-padding bg-slate-50/80 border-y border-slate-200/80"
+      aria-labelledby="hiw-title"
+    >
       <div className="container-max">
         <SectionHeading
           id="hiw-title"
-          tag="Simple & Controlled Workflow"
+          tag="Direct Commercial Discovery"
           title="How WARESHOP Works"
-          subtitle="A disciplined, human-assisted process connecting customers with verified professionals without algorithmic guesswork."
+          subtitle="Connect directly with commercial property and business owners across India without call-center lead brokers."
           align="center"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10 mt-10">
-          {steps.map((item, index) => {
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mt-10">
+          {steps.map((item) => {
             const Icon = item.icon;
             return (
               <div
-                key={index}
-                className="bg-white p-7 sm:p-8 rounded-lg border border-border/80 shadow-card flex flex-col justify-between relative group hover:border-accent/40 transition-all duration-200"
+                key={item.step}
+                className="bg-white p-6 sm:p-7 rounded-xl border border-slate-200/90 shadow-card flex flex-col justify-between relative group hover:border-[#F36B21]/50 transition-all duration-200"
               >
-                {/* Step indicator pill */}
-                <div className="flex items-center justify-between mb-6">
-                  <span className="text-2xl font-black text-accent tracking-tight">
-                    {item.step}
-                  </span>
-                  <div className="w-12 h-12 rounded-lg bg-accent-50 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-                    <Icon className="w-6 h-6" aria-hidden="true" />
+                <div className="flex items-center justify-between mb-5">
+                  <div className="w-11 h-11 rounded-lg bg-[#FFF5EF] border border-[#FFE6D5] flex items-center justify-center text-[#F36B21] group-hover:bg-[#F36B21] group-hover:text-white transition-colors duration-200">
+                    <Icon className="w-5 h-5" aria-hidden="true" />
                   </div>
+                  <span className="text-xs font-black text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md tracking-wider">
+                    STEP {item.step}
+                  </span>
                 </div>
 
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-primary mb-3">
+                  <h3 className="text-base sm:text-lg font-bold text-[#171717] mb-2">
                     {item.title}
                   </h3>
-                  <p className="text-text-muted text-xs sm:text-sm leading-relaxed">
+                  <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
                     {item.description}
                   </p>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-border/40 text-[11px] font-semibold text-text-muted/80 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-accent" aria-hidden="true" />
-                  <span>Manual review at every step</span>
+                <div className="mt-5 pt-3.5 border-t border-slate-100 text-[11px] font-semibold text-slate-600 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#F36B21]" aria-hidden="true" />
+                  <span>{item.badge}</span>
                 </div>
               </div>
             );
@@ -78,24 +86,28 @@ export function HowItWorksSection() {
 export function TrustSection() {
   const pillars = [
     {
-      icon: Shield,
-      title: 'Manual Enquiry Verification',
-      description: 'Every customer requirement is individually verified by our internal operations team before any provider assignment is initiated.',
+      icon: ShieldCheck,
+      title: 'OTP-Verified Mobile Numbers',
+      description:
+        'Every provider authenticates their Indian mobile number via 2Factor SMS OTP before submitting a listing.',
     },
     {
-      icon: FileText,
-      title: 'Vetted Provider Credentials',
-      description: 'Provider listings and claimed specialties are manually validated with written authorization prior to publication on the platform.',
+      icon: Building2,
+      title: 'Administrator Review Gate',
+      description:
+        'All new submissions and listing edits are reviewed by WARESHOP administrators prior to publication.',
     },
     {
       icon: Lock,
-      title: 'Explicit Customer Consent',
-      description: 'Your contact details are strictly confidential. We never broadcast your phone number or allow unsolicited vendor telemarketing.',
+      title: 'Anti-Scraping Contact Protection',
+      description:
+        'Owner phone numbers are never exposed in bulk JSON responses and are protected by rate-limited reveal endpoints.',
     },
     {
       icon: CheckCircle2,
-      title: 'Transparent Commission Model',
-      description: 'Zero upfront fees for customers. Transparent commission terms agreed in writing with partners upon successful project completion.',
+      title: 'Zero Fake Ratings or Commissions',
+      description:
+        'We never fabricate reviews or intercept calls. Customers speak directly with the authorized property owner.',
     },
   ];
 
@@ -104,29 +116,27 @@ export function TrustSection() {
       <div className="container-max">
         <SectionHeading
           id="trust-title"
-          tag="Integrity & Transparency"
-          title="Why Customers & Providers Trust WARESHOP"
-          subtitle="Built on high-touch quality assurance and consent-first data governance, not lead spam directories."
+          tag="Governance & Trust"
+          title="Built for Transparent Commercial Discovery"
+          subtitle="Strict verification and data-integrity rules protect both commercial space seekers and business owners."
           align="center"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-7 mt-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-10">
           {pillars.map((item, index) => {
             const Icon = item.icon;
             return (
               <div
                 key={index}
-                className="p-6 rounded-lg bg-background border border-border/80 flex flex-col justify-start"
+                className="p-6 rounded-xl bg-[#F7F8FA] border border-slate-200/80 flex flex-col justify-start"
               >
-                <div className="w-11 h-11 rounded-md bg-accent-50 text-accent flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-lg bg-[#FFF5EF] border border-[#FFE6D5] text-[#F36B21] flex items-center justify-center mb-4">
                   <Icon className="w-5 h-5" aria-hidden="true" />
                 </div>
-                <h3 className="text-base font-bold text-primary mb-2">
+                <h3 className="text-sm sm:text-base font-bold text-[#171717] mb-1.5">
                   {item.title}
                 </h3>
-                <p className="text-text-muted text-xs sm:text-sm leading-relaxed">
-                  {item.description}
-                </p>
+                <p className="text-slate-600 text-xs leading-relaxed">{item.description}</p>
               </div>
             );
           })}

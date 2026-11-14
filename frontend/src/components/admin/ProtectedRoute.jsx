@@ -8,8 +8,11 @@ export default function ProtectedRoute({ children }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <div className="w-8 h-8 border-3 border-teal-400 border-t-transparent rounded-full animate-spin mb-3" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-white">
+        <div className="w-9 h-9 border-3 border-[#F36B21] border-t-transparent rounded-full animate-spin mb-3" />
+        <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          Verifying Admin Session...
+        </span>
       </div>
     );
   }

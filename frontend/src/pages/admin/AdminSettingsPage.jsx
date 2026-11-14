@@ -11,29 +11,37 @@ export default function AdminSettingsPage() {
       title="Admin Platform Settings & Security"
       subtitle="Security parameters, credential rotation procedures, and deployment environment status"
     >
-      <div className="space-y-8">
-        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs">
-          <h2 className="text-base font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-orange-500" />
+      <div className="space-y-6">
+        <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-2xs">
+          <h2 className="text-base font-extrabold text-slate-950 mb-4 pb-3 border-b border-slate-100 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#F36B21]" />
             <span>Active Administrator Session</span>
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-400 block mb-1">Authenticated Account</span>
-              <span className="font-mono font-bold text-slate-900 text-sm">{admin?.email}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs">
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Authenticated Account
+              </span>
+              <span className="font-mono font-bold text-slate-900 text-sm">
+                {admin?.email || 'Administrator'}
+              </span>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-400 block mb-1">Role / Privilege Level</span>
-              <span className="font-bold text-orange-600 text-sm uppercase">
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Role / Privilege Level
+              </span>
+              <span className="font-extrabold text-[#F36B21] text-sm uppercase">
                 {admin?.role || 'ADMIN'}
               </span>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-400 block mb-1">Session Storage</span>
-              <span className="font-semibold text-emerald-700 inline-flex items-center gap-1">
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Session Storage
+              </span>
+              <span className="font-bold text-emerald-700 inline-flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5" />
                 <span>In-Memory Bearer Session (SHA-256 Hashed in DB)</span>
               </span>
@@ -41,19 +49,19 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-          <h2 className="text-base font-bold text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <KeyRound className="w-4 h-4 text-orange-500" />
+        <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+          <h2 className="text-base font-extrabold text-slate-950 pb-3 border-b border-slate-100 flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-[#F36B21]" />
             <span>Production Credential Management & Rotation Policy</span>
           </h2>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
             In compliance with WARESHOP security standards, administrator credentials are never
             hardcoded. All credentials are driven by backend environment variables and salted scrypt
             cryptographic hashing.
           </p>
 
-          <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-3 text-xs">
-            <span className="font-bold text-slate-900 block text-xs uppercase tracking-wider">
+          <div className="bg-slate-50 p-5 rounded-lg border border-slate-200 space-y-3 text-xs">
+            <span className="font-extrabold text-slate-900 block text-xs uppercase tracking-wider">
               Safe Rotation Procedure:
             </span>
             <ol className="list-decimal list-inside space-y-2 text-slate-700 leading-relaxed">
@@ -62,11 +70,11 @@ export default function AdminSettingsPage() {
                 <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
                   ADMIN_PASSWORD
                 </code>{' '}
-                in your Render environment configuration.
+                in your deployment environment configuration.
               </li>
               <li>
                 <strong>Execute Controlled Rotation:</strong> Run the backend bootstrap command:
-                <pre className="mt-1 p-2.5 bg-slate-900 text-orange-400 rounded-lg font-mono text-[11px] overflow-x-auto">
+                <pre className="mt-1.5 p-3 bg-slate-950 text-[#F36B21] rounded-lg font-mono text-[11px] overflow-x-auto">
                   node src/scripts/bootstrapAdmin.js &lt;admin-email&gt; &quot;&lt;NewStrongPassword&gt;&quot;
                 </pre>
               </li>
@@ -78,14 +86,14 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-          <h2 className="text-base font-bold text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
-            <Server className="w-4 h-4 text-orange-500" />
+        <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+          <h2 className="text-base font-extrabold text-slate-950 pb-3 border-b border-slate-100 flex items-center gap-2">
+            <Server className="w-4 h-4 text-[#F36B21]" />
             <span>Active Production Security Controls</span>
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
+            <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-slate-900 block mb-0.5">Helmet & CSP Protection</strong>
@@ -95,7 +103,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
-            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
+            <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-slate-900 block mb-0.5">Strict CORS Allowlist</strong>
@@ -105,7 +113,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
-            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
+            <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-slate-900 block mb-0.5">NoSQL Injection Sanitizer</strong>
@@ -116,7 +124,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
-            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
+            <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/50 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-slate-900 block mb-0.5">

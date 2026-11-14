@@ -1,46 +1,51 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, ArrowLeft, Search } from 'lucide-react';
+import { Home, Search, Compass } from 'lucide-react';
 import { usePageMeta } from '../hooks/usePageMeta.js';
-import Button from '../components/common/Button.jsx';
 
 export default function NotFoundPage() {
   usePageMeta({
-    title: 'Page Not Found (404)',
+    title: 'Page Not Found (404) | WARESHOP',
     description: 'The requested page could not be found on WARESHOP.',
   });
 
   return (
-    <div className="section-padding container-max min-h-[65vh] flex flex-col items-center justify-center text-center">
-      <div className="relative mb-6">
-        <span className="text-8xl sm:text-9xl font-black text-primary/10 tracking-tighter select-none">
+    <div className="bg-[#F7F8FA] min-h-[70vh] flex items-center justify-center px-4 py-16">
+      <div className="bg-white border border-slate-200/90 rounded-xl p-8 sm:p-12 max-w-lg w-full text-center shadow-card">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-[#FFF5EF] border border-[#FFE6D5] text-[#F36B21] font-black text-xl mb-5">
           404
-        </span>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xl sm:text-2xl font-bold text-primary">Lost in Space?</span>
         </div>
-      </div>
+        <h1 className="text-2xl sm:text-3xl font-black text-[#171717] mb-2">
+          Page Not Found
+        </h1>
+        <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-7">
+          The page or commercial listing you are looking for may have been moved, unpublished, or
+          is temporarily unavailable.
+        </p>
 
-      <h1 className="text-2xl sm:text-3xl font-extrabold text-primary mb-3">
-        Page Not Found
-      </h1>
-      <p className="text-text-muted text-base max-w-md leading-relaxed mb-8">
-        The page you are looking for may have been relocated, renamed, or is temporarily unavailable.
-      </p>
-
-      <div className="flex flex-col sm:flex-row items-center gap-3">
-        <Link to="/" className="w-full sm:w-auto">
-          <Button variant="primary" className="w-full">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            to="/"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-bold transition-colors"
+          >
             <Home size={16} aria-hidden="true" />
-            <span>Return to Homepage</span>
-          </Button>
-        </Link>
-        <Link to="/categories" className="w-full sm:w-auto">
-          <Button variant="secondary" className="w-full">
-            <Search size={16} aria-hidden="true" />
-            <span>Browse Categories</span>
-          </Button>
-        </Link>
+            <span>Back to Homepage</span>
+          </Link>
+          <Link
+            to="/providers"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 hover:border-[#F36B21] bg-white text-[#171717] text-xs sm:text-sm font-bold transition-colors"
+          >
+            <Compass size={16} aria-hidden="true" />
+            <span>Explore Directory</span>
+          </Link>
+          <Link
+            to="/categories"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-slate-600 hover:text-[#F36B21] text-xs sm:text-sm font-semibold transition-colors"
+          >
+            <Search size={15} aria-hidden="true" />
+            <span>Categories</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

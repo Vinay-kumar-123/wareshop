@@ -24,6 +24,7 @@ export default function AdminProvidersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState(null);
 
   useEffect(() => {
     api
@@ -64,9 +65,10 @@ export default function AdminProvidersPage() {
     fetchProviders();
   }, [publicationStatus, statusFilter, categoryFilter, fetchProviders]);
 
-  const handleQuickAction = async (providerId, action) => {
+  const executeQuickAction = async (providerId, action) => {
     setError('');
     setActionMessage('');
+    setConfirmAction(null);
     try {
       const res = await api.post(`/admin/providers/${providerId}/${action}`, {});
       if (res.success) {
@@ -78,13 +80,25 @@ export default function AdminProvidersPage() {
     }
   };
 
+  const handleQuickAction = (provider, action) => {
+    if (action === 'suspend' || action === 'unpublish') {
+      setConfirmAction({
+        providerId: provider._id,
+        businessName: provider.businessName,
+        action,
+      });
+      return;
+    }
+    executeQuickAction(provider._id, action);
+  };
+
   return (
     <AdminLayout
       title="Providers & Commercial Listings"
       subtitle="Manage listing publication, category assignment, and provider account suspension"
     >
       {/* Filters Header */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 mb-6 space-y-4">
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 mb-6 space-y-4 shadow-2xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 overflow-x-auto">
             {[
@@ -93,8 +107,7 @@ export default function AdminProvidersPage() {
               { label: 'Approved / Draft', pub: 'DRAFT', st: 'all' },
               { label: 'Suspended', pub: 'all', st: 'SUSPENDED' },
             ].map((tab) => {
-              const active =
-                publicationStatus === tab.pub && statusFilter === tab.st;
+              const active = publicationStatus === tab.pub && statusFilter === tab.st;
               return (
                 <button
                   key={tab.label}
@@ -105,9 +118,9 @@ export default function AdminProvidersPage() {
                     if (tab.st !== 'all') next.status = tab.st;
                     setSearchParams(next);
                   }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
                     active
-                      ? 'bg-slate-900 text-white'
+                      ? 'bg-slate-950 text-white'
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -124,7 +137,7 @@ export default function AdminProvidersPage() {
               setSearch('');
               setSearchParams({});
             }}
-            className="text-xs font-bold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 cursor-pointer"
+            className="text-xs font-bold text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
@@ -141,7 +154,7 @@ export default function AdminProvidersPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500"
+            className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#F36B21] focus:bg-white"
           >
             <option value="all">All Categories</option>
             {categories.map((c) => (
@@ -159,12 +172,12 @@ export default function AdminProvidersPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by business name, city, owner phone..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-orange-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#F36B21] focus:bg-white"
               />
             </div>
             <button
               type="submit"
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+              className="px-4 py-2 bg-[#F36B21] hover:bg-[#D95513] text-white rounded-lg text-xs font-bold cursor-pointer shadow-2xs"
             >
               Search
             </button>
@@ -186,10 +199,10 @@ export default function AdminProvidersPage() {
       )}
 
       {/* Providers Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center">
-            <div className="w-7 h-7 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-2" />
+            <div className="w-7 h-7 border-3 border-[#F36B21] border-t-transparent rounded-full animate-spin mb-2" />
             <p className="text-xs text-slate-500">Querying provider listings...</p>
           </div>
         ) : providers.length === 0 ? (
@@ -205,12 +218,12 @@ export default function AdminProvidersPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="py-3 px-4">Business Name & Slug</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">City</th>
-                  <th className="py-3 px-4">Owner Phone</th>
-                  <th className="py-3 px-4">Lifecycle Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4">Business Name & Slug</th>
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">City</th>
+                  <th className="py-3.5 px-4">Owner Phone</th>
+                  <th className="py-3.5 px-4">Lifecycle Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -271,7 +284,7 @@ export default function AdminProvidersPage() {
                           {!isSuspended && !isPublished && p.verificationStatus === 'VERIFIED' && (
                             <button
                               type="button"
-                              onClick={() => handleQuickAction(p._id, 'publish')}
+                              onClick={() => handleQuickAction(p, 'publish')}
                               className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
                             >
                               Publish
@@ -281,7 +294,7 @@ export default function AdminProvidersPage() {
                           {isPublished && (
                             <button
                               type="button"
-                              onClick={() => handleQuickAction(p._id, 'unpublish')}
+                              onClick={() => handleQuickAction(p, 'unpublish')}
                               className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold cursor-pointer"
                             >
                               Unpublish
@@ -291,7 +304,7 @@ export default function AdminProvidersPage() {
                           {isSuspended ? (
                             <button
                               type="button"
-                              onClick={() => handleQuickAction(p._id, 'reactivate')}
+                              onClick={() => handleQuickAction(p, 'reactivate')}
                               className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-[11px] font-bold cursor-pointer"
                             >
                               Reactivate
@@ -299,7 +312,7 @@ export default function AdminProvidersPage() {
                           ) : (
                             <button
                               type="button"
-                              onClick={() => handleQuickAction(p._id, 'suspend')}
+                              onClick={() => handleQuickAction(p, 'suspend')}
                               className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-bold cursor-pointer"
                             >
                               Suspend
@@ -308,7 +321,7 @@ export default function AdminProvidersPage() {
 
                           <Link
                             to={`/admin/providers/${p._id}`}
-                            className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-orange-400 text-[11px] font-bold text-slate-800 inline-flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-[#F36B21] text-[11px] font-bold text-slate-800 inline-flex items-center gap-1"
                           >
                             <Edit className="w-3 h-3" />
                             <span>Edit</span>
@@ -323,6 +336,46 @@ export default function AdminProvidersPage() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog Modal */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-base font-extrabold text-slate-900 mb-2">
+              {confirmAction.action === 'suspend'
+                ? 'Confirm Provider Suspension'
+                : 'Confirm Unpublishing Listing'}
+            </h3>
+            <p className="text-xs text-slate-600 mb-5 leading-relaxed">
+              {confirmAction.action === 'suspend'
+                ? `Are you sure you want to suspend "${confirmAction.businessName}"? This will immediately hide the listing from the public directory and mark the account as suspended.`
+                : `Are you sure you want to unpublish "${confirmAction.businessName}" back to DRAFT status?`}
+            </p>
+            <div className="flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  executeQuickAction(confirmAction.providerId, confirmAction.action)
+                }
+                className={`px-4 py-2 rounded-lg text-white text-xs font-bold cursor-pointer ${
+                  confirmAction.action === 'suspend'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                {confirmAction.action === 'suspend' ? 'Suspend Provider' : 'Unpublish Listing'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

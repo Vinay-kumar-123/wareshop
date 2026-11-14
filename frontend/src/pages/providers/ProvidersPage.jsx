@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usePageMeta } from '../../hooks/usePageMeta.js';
 import Breadcrumb from '../../components/common/Breadcrumb.jsx';
 import ProviderCard from '../../components/marketplace/ProviderCard.jsx';
@@ -16,9 +16,31 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  Store,
+  Building2,
+  Warehouse,
+  Package,
+  ShieldCheck,
+  PlusCircle,
 } from 'lucide-react';
 
-const popularCities = ['Mumbai', 'Delhi NCR', 'Bengaluru', 'Pune', 'Hyderabad', 'Chennai', 'Ahmedabad'];
+const popularCities = [
+  'Mumbai',
+  'Delhi NCR',
+  'Bengaluru',
+  'Pune',
+  'Hyderabad',
+  'Chennai',
+  'Ahmedabad',
+  'Kolkata',
+];
+
+const categoryIcons = {
+  shop: Store,
+  office: Building2,
+  warehouse: Warehouse,
+  godown: Package,
+};
 
 export default function ProvidersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,56 +157,121 @@ export default function ProvidersPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const hasActiveFilters = Boolean(
-    searchParams.get('search') ||
-      searchParams.get('service') ||
-      searchParams.get('location') ||
-      searchParams.get('city') ||
-      searchParams.get('category')
-  );
+  const activeSearch = searchParams.get('search') || searchParams.get('service') || '';
+  const activeLocation = searchParams.get('location') || searchParams.get('city') || '';
+  const activeCategory = searchParams.get('category') || '';
 
+  const hasActiveFilters = Boolean(activeSearch || activeLocation || activeCategory);
   const selectedCategoryObj = categories.find((item) => item.slug === selectedCategory);
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen">
-      {/* Breadcrumb Bar */}
-      <div className="bg-white border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
+    <div className="bg-[#F7F8FA] min-h-screen pb-16">
+      {/* Compact Marketplace Header */}
+      <div className="bg-white border-b border-slate-200/90">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 border-b border-slate-100">
           <Breadcrumb
             items={[
               { label: 'Commercial Directory', href: '/providers' },
-              ...(selectedCategoryObj ? [{ label: selectedCategoryObj.pluralName || selectedCategoryObj.name }] : []),
+              ...(selectedCategoryObj
+                ? [{ label: selectedCategoryObj.pluralName || selectedCategoryObj.name }]
+                : []),
             ]}
           />
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
-        {/* Page Header */}
-        <div className="max-w-3xl mb-7">
-          <span className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-1.5 block">
-            WARESHOP Commercial Directory
-          </span>
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight mb-2">
-            {selectedCategoryObj
-              ? `Published ${selectedCategoryObj.pluralName || selectedCategoryObj.name}`
-              : 'Explore Commercial Properties & Businesses'}
-          </h1>
-          <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-            Search published shops, offices, warehouses and godowns across India and connect directly
-            with business owners.
-          </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#F36B21] mb-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Verified Commercial Marketplace Directory</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#171717] tracking-tight leading-tight">
+              {selectedCategoryObj
+                ? `Published ${selectedCategoryObj.pluralName || selectedCategoryObj.name}`
+                : 'Explore Commercial Properties & Businesses'}
+            </h1>
+            <p className="mt-1.5 text-slate-600 text-xs sm:text-sm leading-relaxed">
+              {selectedCategoryObj
+                ? selectedCategoryObj.description
+                : 'Search verified commercial shops, offices, warehouses, and godowns across India and call the owner directly.'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              to="/become-a-partner?tab=submit"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FFF5EF] hover:bg-[#FFE6D5] border border-[#FFC8A8] text-[#B4400E] text-xs font-bold transition-colors"
+            >
+              <PlusCircle className="w-4 h-4 text-[#F36B21]" />
+              <span>Own a Space? List Free</span>
+            </Link>
+          </div>
         </div>
 
+        {/* Horizontal Category Navigation Bar */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-100 bg-slate-50/60">
+          <div
+            className="flex items-center gap-1.5 overflow-x-auto py-2.5"
+            aria-label="Category quick filters"
+          >
+            <button
+              type="button"
+              onClick={() =>
+                updateUrlParams({
+                  search: searchTerm,
+                  location: locationTerm,
+                  category: '',
+                  page: 1,
+                })
+              }
+              className={`whitespace-nowrap px-3.5 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                !selectedCategory
+                  ? 'bg-[#171717] text-white border-[#171717] shadow-2xs'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-[#F36B21]'
+              }`}
+            >
+              All Categories
+            </button>
+            {categories.map((category) => {
+              const Icon = categoryIcons[category.slug] || Building2;
+              const isSelected = selectedCategory === category.slug;
+              return (
+                <button
+                  key={category.slug}
+                  type="button"
+                  onClick={() =>
+                    updateUrlParams({
+                      search: searchTerm,
+                      location: locationTerm,
+                      category: category.slug,
+                      page: 1,
+                    })
+                  }
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#F36B21] text-white border-[#F36B21] shadow-2xs'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-[#F36B21]'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{category.pluralName || category.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto pt-6 sm:pt-8 px-4 sm:px-6 lg:px-8">
         {/* Search & Filter Panel */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-xs mb-6">
+        <div className="bg-white p-5 sm:p-6 rounded-xl border border-slate-200/90 shadow-card mb-6">
           <form onSubmit={handleApplyFilters} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
               {/* Keyword / Business Name */}
-              <div>
+              <div className="md:col-span-5">
                 <label
                   htmlFor="search-service-input"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5"
+                  className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5"
                 >
                   Keyword, Business or Service
                 </label>
@@ -199,13 +286,13 @@ export default function ProvidersPage() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="e.g. retail showroom, logistics hub, coworking"
-                    className="w-full pl-10 pr-8 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    className="w-full pl-10 pr-8 py-2.5 text-xs sm:text-sm bg-[#F7F8FA] border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21] focus:bg-white transition-colors"
                   />
                   {searchTerm && (
                     <button
                       type="button"
                       onClick={() => setSearchTerm('')}
-                      className="absolute right-3 text-slate-400 hover:text-slate-700"
+                      className="absolute right-3 text-slate-400 hover:text-slate-700 cursor-pointer"
                       aria-label="Clear keyword input"
                     >
                       <X className="w-4 h-4" />
@@ -215,10 +302,10 @@ export default function ProvidersPage() {
               </div>
 
               {/* Location Input */}
-              <div>
+              <div className="md:col-span-4">
                 <label
                   htmlFor="search-location-input"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5"
+                  className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5"
                 >
                   City or Location
                 </label>
@@ -233,13 +320,13 @@ export default function ProvidersPage() {
                     value={locationTerm}
                     onChange={(e) => setLocationTerm(e.target.value)}
                     placeholder="e.g. Mumbai, Delhi, Bengaluru, Pune"
-                    className="w-full pl-10 pr-8 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    className="w-full pl-10 pr-8 py-2.5 text-xs sm:text-sm bg-[#F7F8FA] border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21] focus:bg-white transition-colors"
                   />
                   {locationTerm && (
                     <button
                       type="button"
                       onClick={() => setLocationTerm('')}
-                      className="absolute right-3 text-slate-400 hover:text-slate-700"
+                      className="absolute right-3 text-slate-400 hover:text-slate-700 cursor-pointer"
                       aria-label="Clear location input"
                     >
                       <X className="w-4 h-4" />
@@ -249,10 +336,10 @@ export default function ProvidersPage() {
               </div>
 
               {/* Category Select */}
-              <div>
+              <div className="md:col-span-3">
                 <label
                   htmlFor="category-select"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5"
+                  className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5"
                 >
                   Property Category
                 </label>
@@ -260,9 +347,9 @@ export default function ProvidersPage() {
                   id="category-select"
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-[#F7F8FA] border border-slate-300 rounded-lg text-[#171717] font-medium focus:outline-none focus:border-[#F36B21] focus:bg-white transition-colors cursor-pointer"
                 >
-                  <option value="">All Categories (Shop, Office, Warehouse, Godown)</option>
+                  <option value="">All Categories</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.slug}>
                       {cat.pluralName || cat.name}
@@ -272,26 +359,47 @@ export default function ProvidersPage() {
               </div>
             </div>
 
-            {/* Filter Footer Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
-              <div className="text-xs text-slate-600 font-medium">
-                {isLoading ? (
-                  <span>Searching directory...</span>
-                ) : (
-                  <span>
-                    Showing <strong className="text-slate-950">{providersList.length}</strong> of{' '}
-                    <strong className="text-slate-950">{pagination.total}</strong> published listing
-                    {pagination.total === 1 ? '' : 's'}
-                  </span>
-                )}
+            {/* Popular Location Quick Pills + Filter Footer Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div
+                className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0"
+                aria-label="Location quick filters"
+              >
+                <span className="text-[11px] font-bold text-slate-500 shrink-0 mr-1">
+                  Popular Cities:
+                </span>
+                {popularCities.map((city) => {
+                  const isSelected = locationTerm.toLowerCase() === city.toLowerCase();
+                  return (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() =>
+                        updateUrlParams({
+                          search: searchTerm,
+                          location: isSelected ? '' : city,
+                          category: selectedCategory,
+                          page: 1,
+                        })
+                      }
+                      className={`whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#FFF5EF] text-[#B4400E] border-[#F36B21]'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-[#F36B21]'
+                      }`}
+                    >
+                      {city}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-end gap-2 shrink-0">
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={handleClearFilters}
-                    className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Reset Filters</span>
@@ -300,7 +408,7 @@ export default function ProvidersPage() {
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  className="px-5 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 >
                   <Filter className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Search Listings</span>
@@ -310,90 +418,100 @@ export default function ProvidersPage() {
           </form>
         </div>
 
-        {/* Category & Location Quick Pills */}
-        <div className="mb-7 space-y-3">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1" aria-label="Category quick filters">
-            <span className="text-xs font-bold text-slate-500 shrink-0 mr-1">Categories:</span>
-            <button
-              type="button"
-              onClick={() =>
-                updateUrlParams({
-                  search: searchTerm,
-                  location: locationTerm,
-                  category: '',
-                  page: 1,
-                })
-              }
-              className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
-                !selectedCategory
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white border-slate-200 text-slate-700 hover:border-orange-300'
-              }`}
-            >
-              All Categories
-            </button>
-            {categories.map((category) => (
-              <button
-                key={category.slug}
-                type="button"
-                onClick={() =>
-                  updateUrlParams({
-                    search: searchTerm,
-                    location: locationTerm,
-                    category: category.slug,
-                    page: 1,
-                  })
-                }
-                className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
-                  selectedCategory === category.slug
-                    ? 'bg-orange-500 text-white border-orange-500'
-                    : 'bg-white border-slate-200 text-slate-700 hover:border-orange-300'
-                }`}
-              >
-                {category.pluralName || category.name}
-              </button>
-            ))}
+        {/* Results Summary & Active Filter Chips */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="text-xs sm:text-sm text-slate-600 font-medium">
+            {isLoading ? (
+              <span>Searching commercial directory...</span>
+            ) : (
+              <span>
+                Showing <strong className="text-[#171717] font-bold">{providersList.length}</strong>{' '}
+                of <strong className="text-[#171717] font-bold">{pagination.total}</strong>{' '}
+                published listing{pagination.total === 1 ? '' : 's'}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1" aria-label="Location quick filters">
-            <span className="text-xs font-bold text-slate-500 shrink-0 mr-1">Locations:</span>
-            {popularCities.map((city) => {
-              const isSelected = locationTerm.toLowerCase() === city.toLowerCase();
-              return (
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-slate-500 font-medium mr-1">Active filters:</span>
+              {activeCategory && (
                 <button
-                  key={city}
                   type="button"
                   onClick={() =>
                     updateUrlParams({
-                      search: searchTerm,
-                      location: isSelected ? '' : city,
-                      category: selectedCategory,
+                      search: activeSearch,
+                      location: activeLocation,
+                      category: '',
                       page: 1,
                     })
                   }
-                  className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
-                    isSelected
-                      ? 'bg-orange-100 text-orange-800 border-orange-300'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
-                  }`}
+                  className="inline-flex items-center gap-1 bg-white border border-slate-200 hover:border-rose-300 px-2.5 py-1 rounded-md font-semibold text-slate-700 cursor-pointer"
                 >
-                  {city}
+                  <span>Category: {selectedCategoryObj?.name || activeCategory}</span>
+                  <X className="w-3 h-3 text-slate-400" />
                 </button>
-              );
-            })}
-          </div>
+              )}
+              {activeLocation && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateUrlParams({
+                      search: activeSearch,
+                      location: '',
+                      category: activeCategory,
+                      page: 1,
+                    })
+                  }
+                  className="inline-flex items-center gap-1 bg-white border border-slate-200 hover:border-rose-300 px-2.5 py-1 rounded-md font-semibold text-slate-700 cursor-pointer"
+                >
+                  <span>Location: {activeLocation}</span>
+                  <X className="w-3 h-3 text-slate-400" />
+                </button>
+              )}
+              {activeSearch && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateUrlParams({
+                      search: '',
+                      location: activeLocation,
+                      category: activeCategory,
+                      page: 1,
+                    })
+                  }
+                  className="inline-flex items-center gap-1 bg-white border border-slate-200 hover:border-rose-300 px-2.5 py-1 rounded-md font-semibold text-slate-700 cursor-pointer"
+                >
+                  <span>Keyword: &ldquo;{activeSearch}&rdquo;</span>
+                  <X className="w-3 h-3 text-slate-400" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Listing Results / States */}
         {isLoading ? (
-          <div className="py-20 text-center bg-white rounded-2xl border border-slate-200/80">
-            <div className="w-9 h-9 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-slate-500 font-medium">Loading commercial listings...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <div
+                key={n}
+                className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs animate-pulse"
+              >
+                <div className="aspect-[16/10] bg-slate-200" />
+                <div className="p-4 space-y-3">
+                  <div className="h-3 bg-slate-200 rounded w-1/2" />
+                  <div className="h-5 bg-slate-200 rounded w-3/4" />
+                  <div className="h-3 bg-slate-200 rounded w-full" />
+                  <div className="h-9 bg-slate-200 rounded w-full mt-4" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : loadError ? (
           <div
             role="alert"
-            className="bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center max-w-xl mx-auto my-6"
+            className="bg-rose-50/90 border border-rose-200 rounded-xl p-8 text-center max-w-xl mx-auto my-6"
           >
             <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-3" aria-hidden="true" />
             <h2 className="text-base font-bold text-rose-900 mb-1">
@@ -403,7 +521,7 @@ export default function ProvidersPage() {
             <button
               type="button"
               onClick={() => setRetryCount((c) => c + 1)}
-              className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold inline-flex items-center gap-1.5"
+              className="px-5 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Retry</span>
@@ -430,13 +548,13 @@ export default function ProvidersPage() {
                   type="button"
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page <= 1}
-                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-orange-400 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-[#F36B21] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Previous</span>
                 </button>
 
-                <span className="px-4 py-2 text-xs font-bold text-slate-700">
+                <span className="px-4 py-2 text-xs font-bold text-[#171717] bg-white border border-slate-200 rounded-lg">
                   Page {pagination.page} of {pagination.totalPages}
                 </span>
 
@@ -444,7 +562,7 @@ export default function ProvidersPage() {
                   type="button"
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page >= pagination.totalPages}
-                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-orange-400 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:border-[#F36B21] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                 >
                   <span>Next</span>
                   <ChevronRight className="w-4 h-4" />
@@ -466,7 +584,7 @@ export default function ProvidersPage() {
                 <button
                   type="button"
                   onClick={handleClearFilters}
-                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold mt-2 cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold mt-2 cursor-pointer"
                 >
                   Clear All Filters
                 </button>

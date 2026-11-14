@@ -67,7 +67,7 @@ export default function AdminCategoryRequestsPage() {
       title="Custom Category Requests"
       subtitle="Approve new commercial categories, map requests to existing categories, or reject"
     >
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-1.5">
           {[
             { label: 'Pending Review', value: 'PENDING' },
@@ -79,9 +79,9 @@ export default function AdminCategoryRequestsPage() {
               key={tab.value}
               type="button"
               onClick={() => setStatusFilter(tab.value)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                 statusFilter === tab.value
-                  ? 'bg-slate-900 text-white'
+                  ? 'bg-slate-950 text-white'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
@@ -92,7 +92,7 @@ export default function AdminCategoryRequestsPage() {
 
         <Link
           to="/admin/categories"
-          className="text-xs font-bold text-orange-600 hover:underline inline-flex items-center gap-1"
+          className="text-xs font-bold text-[#F36B21] hover:underline inline-flex items-center gap-1"
         >
           <span>Manage All Categories</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -100,18 +100,18 @@ export default function AdminCategoryRequestsPage() {
       </div>
 
       {message && (
-        <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+        <div className="mb-4 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
           {message}
         </div>
       )}
 
       {error && (
-        <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+        <div className="mb-4 p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-500">
             Loading custom category requests...
@@ -156,7 +156,7 @@ export default function AdminCategoryRequestsPage() {
                         {' · '}
                         <Link
                           to={`/admin/applications/${reqItem.applicationId}`}
-                          className="text-orange-600 font-bold hover:underline"
+                          className="text-[#F36B21] font-bold hover:underline"
                         >
                           View Linked Application →
                         </Link>
@@ -170,7 +170,7 @@ export default function AdminCategoryRequestsPage() {
                     <button
                       type="button"
                       onClick={() => handleReview(reqItem, 'approve')}
-                      className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                      className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Approve as New Category</span>
@@ -185,7 +185,7 @@ export default function AdminCategoryRequestsPage() {
                             [reqItem._id]: e.target.value,
                           }))
                         }
-                        className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                        className="px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
                       >
                         <option value="">Map to existing...</option>
                         {categories.map((c) => (
@@ -197,7 +197,7 @@ export default function AdminCategoryRequestsPage() {
                       <button
                         type="button"
                         onClick={() => handleReview(reqItem, 'map')}
-                        className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
                       >
                         Map
                       </button>
@@ -206,7 +206,7 @@ export default function AdminCategoryRequestsPage() {
                     <button
                       type="button"
                       onClick={() => handleReview(reqItem, 'reject')}
-                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold cursor-pointer"
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold cursor-pointer"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       <span>Reject</span>

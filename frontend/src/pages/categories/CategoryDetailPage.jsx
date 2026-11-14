@@ -5,6 +5,7 @@ import Breadcrumb from '../../components/common/Breadcrumb.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
 import ProviderCard from '../../components/marketplace/ProviderCard.jsx';
 import { getCategoryBySlug } from '../../data/categories.js';
+import { getCategoryVisual } from '../../assets/categories/index.js';
 import providerService from '../../services/providerService.js';
 import {
   Store,
@@ -16,6 +17,7 @@ import {
   AlertCircle,
   RotateCcw,
   FolderOpen,
+  CheckCircle2,
 } from 'lucide-react';
 
 const iconMap = {
@@ -100,15 +102,15 @@ export default function CategoryDetailPage() {
 
   if (!categoryChecked) {
     return (
-      <div className="bg-[#F8FAFC] min-h-[70vh] flex items-center justify-center py-16 px-4">
-        <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      <div className="bg-[#F7F8FA] min-h-[70vh] flex items-center justify-center py-16 px-4">
+        <div className="w-8 h-8 border-3 border-slate-200 border-t-[#F36B21] rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!category) {
     return (
-      <div className="bg-[#F8FAFC] min-h-[70vh] flex items-center justify-center py-16 px-4">
+      <div className="bg-[#F7F8FA] min-h-[70vh] flex items-center justify-center py-16 px-4">
         <EmptyState
           icon={FolderOpen}
           title="Category Not Found"
@@ -121,11 +123,12 @@ export default function CategoryDetailPage() {
   }
 
   const IconComponent = iconMap[category.icon] || Layers;
+  const categoryVisual = category.imageUrl || getCategoryVisual(category.slug || category.name);
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen">
+    <div className="bg-[#F7F8FA] min-h-screen pb-16">
       {/* Top Breadcrumb */}
-      <div className="bg-white border-b border-slate-200/80">
+      <div className="bg-white border-b border-slate-200/90">
         <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[
@@ -137,60 +140,72 @@ export default function CategoryDetailPage() {
       </div>
 
       {/* Category Banner */}
-      <div className="bg-white border-b border-slate-200/80 py-10 sm:py-12">
+      <div className="bg-white border-b border-slate-200/90 py-10 sm:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-bold uppercase tracking-wider mb-3">
-                <IconComponent className="w-3.5 h-3.5" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#FFF5EF] border border-[#FFE6D5] text-[#B4400E] text-xs font-bold uppercase tracking-wider mb-3">
+                <IconComponent className="w-3.5 h-3.5 text-[#F36B21]" />
                 <span>{category.shortDescription || 'Commercial Directory'}</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-950 tracking-tight leading-tight mb-3">
+              <h1 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight leading-tight mb-3">
                 {category.seoTitle || category.pluralName || category.name}
               </h1>
               <p className="text-slate-600 text-sm sm:text-base max-w-2xl leading-relaxed mb-6">
                 {category.description}
               </p>
 
+              {category.popularServices && category.popularServices.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-6">
+                  {category.popularServices.map((srv) => (
+                    <span
+                      key={srv}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-[#F7F8FA] border border-slate-200 px-3 py-1 rounded-lg"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#F36B21]" />
+                      <span>{srv}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   to={`/providers?category=${encodeURIComponent(category.slug)}`}
-                  className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-xs transition-colors"
+                  className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-bold shadow-2xs transition-colors"
                 >
                   <span>Search {category.pluralName || category.name}</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
                   to="/become-a-partner?tab=submit"
-                  className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl border border-slate-300 hover:border-orange-400 bg-white text-slate-800 text-xs sm:text-sm font-bold transition-colors"
+                  className="inline-flex items-center gap-2 py-2.5 px-5 rounded-lg border border-slate-300 hover:border-[#F36B21] bg-white text-[#171717] text-xs sm:text-sm font-bold transition-colors"
                 >
                   <span>List Your {category.name}</span>
                 </Link>
               </div>
             </div>
 
-            {category.imageUrl && (
-              <div className="lg:col-span-5">
-                <div className="h-52 sm:h-64 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
-                  <img
-                    src={category.imageUrl}
-                    alt={category.pluralName || category.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+            <div className="lg:col-span-5">
+              <div className="aspect-[16/10] rounded-xl overflow-hidden border border-slate-200 shadow-elevated bg-slate-100">
+                <img
+                  src={categoryVisual}
+                  alt={category.pluralName || category.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto py-10 sm:py-14 px-4 sm:px-6 lg:px-8 space-y-12">
+      <div className="max-w-7xl mx-auto pt-10 sm:pt-12 px-4 sm:px-6 lg:px-8 space-y-12">
         {/* Subcategories Section */}
         {category.subcategories && category.subcategories.length > 0 && (
           <section aria-labelledby="subcategories-heading">
             <h2
               id="subcategories-heading"
-              className="text-xl sm:text-2xl font-black text-slate-950 mb-5"
+              className="text-xl sm:text-2xl font-black text-[#171717] mb-5"
             >
               Space Types in {category.pluralName || category.name}
             </h2>
@@ -198,15 +213,15 @@ export default function CategoryDetailPage() {
               {category.subcategories.map((sub) => (
                 <div
                   key={sub.id}
-                  className="bg-white p-6 rounded-2xl border border-slate-200/90 hover:border-orange-300 transition-colors shadow-xs"
+                  className="bg-white p-6 rounded-xl border border-slate-200/90 hover:border-[#F36B21]/60 transition-colors shadow-card"
                 >
-                  <h3 className="font-bold text-slate-900 text-base mb-1.5">{sub.name}</h3>
+                  <h3 className="font-bold text-[#171717] text-base mb-1.5">{sub.name}</h3>
                   <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-4">
                     {sub.description}
                   </p>
                   <Link
                     to={`/providers?category=${encodeURIComponent(category.slug)}&search=${encodeURIComponent(sub.name)}`}
-                    className="text-xs font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1"
+                    className="text-xs font-bold text-[#F36B21] hover:text-[#D95513] inline-flex items-center gap-1"
                   >
                     <span>Browse {sub.name}</span>
                     <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -223,7 +238,7 @@ export default function CategoryDetailPage() {
             <div>
               <h2
                 id="category-providers-heading"
-                className="text-xl sm:text-2xl font-black text-slate-950"
+                className="text-xl sm:text-2xl font-black text-[#171717]"
               >
                 Published {category.pluralName || category.name}
               </h2>
@@ -233,7 +248,7 @@ export default function CategoryDetailPage() {
             </div>
             <Link
               to={`/providers?category=${encodeURIComponent(category.slug)}`}
-              className="text-xs sm:text-sm font-bold text-orange-600 hover:underline inline-flex items-center gap-1"
+              className="text-xs sm:text-sm font-bold text-[#F36B21] hover:underline inline-flex items-center gap-1"
             >
               <span>Filter in Directory</span>
               <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -241,14 +256,25 @@ export default function CategoryDetailPage() {
           </div>
 
           {isLoadingProviders ? (
-            <div className="py-16 text-center bg-white rounded-2xl border border-slate-200/80">
-              <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs text-slate-500">Loading listings in {category.name}...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {[1, 2, 3, 4].map((n) => (
+                <div
+                  key={n}
+                  className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs animate-pulse"
+                >
+                  <div className="aspect-[16/10] bg-slate-200" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-3 bg-slate-200 rounded w-1/2" />
+                    <div className="h-5 bg-slate-200 rounded w-3/4" />
+                    <div className="h-9 bg-slate-200 rounded w-full mt-4" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : providersError ? (
             <div
               role="alert"
-              className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center max-w-xl mx-auto"
+              className="bg-rose-50 border border-rose-200 rounded-xl p-6 text-center max-w-xl mx-auto"
             >
               <AlertCircle className="w-8 h-8 text-rose-600 mx-auto mb-2" aria-hidden="true" />
               <h3 className="text-sm font-bold text-rose-900 mb-1">Unable to Load Listings</h3>
@@ -256,7 +282,7 @@ export default function CategoryDetailPage() {
               <button
                 type="button"
                 onClick={() => setRetryCount((c) => c + 1)}
-                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold inline-flex items-center gap-1.5"
+                className="px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Retry</span>

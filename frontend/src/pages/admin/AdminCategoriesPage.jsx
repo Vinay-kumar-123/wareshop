@@ -77,11 +77,11 @@ export default function AdminCategoriesPage() {
     >
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full py-2 pl-9 pr-3 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-orange-500"
+            className="w-full py-2 pl-9 pr-3 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-[#F36B21]"
             placeholder="Search categories..."
           />
         </div>
@@ -89,15 +89,15 @@ export default function AdminCategoriesPage() {
         <div className="flex items-center gap-2.5">
           <Link
             to="/admin/category-requests"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-orange-400 text-xs font-bold text-slate-800"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:border-[#F36B21] text-xs font-bold text-slate-800 transition-colors"
           >
-            <FolderPlus className="w-4 h-4 text-orange-500" />
+            <FolderPlus className="w-4 h-4 text-[#F36B21]" />
             <span>Review Custom Requests</span>
           </Link>
           <button
             type="button"
             onClick={() => setForm(blankCategory)}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer shadow-2xs"
           >
             <Plus className="w-4 h-4" />
             <span>Add Category</span>
@@ -106,13 +106,13 @@ export default function AdminCategoriesPage() {
       </div>
 
       {message && (
-        <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200">
+        <div className="mb-4 p-3.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200">
           {message}
         </div>
       )}
 
       {error && (
-        <div className="mb-4 p-3.5 rounded-xl bg-rose-50 text-rose-800 text-xs font-semibold border border-rose-200">
+        <div className="mb-4 p-3.5 rounded-lg bg-rose-50 text-rose-800 text-xs font-semibold border border-rose-200">
           {error}
         </div>
       )}
@@ -120,19 +120,19 @@ export default function AdminCategoriesPage() {
       {form && (
         <form
           onSubmit={save}
-          className="mb-6 rounded-2xl bg-white border border-slate-200 p-6 grid sm:grid-cols-2 gap-4 shadow-xs"
+          className="mb-6 rounded-xl bg-white border border-slate-200 p-6 grid sm:grid-cols-2 gap-4 shadow-xs"
         >
           <h2 className="sm:col-span-2 font-extrabold text-slate-900 text-base">
             {form._id ? `Edit Category: ${form.name}` : 'Create New Category'}
           </h2>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
               Category Name *
             </label>
             <input
               required
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-[#F36B21] focus:bg-white"
               placeholder="e.g. Cold Storage"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -140,11 +140,11 @@ export default function AdminCategoriesPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
               Short Subtitle
             </label>
             <input
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-[#F36B21] focus:bg-white"
               placeholder="e.g. Temperature-Controlled Storage"
               value={form.shortDescription || ''}
               onChange={(e) => setForm({ ...form, shortDescription: e.target.value })}
@@ -152,12 +152,12 @@ export default function AdminCategoriesPage() {
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
               Description
             </label>
             <textarea
               rows={2}
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-[#F36B21] focus:bg-white"
               placeholder="Category description..."
               value={form.description || ''}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -165,24 +165,24 @@ export default function AdminCategoriesPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
               Display Order
             </label>
             <input
               type="number"
               min="0"
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-[#F36B21] focus:bg-white"
               value={form.displayOrder ?? 0}
               onChange={(e) => setForm({ ...form, displayOrder: Number(e.target.value) })}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
               Status
             </label>
             <select
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-semibold"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-semibold focus:outline-none focus:border-[#F36B21]"
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value })}
             >
@@ -194,13 +194,13 @@ export default function AdminCategoriesPage() {
           <div className="sm:col-span-2 flex gap-2.5 pt-2">
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold cursor-pointer"
+              className="px-5 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
             >
               Save Category
             </button>
             <button
               type="button"
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
+              className="px-4 py-2.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
               onClick={() => setForm(null)}
             >
               Cancel
@@ -209,7 +209,7 @@ export default function AdminCategoriesPage() {
         </form>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
         <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_100px_120px_110px_160px] gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
           <span>Category & Slug</span>
           <span className="hidden sm:block">Order</span>
@@ -226,7 +226,7 @@ export default function AdminCategoriesPage() {
           filtered.map((item) => (
             <div
               key={item._id}
-              className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_100px_120px_110px_160px] gap-3 px-5 py-4 border-b border-slate-100 last:border-0 items-center text-xs"
+              className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_100px_120px_110px_160px] gap-3 px-5 py-4 border-b border-slate-100 last:border-0 items-center text-xs hover:bg-slate-50/70 transition-colors"
             >
               <div>
                 <p className="font-bold text-slate-900 text-sm">{item.name}</p>
@@ -267,7 +267,7 @@ export default function AdminCategoriesPage() {
                 <button
                   type="button"
                   onClick={() => setForm(item)}
-                  className="px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5] hover:bg-[#FFE6D5]/60 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
                 >
                   <Pencil className="w-3 h-3" />
                   <span>Edit</span>
