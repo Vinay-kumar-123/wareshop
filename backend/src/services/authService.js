@@ -84,6 +84,10 @@ export const authService = {
           targetId: String(admin._id),
           details: { rotatedAt: admin.passwordRotatedAt },
         });
+      } else {
+        logger.info(
+          `Administrator account already exists for ${email}. To rotate or sync credentials from .env, execute 'npm run bootstrap:admin' or set ADMIN_AUTO_ROTATE_PASSWORD=true.`
+        );
       }
 
       return admin;

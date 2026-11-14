@@ -9,6 +9,7 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "bootstrap:admin": "node src/scripts/bootstrapAdmin.js",
+    "admin:reset-password": "node src/scripts/resetAdminPassword.js",
     "seed:demo": "node src/scripts/seedDemoProviders.js",
     "seed:categories": "node src/scripts/seedCategories.js",
     "test:phase1": "node test-phase1-security.js",

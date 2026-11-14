@@ -15,9 +15,44 @@ const candidateEnvPaths = [
   path.resolve(__dirname, '..', '..', '.env'),
 ].filter(Boolean);
 
+export function extractUnquotedHashValue(envContent, key = 'ADMIN_PASSWORD') {
+  if (typeof envContent !== 'string' || !envContent) return null;
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lineRegex = new RegExp(`^(?:export\\s+)?${escapedKey}\\s*=\\s*(.+)$`);
+
+  for (const line of envContent.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const match = trimmed.match(lineRegex);
+    if (!match) continue;
+    const rawValue = match[1].trim();
+    // If unquoted and contains '#' directly attached to a non-whitespace character (e.g. Pass#123!)
+    // dotenv v16 truncates at '#'; recover the full token while still stripping " # inline comment"
+    if (!/^['"`]/.test(rawValue) && /\S#/.test(rawValue)) {
+      return rawValue.replace(/\s+#.*$/, '').trim();
+    }
+  }
+  return null;
+}
+
 for (const envPath of candidateEnvPaths) {
   if (fs.existsSync(envPath)) {
+    const hadPreexistingAdminPassword = Object.prototype.hasOwnProperty.call(
+      process.env,
+      'ADMIN_PASSWORD'
+    );
     dotenv.config({ path: envPath });
+    if (!hadPreexistingAdminPassword) {
+      try {
+        const rawEnvFile = fs.readFileSync(envPath, 'utf8');
+        const recoveredPassword = extractUnquotedHashValue(rawEnvFile, 'ADMIN_PASSWORD');
+        if (recoveredPassword) {
+          process.env.ADMIN_PASSWORD = recoveredPassword;
+        }
+      } catch {
+        // Ignore read error and retain dotenv parsed value
+      }
+    }
     break;
   }
 }
