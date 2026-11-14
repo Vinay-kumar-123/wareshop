@@ -1,0 +1,27 @@
+{
+  "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "https://konnevia-backend.onrender.com/sitemap.xml"
+    },
+    {
+      "source": "/render/blog/:slug",
+      "destination": "https://konnevia-backend.onrender.com/render/blog/:slug"
+    },
+    {
+      "source": "/blog/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(googlebot|bingbot|yandexbot|duckduckbot|baiduspider|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora\\ link\\ preview|showyoubot|outbrain|pinterest|slackbot|vkshare|w3c_validator|whatsapp|flipboard|tumblr|bitlybot|skypeuripreview|nuzzel|discordbot|google-structured-data-testing-tool|petalbot).*"
+        }
+      ],
+      "destination": "https://konnevia-backend.onrender.com/render/blog/:slug"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

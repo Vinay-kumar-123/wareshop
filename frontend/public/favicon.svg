@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="14" fill="#142D4E"/>
+  <!-- Pillar / Stem -->
+  <path d="M14 16 C14 13.79 15.79 12 18 12 H23 C24.1 12 25 12.9 25 14 V50 C25 51.1 24.1 52 23 52 H18 C15.79 52 14 50.21 14 48 V16 Z" fill="#FFFFFF"/>
+  <!-- Teal Chevron / Arrow Pathway -->
+  <path d="M23 34 L38 18 C39.5 16.5 42 17.5 42 19.5 V25 L29 39 L45 50.5 C46.5 51.5 46 54 44 54 H37 L23 43 V34 Z" fill="#13A89E"/>
+  <!-- 4-Grid Window Icon in bottom corner -->
+  <rect x="17" y="38" width="4" height="4" rx="1" fill="#13A89E"/>
+  <rect x="23" y="38" width="4" height="4" rx="1" fill="#13A89E"/>
+  <rect x="17" y="44" width="4" height="4" rx="1" fill="#13A89E"/>
+  <rect x="23" y="44" width="4" height="4" rx="1" fill="#13A89E"/>
+</svg>

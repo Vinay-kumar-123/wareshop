@@ -1,0 +1,35 @@
+{
+  "name": "konnevia-backend",
+  "version": "1.0.0",
+  "description": "KONNEVIA Marketplace Express Backend & API Services",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "bootstrap:admin": "node src/scripts/bootstrapAdmin.js",
+    "seed:demo": "node src/scripts/seedDemoProviders.js",
+    "seed:categories": "node src/scripts/seedCategories.js",
+    "test:server": "node test-server.js",
+    "test": "node test-production-upgrade.cjs",
+    "test:all": "node test-production-upgrade.cjs && node test-admin-mvp.cjs && node test-phase52.cjs && node test-seo-infrastructure.cjs && node run-phase41-tests.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.0.0",
+    "mongoose": "^8.9.5",
+    "morgan": "^1.10.0",
+    "multer": "^2.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

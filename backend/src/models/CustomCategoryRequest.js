@@ -1,0 +1,4 @@
+import mongoose from 'mongoose';
+const schema = new mongoose.Schema({ providerAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProviderAccount', default: null }, applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', default: null, index: true }, requestedName: { type: String, required: true, trim: true }, normalizedName: { type: String, required: true, lowercase: true, index: true }, status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'MAPPED'], default: 'PENDING', index: true }, adminNotes: { type: String, default: '' }, approvedCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null }, reviewedBy: String, reviewedAt: Date }, { timestamps: true });
+schema.index({ applicationId: 1, normalizedName: 1 }, { unique: true, sparse: true });
+export default mongoose.model('CustomCategoryRequest', schema);
