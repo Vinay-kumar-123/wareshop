@@ -383,6 +383,7 @@ OtpChallenge.create = async (doc) => ({
   },
 });
 OtpChallenge.updateOne = async () => ({ acknowledged: true });
+OtpChallenge.updateMany = async () => ({ acknowledged: true });
 
 console.log('\n================================================================');
 console.log(' WARESHOP — PHASE 1 SECURITY & RELIABILITY TEST SUITE');
@@ -494,6 +495,13 @@ await test('1.6 validateEnv rejects missing or weak ADMIN_PASSWORD in production
     MONGODB_DB_NAME: 'wareshop_prod',
     CORS_ORIGIN: 'https://wareshop.in',
     ADMIN_EMAIL: 'owner@wareshop.in',
+    OTP_HMAC_SECRET: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    RESEND_API_KEY: 're_prod_example_key_123456',
+    RESEND_FROM_EMAIL: 'WARESHOP <no-reply@wareshop.in>',
+    STORAGE_PROVIDER: 'cloudinary',
+    CLOUDINARY_CLOUD_NAME: 'wareshop-cloud',
+    CLOUDINARY_API_KEY: '123456789012345',
+    CLOUDINARY_API_SECRET: 'cloudinary-prod-secret-value',
   };
 
   for (const weakPw of ['', 'short1!', 'alllowercase1234!', 'Konnevia@Admin2026!', 'change_this_to_a_strong_password_in_production']) {
@@ -526,6 +534,146 @@ await test('1.7 Automatic production Super Admin creation is disabled', async ()
     envObj.isProduction = prevProd;
   }
   assert(threw, 'Expected authService.bootstrapAdmin() without allowInProduction=true to throw in production');
+});
+
+await test('1.8 validateEnv requires OTP_HMAC_SECRET, RESEND_API_KEY, and RESEND_FROM_EMAIL in production without leaking secrets', async () => {
+  const fullProd = {
+    NODE_ENV: 'production',
+    MONGODB_URI: 'mongodb+srv://cluster.example.mongodb.net/wareshop_prod',
+    MONGODB_DB_NAME: 'wareshop_prod',
+    CORS_ORIGIN: 'https://wareshop.in',
+    ADMIN_EMAIL: 'owner@wareshop.in',
+    ADMIN_PASSWORD: 'Val1d#ProdPassword2026!',
+    OTP_HMAC_SECRET: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    RESEND_API_KEY: 're_prod_example_key_123456',
+    RESEND_FROM_EMAIL: 'WARESHOP <no-reply@wareshop.in>',
+    STORAGE_PROVIDER: 'cloudinary',
+    CLOUDINARY_CLOUD_NAME: 'wareshop-cloud',
+    CLOUDINARY_API_KEY: '123456789012345',
+    CLOUDINARY_API_SECRET: 'cloudinary-prod-secret-value',
+  };
+
+  const invalidCases = [
+    { label: 'missing OTP_HMAC_SECRET', overrides: { OTP_HMAC_SECRET: '' }, secretValue: null },
+    { label: 'short OTP_HMAC_SECRET', overrides: { OTP_HMAC_SECRET: 'short-secret-value-123' }, secretValue: 'short-secret-value-123' },
+    { label: 'missing RESEND_API_KEY', overrides: { RESEND_API_KEY: '' }, secretValue: null },
+    { label: 'placeholder RESEND_API_KEY', overrides: { RESEND_API_KEY: '<your-resend-api-key>' }, secretValue: null },
+    { label: 'missing RESEND_FROM_EMAIL', overrides: { RESEND_FROM_EMAIL: '' }, secretValue: null },
+    { label: 'invalid RESEND_FROM_EMAIL', overrides: { RESEND_FROM_EMAIL: 'not-an-email' }, secretValue: 'not-an-email' },
+  ];
+
+  for (const tc of invalidCases) {
+    let threw = false;
+    let errMsg = '';
+    try {
+      validateEnv(buildEnv({ ...fullProd, ...tc.overrides }));
+    } catch (err) {
+      threw = true;
+      errMsg = err.message || '';
+    }
+    assert(threw, `Expected validateEnv to reject ${tc.label} in production`);
+    if (tc.secretValue) {
+      assert(!errMsg.includes(tc.secretValue), `Validation error must never expose secret value for ${tc.label}`);
+    }
+  }
+
+  // Verify development and test modes continue passing without Resend/OTP_HMAC_SECRET/Cloudinary
+  assert(validateEnv(buildEnv({ NODE_ENV: 'development' })) === true, 'Expected development env to pass without production secrets');
+  assert(validateEnv(buildEnv({ NODE_ENV: 'test' })) === true, 'Expected test env to pass without production secrets');
+});
+
+await test('1.9 Production requires STORAGE_PROVIDER=cloudinary with credentials and storageService never falls back to local disk', async () => {
+  const fullProd = {
+    NODE_ENV: 'production',
+    MONGODB_URI: 'mongodb+srv://cluster.example.mongodb.net/wareshop_prod',
+    MONGODB_DB_NAME: 'wareshop_prod',
+    CORS_ORIGIN: 'https://wareshop.in',
+    ADMIN_EMAIL: 'owner@wareshop.in',
+    ADMIN_PASSWORD: 'Val1d#ProdPassword2026!',
+    OTP_HMAC_SECRET: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    RESEND_API_KEY: 're_prod_example_key_123456',
+    RESEND_FROM_EMAIL: 'WARESHOP <no-reply@wareshop.in>',
+    STORAGE_PROVIDER: 'cloudinary',
+    CLOUDINARY_CLOUD_NAME: 'wareshop-cloud',
+    CLOUDINARY_API_KEY: '123456789012345',
+    CLOUDINARY_API_SECRET: 'cloudinary-prod-secret-value',
+  };
+
+  for (const badStorage of [
+    { STORAGE_PROVIDER: 'local' },
+    { STORAGE_PROVIDER: '' },
+    { CLOUDINARY_CLOUD_NAME: '' },
+    { CLOUDINARY_API_KEY: '<your-cloudinary-api-key>' },
+    { CLOUDINARY_API_SECRET: '' },
+  ]) {
+    let threw = false;
+    try {
+      validateEnv(buildEnv({ ...fullProd, ...badStorage }));
+    } catch {
+      threw = true;
+    }
+    assert(threw, `Expected validateEnv to reject production storage config: ${Object.keys(badStorage).join(',')}`);
+  }
+
+  // Runtime fail-closed check: storageService.uploadImage must throw 503 in production instead of writing to local disk
+  const storageService = (await import('./src/services/storageService.js')).default;
+  const envObj = (await import('./src/config/env.js')).env;
+  const prevProd = envObj.isProduction;
+  const prevProvider = process.env.STORAGE_PROVIDER;
+  const prevCloudKey = process.env.CLOUDINARY_API_KEY;
+
+  // Minimal valid JPEG buffer (SOI + SOF0 + SOS + EOI)
+  const validJpeg = Buffer.concat([
+    Buffer.from([0xff, 0xd8]),
+    Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x01, 0x00, 0x01, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01]),
+    Buffer.from([0xff, 0xda, 0x00, 0x0c, 0x03, 0x01, 0x00, 0x02, 0x11, 0x03, 0x11, 0x00, 0x3f, 0x00, 0x00]),
+    Buffer.from([0xff, 0xd9]),
+  ]);
+
+  try {
+    envObj.isProduction = true;
+
+    // Case A: STORAGE_PROVIDER=local in production -> 503
+    process.env.STORAGE_PROVIDER = 'local';
+    let localThrew503 = false;
+    try {
+      await storageService.uploadImage({
+        buffer: validJpeg,
+        mimetype: 'image/jpeg',
+        size: validJpeg.length,
+        originalname: 'test.jpg',
+      });
+    } catch (err) {
+      localThrew503 = err.statusCode === 503;
+    }
+    assert(localThrew503, 'Expected storageService.uploadImage to fail closed with 503 for local provider in production');
+
+    // Case B: STORAGE_PROVIDER=cloudinary with missing credentials -> 503 (never falls back to local disk)
+    process.env.STORAGE_PROVIDER = 'cloudinary';
+    process.env.CLOUDINARY_API_KEY = '';
+    const savedCfgApiKey = envObj.storage.cloudinary.apiKey;
+    envObj.storage.cloudinary.apiKey = '';
+    let missingCredsThrew503 = false;
+    try {
+      await storageService.uploadImage({
+        buffer: validJpeg,
+        mimetype: 'image/jpeg',
+        size: validJpeg.length,
+        originalname: 'test.jpg',
+      });
+    } catch (err) {
+      missingCredsThrew503 = err.statusCode === 503;
+    } finally {
+      envObj.storage.cloudinary.apiKey = savedCfgApiKey;
+    }
+    assert(missingCredsThrew503, 'Expected storageService.uploadImage to fail closed with 503 when Cloudinary credentials are missing');
+  } finally {
+    envObj.isProduction = prevProd;
+    if (prevProvider === undefined) delete process.env.STORAGE_PROVIDER;
+    else process.env.STORAGE_PROVIDER = prevProvider;
+    if (prevCloudKey === undefined) delete process.env.CLOUDINARY_API_KEY;
+    else process.env.CLOUDINARY_API_KEY = prevCloudKey;
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -603,62 +751,62 @@ await test('3.1 Express trust proxy is configured to 1 (Render hop count)', asyn
   assert(app.get('trust proxy') === 1, `Expected trust proxy = 1, got ${app.get('trust proxy')}`);
 });
 
-await test('3.2 OTP limiter keys by both IP and phone and is independent from admin login & contact limiters', async () => {
+await test('3.2 OTP limiter keys by both IP and email and is independent from admin login & contact limiters', async () => {
   simulatedReadyState = 1;
   const ipA = '198.51.100.10';
   const ipB = '198.51.100.20';
   const ipC = '198.51.100.30';
-  const phone1 = '9876543210';
-  const phone2 = '9876543211';
+  const email1 = 'owner1@wareshop.in';
+  const email2 = 'owner2@wareshop.in';
 
-  // Send 5 requests for phone1 from ipA (reaches phone limit of 5)
+  // Send 5 requests for email1 from ipA (reaches email limit of 5)
   for (let i = 0; i < 5; i++) {
     const res = await httpRequest('/api/v1/provider-auth/otp/request', {
       method: 'POST',
       headers: { 'X-Forwarded-For': ipA },
-      body: { phone: phone1 },
+      body: { email: email1 },
     });
     assert(res.status !== 429, `Request ${i + 1} should not be rate-limited yet (got ${res.status})`);
   }
 
-  // 6th request for phone1 from ipA -> 429
-  const sixthSameIpPhone = await httpRequest('/api/v1/provider-auth/otp/request', {
+  // 6th request for email1 from ipA -> 429
+  const sixthSameIpEmail = await httpRequest('/api/v1/provider-auth/otp/request', {
     method: 'POST',
     headers: { 'X-Forwarded-For': ipA },
-    body: { phone: phone1 },
+    body: { email: email1 },
   });
-  assert(sixthSameIpPhone.status === 429, `Expected 6th OTP request for same phone+IP to return 429, got ${sixthSameIpPhone.status}`);
+  assert(sixthSameIpEmail.status === 429, `Expected 6th OTP request for same email+IP to return 429, got ${sixthSameIpEmail.status}`);
 
-  // Request for SAME phone1 from DIFFERENT ipB -> also 429 (keyed by phone)
-  const samePhoneDiffIp = await httpRequest('/api/v1/provider-auth/otp/request', {
+  // Request for SAME email1 from DIFFERENT ipB -> also 429 (keyed by email)
+  const sameEmailDiffIp = await httpRequest('/api/v1/provider-auth/otp/request', {
     method: 'POST',
     headers: { 'X-Forwarded-For': ipB },
-    body: { phone: phone1 },
+    body: { email: email1 },
   });
-  assert(samePhoneDiffIp.status === 429, `Expected OTP request for rate-limited phone from different IP to return 429, got ${samePhoneDiffIp.status}`);
+  assert(sameEmailDiffIp.status === 429, `Expected OTP request for rate-limited email from different IP to return 429, got ${sameEmailDiffIp.status}`);
 
-  // Request for DIFFERENT phone2 from DIFFERENT ipC -> NOT rate-limited (proxy-aware per-client isolation)
-  const diffPhoneDiffIp = await httpRequest('/api/v1/provider-auth/otp/request', {
+  // Request for DIFFERENT email2 from DIFFERENT ipC -> NOT rate-limited (proxy-aware per-client isolation)
+  const diffEmailDiffIp = await httpRequest('/api/v1/provider-auth/otp/request', {
     method: 'POST',
     headers: { 'X-Forwarded-For': ipC },
-    body: { phone: phone2 },
+    body: { email: email2 },
   });
-  assert(diffPhoneDiffIp.status !== 429, `Expected different IP + different phone not to be rate-limited, got ${diffPhoneDiffIp.status}`);
+  assert(diffEmailDiffIp.status !== 429, `Expected different IP + different email not to be rate-limited, got ${diffEmailDiffIp.status}`);
 
-  // Exhaust IP limiter for ipA using distinct phones (5 more requests = 10 total for ipA)
+  // Exhaust IP limiter for ipA using distinct emails (5 more requests = 10 total for ipA)
   for (let i = 0; i < 5; i++) {
     await httpRequest('/api/v1/provider-auth/otp/request', {
       method: 'POST',
       headers: { 'X-Forwarded-For': ipA },
-      body: { phone: `987650000${i}` },
+      body: { email: `provider-ip-test-${i}@wareshop.in` },
     });
   }
   const eleventhFromIpA = await httpRequest('/api/v1/provider-auth/otp/request', {
     method: 'POST',
     headers: { 'X-Forwarded-For': ipA },
-    body: { phone: '9876599999' },
+    body: { email: 'provider-ip-test-final@wareshop.in' },
   });
-  assert(eleventhFromIpA.status === 429, `Expected 11th OTP request from same IP across rotating phones to return 429, got ${eleventhFromIpA.status}`);
+  assert(eleventhFromIpA.status === 429, `Expected 11th OTP request from same IP across rotating emails to return 429, got ${eleventhFromIpA.status}`);
 
   // Verify admin login limiter and contact reveal limiter are still completely unaffected for ipA
   const loginFromIpA = await httpRequest('/api/v1/admin/auth/login', {

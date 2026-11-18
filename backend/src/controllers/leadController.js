@@ -37,14 +37,18 @@ export const leadController = {
 
       const dto = req.validatedPartnerDto || req.body;
 
-      // Enforce verified phone lock
-      if (dto.phone && dto.phone !== account.phone) {
+      // Enforce verified phone lock only when the account's mobile number was OTP-verified
+      if (account.phoneVerified && account.phone && dto.phone && dto.phone !== account.phone) {
         return errorResponse(
           res,
           'Contact number must match your OTP-verified mobile number.',
           400
         );
       }
+
+      const resolvedPhone = account.phoneVerified
+        ? account.phone
+        : dto.phone || account.phone;
 
       // Check open pending applications cap per account
       const pendingCount = await Lead.countDocuments({
@@ -83,7 +87,8 @@ export const leadController = {
 
       const leadPayload = {
         ...dto,
-        phone: account.phone,
+        phone: resolvedPhone,
+        email: dto.email || account.email || '',
         providerAccountId: account._id,
         categoryId: categoryResolution.categoryDoc?._id || null,
         category: categoryResolution.categoryName,
@@ -94,7 +99,7 @@ export const leadController = {
 
       const lead = await leadService.createPartnerLead(leadPayload);
 
-      // Update provider account profile name/email if not yet populated
+      // Update provider account profile name/email/phone if not yet populated (never sets phoneVerified!)
       let accountModified = false;
       if (!account.name && dto.contactPerson) {
         account.name = dto.contactPerson;
@@ -102,6 +107,10 @@ export const leadController = {
       }
       if (!account.email && dto.email) {
         account.email = dto.email;
+        accountModified = true;
+      }
+      if (!account.phone && resolvedPhone) {
+        account.phone = resolvedPhone;
         accountModified = true;
       }
       if (!account.applicationId) {

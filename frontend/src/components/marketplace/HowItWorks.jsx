@@ -24,7 +24,7 @@ export function HowItWorksSection() {
       step: '03',
       title: 'Call the Owner Directly',
       description:
-        'Reveal the OTP-verified mobile number of the business or property owner and speak with them directly.',
+        'Reveal the direct business mobile number of the email-verified property or business owner and speak with them directly.',
       icon: PhoneCall,
       badge: 'Zero Middlemen or Brokerage',
     },
@@ -87,9 +87,9 @@ export function TrustSection() {
   const pillars = [
     {
       icon: ShieldCheck,
-      title: 'OTP-Verified Mobile Numbers',
+      title: 'Email OTP-Verified Accounts',
       description:
-        'Every provider authenticates their Indian mobile number via 2Factor SMS OTP before submitting a listing.',
+        'Every provider verifies their email address via Email OTP before submitting a listing.',
     },
     {
       icon: Building2,

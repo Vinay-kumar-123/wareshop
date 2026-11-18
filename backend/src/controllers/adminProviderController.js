@@ -295,7 +295,7 @@ export const adminProviderController = {
         CustomCategoryRequest.findOne({ applicationId: application._id }).lean(),
         application.providerAccountId
           ? ProviderAccount.findById(application.providerAccountId)
-              .select('phone name email status suspensionReason verifiedAt lastLoginAt')
+              .select('phone phoneVerified name email emailVerified emailVerifiedAt status suspensionReason verifiedAt lastLoginAt')
               .lean()
           : null,
       ]);
@@ -638,7 +638,7 @@ export const adminProviderController = {
 
       const accounts = accountIds.length
         ? await ProviderAccount.find({ _id: { $in: accountIds } })
-            .select('phone name status suspensionReason')
+            .select('phone phoneVerified emailVerified name status suspensionReason')
             .lean()
         : [];
       const accountMap = new Map(accounts.map((a) => [String(a._id), a]));
@@ -682,7 +682,7 @@ export const adminProviderController = {
       const [account, application] = await Promise.all([
         provider.providerAccountId
           ? ProviderAccount.findById(provider.providerAccountId)
-              .select('phone name email status suspensionReason verifiedAt lastLoginAt')
+              .select('phone phoneVerified name email emailVerified emailVerifiedAt status suspensionReason verifiedAt lastLoginAt')
               .lean()
           : null,
         provider.sourceApplicationId
@@ -839,7 +839,12 @@ export const adminProviderController = {
         }
         if (provider.providerAccountId) {
           const ownerAccount = await ProviderAccount.findById(provider.providerAccountId).lean();
-          if (ownerAccount && ownerAccount.phone !== cleanPhone) {
+          if (
+            ownerAccount &&
+            ownerAccount.phoneVerified &&
+            ownerAccount.phone &&
+            ownerAccount.phone !== cleanPhone
+          ) {
             return errorResponse(
               res,
               'contactNumber is locked to the provider account’s OTP-verified mobile number.',
@@ -1272,7 +1277,7 @@ export const adminProviderController = {
       }
 
       const accounts = await ProviderAccount.find(query)
-        .select('phone name email status suspensionReason suspendedAt verifiedAt lastLoginAt createdAt')
+        .select('phone phoneVerified name email emailVerified emailVerifiedAt status suspensionReason suspendedAt verifiedAt lastLoginAt createdAt')
         .sort({ createdAt: -1 })
         .limit(100)
         .lean();

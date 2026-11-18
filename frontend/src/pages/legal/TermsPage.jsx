@@ -52,8 +52,9 @@ export default function TermsPage() {
             </h2>
             <ul className="list-disc list-inside space-y-1.5 text-slate-600">
               <li>
-                Providers must authenticate using their own valid 10-digit Indian mobile number via
-                2Factor SMS OTP. Submitting another person’s phone number is prohibited.
+                Providers must authenticate using their own valid email address via Email OTP and
+                provide an accurate 10-digit Indian business mobile number. Submitting another
+                person’s contact details is prohibited.
               </li>
               <li>
                 All submitted listings enter the{' '}

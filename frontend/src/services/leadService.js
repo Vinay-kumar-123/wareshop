@@ -2,23 +2,23 @@ import api, { setProviderToken, clearProviderToken } from './api.js';
 
 /**
  * Provider Portal & Listing Submission Service Layer
- * Handles OTP authentication, provider session management, and listing lifecycle for business owners.
+ * Handles Email OTP authentication, provider session management, and listing lifecycle for business owners.
  */
 export const leadService = {
-  async sendOtp(phone) {
-    return api.post('/provider-auth/otp/send', { phone });
+  async sendOtp(email) {
+    return api.post('/provider-auth/otp/send', { email });
   },
 
-  async verifyOtp(phone, otp) {
-    return api.post('/provider-auth/otp/verify', { phone, otp });
+  async verifyOtp(email, otp) {
+    return api.post('/provider-auth/otp/verify', { email, otp });
   },
 
-  async registerOrLogin({ phone, verificationToken, name, email }) {
+  async registerOrLogin({ email, verificationToken, phone, name }) {
     const res = await api.post('/provider-auth/register', {
-      phone,
-      verificationToken,
-      name,
       email,
+      verificationToken,
+      phone,
+      name,
     });
     const issuedToken = res?.data?.providerToken || res?.data?.token;
     if (res?.success && issuedToken) {

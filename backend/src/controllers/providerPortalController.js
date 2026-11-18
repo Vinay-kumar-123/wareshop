@@ -145,13 +145,19 @@ export const providerPortalController = {
         suspended: items.filter((i) => i.status === LISTING_STATES.SUSPENDED).length,
       };
 
+      const accountPhone = account.phone || '';
+      const accountEmail = account.email || '';
+
       return successResponse(res, {
         account: {
           id: String(account._id),
-          phone: account.phone,
-          phoneMasked: `******${account.phone.slice(-4)}`,
+          phone: accountPhone,
+          phoneMasked: accountPhone ? `******${accountPhone.slice(-4)}` : '',
+          phoneVerified: Boolean(account.phoneVerified),
           name: account.name || '',
-          email: account.email || '',
+          email: accountEmail,
+          emailVerified: Boolean(account.emailVerified),
+          emailVerifiedAt: account.emailVerifiedAt || null,
           status: account.status || 'ACTIVE',
           suspensionReason: account.status === 'SUSPENDED' ? account.suspensionReason || '' : '',
           verifiedAt: account.verifiedAt,
@@ -348,13 +354,17 @@ export const providerPortalController = {
         uploadedImage = await storageService.uploadImage(req.file);
       }
 
+      const resolvedPhone = account.phoneVerified
+        ? account.phone
+        : dto.phone || account.phone || '';
+
       // Update application record and re-enter SUBMITTED state for admin review
       if (application) {
         application.businessName = dto.businessName;
         application.contactPerson = dto.contactPerson;
         application.name = dto.contactPerson;
-        application.phone = account.phone;
-        application.email = dto.email || '';
+        application.phone = resolvedPhone;
+        application.email = dto.email || account.email || '';
         application.categoryId = categoryResolution.categoryDoc?._id || null;
         application.category = categoryResolution.categoryName;
         application.categorySlug = categoryResolution.categorySlug;
@@ -387,8 +397,8 @@ export const providerPortalController = {
         linkedProvider.customCategoryName = categoryResolution.isOther ? dto.customCategoryName : '';
         linkedProvider.services = dto.servicesOffered;
         linkedProvider.serviceAreas = dto.serviceAreas;
-        linkedProvider.contactNumber = account.phone;
-        linkedProvider.email = dto.email || '';
+        linkedProvider.contactNumber = resolvedPhone;
+        linkedProvider.email = dto.email || account.email || '';
         linkedProvider.address = dto.address || '';
         linkedProvider.city = dto.city;
         linkedProvider.state = dto.state || '';

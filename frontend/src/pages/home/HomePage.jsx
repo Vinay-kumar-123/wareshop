@@ -146,7 +146,7 @@ export default function HomePage() {
 
               <p className="mt-3.5 text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl">
                 Search commercial properties and businesses across India’s top industrial and retail
-                corridors. Reveal the owner’s OTP-verified mobile number and call directly — with{' '}
+                corridors. Reveal the owner’s direct mobile number and call directly — with{' '}
                 <strong className="text-[#171717] font-semibold">
                   zero middlemen and zero brokerage walls
                 </strong>
@@ -157,7 +157,7 @@ export default function HomePage() {
               <div className="mt-5 flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700">
                 <span className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/80">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>2Factor SMS OTP Verified Owners</span>
+                  <span>Email OTP Verified Owners</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/80">
                   <PhoneCall className="w-4 h-4 text-[#F36B21]" />
@@ -448,7 +448,7 @@ export default function HomePage() {
               icon: PhoneCall,
               title: 'Call the Owner Directly',
               description:
-                'Reveal the OTP-verified mobile number of the business owner and place a direct phone call immediately.',
+                'Reveal the business mobile number of the email-verified property or business owner and place a direct phone call immediately.',
               tag: '0% Commission',
             },
           ].map((item) => {
@@ -505,10 +505,10 @@ export default function HomePage() {
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <h3 className="text-xs sm:text-sm font-bold text-[#171717]">
-                      OTP-Verified Owner Numbers
+                      Email-Verified Provider Accounts
                     </h3>
                     <p className="text-xs text-slate-600 mt-0.5">
-                      Providers authenticate their Indian mobile number via SMS OTP before listing.
+                      Providers verify their email address via Email OTP before submitting a listing.
                     </p>
                   </div>
                 </div>
@@ -565,7 +565,7 @@ export default function HomePage() {
                 List Your Shop, Office, Warehouse or Godown
               </h2>
               <p className="mt-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Register with your mobile number via 2Factor SMS OTP, submit your commercial
+                Register with your email address via Email OTP, submit your commercial
                 property or business details, and receive direct phone calls from interested
                 customers once published.
               </p>
