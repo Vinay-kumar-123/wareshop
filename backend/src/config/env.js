@@ -119,7 +119,9 @@ export function buildEnv(rawEnv = process.env) {
   const rawOtpSecret = (rawEnv.OTP_HMAC_SECRET || '').trim();
   const otpHmacSecret =
     rawOtpSecret ||
-    (adminPassword
+    (isProduction
+      ? ''
+      : adminPassword
       ? crypto.scryptSync(adminPassword, 'wareshop-otp-hmac-v1', 32).toString('hex')
       : 'wareshop-dev-only-otp-hmac-secret');
 
@@ -143,21 +145,32 @@ export function buildEnv(rawEnv = process.env) {
       autoRotate: rawEnv.ADMIN_AUTO_ROTATE_PASSWORD === 'true',
     },
 
-    // 2Factor SMS OTP Configuration
-    twoFactor: {
-      apiKey: (rawEnv.TWOFACTOR_API_KEY || '').trim(),
-      baseUrl: (rawEnv.TWOFACTOR_BASE_URL || 'https://2factor.in/API/V1').trim(),
-      template: (rawEnv.TWOFACTOR_OTP_TEMPLATE || '').trim(),
+    // Resend Email OTP Configuration
+    resend: {
+      apiKey: (rawEnv.RESEND_API_KEY || '').trim(),
+      fromEmail: (rawEnv.RESEND_FROM_EMAIL || '').trim(),
+      replyTo: (rawEnv.RESEND_REPLY_TO || '').trim(),
     },
 
     // OTP Security & Rate Controls
     otp: {
       hmacSecret: otpHmacSecret,
-      cooldownMs: parseInt(rawEnv.OTP_COOLDOWN_MS, 10) || 60_000,
-      expiryMs: parseInt(rawEnv.OTP_EXPIRY_MS, 10) || 5 * 60_000,
+      cooldownMs:
+        parseInt(rawEnv.OTP_COOLDOWN_MS, 10) ||
+        (parseInt(rawEnv.OTP_COOLDOWN_SECONDS, 10)
+          ? parseInt(rawEnv.OTP_COOLDOWN_SECONDS, 10) * 1000
+          : 60_000),
+      expiryMs:
+        parseInt(rawEnv.OTP_EXPIRY_MS, 10) ||
+        (parseInt(rawEnv.OTP_TTL_MINUTES, 10)
+          ? parseInt(rawEnv.OTP_TTL_MINUTES, 10) * 60_000
+          : 5 * 60_000),
       maxAttempts: parseInt(rawEnv.OTP_MAX_ATTEMPTS, 10) || 5,
-      maxPerPhonePerDay: parseInt(rawEnv.OTP_MAX_PER_PHONE_DAY, 10) || 5,
-      maxGlobalPerHour: parseInt(rawEnv.OTP_MAX_GLOBAL_HOUR, 10) || 200,
+      maxPerEmailPerDay:
+        parseInt(rawEnv.OTP_MAX_PER_EMAIL_DAY || rawEnv.OTP_DAILY_MAX_PER_EMAIL, 10) || 5,
+      maxPerIpPerHour: parseInt(rawEnv.OTP_MAX_PER_IP_HOUR, 10) || 20,
+      maxGlobalPerHour:
+        parseInt(rawEnv.OTP_MAX_GLOBAL_HOUR || rawEnv.OTP_GLOBAL_HOURLY_MAX, 10) || 200,
     },
 
     // Image Upload & Storage Configuration
@@ -235,9 +248,34 @@ export function validateEnv(config = env) {
       );
     }
 
-    if (config.storage?.provider === 'cloudinary') {
+    const isConfiguredVal = (v) =>
+      typeof v === 'string' && Boolean(v.trim()) && !/^<.*>$/.test(v.trim());
+
+    if (!isConfiguredVal(config.otp?.hmacSecret) || config.otp.hmacSecret.trim().length < 32) {
+      errors.push('OTP_HMAC_SECRET is required in production and must be at least 32 characters.');
+    }
+
+    if (!isConfiguredVal(config.resend?.apiKey)) {
+      errors.push('RESEND_API_KEY is required in production.');
+    }
+
+    const fromEmailVal = (config.resend?.fromEmail || '').trim();
+    const extractedFromEmail = fromEmailVal.includes('<')
+      ? (fromEmailVal.match(/<([^<>]+)>/)?.[1] || '').trim()
+      : fromEmailVal;
+    if (
+      !isConfiguredVal(fromEmailVal) ||
+      !emailRegex.test(extractedFromEmail) ||
+      extractedFromEmail.endsWith('.invalid')
+    ) {
+      errors.push('RESEND_FROM_EMAIL is required in production and must contain a valid sender email address.');
+    }
+
+    if (config.storage?.provider !== 'cloudinary') {
+      errors.push('STORAGE_PROVIDER must be set to "cloudinary" in production.');
+    } else {
       const { cloudName, apiKey, apiSecret } = config.storage.cloudinary || {};
-      if (!cloudName || !apiKey || !apiSecret) {
+      if (!isConfiguredVal(cloudName) || !isConfiguredVal(apiKey) || !isConfiguredVal(apiSecret)) {
         errors.push(
           'CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are required when STORAGE_PROVIDER=cloudinary.'
         );

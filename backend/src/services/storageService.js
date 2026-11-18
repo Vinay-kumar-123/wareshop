@@ -55,18 +55,31 @@ export const storageService = {
       originalname: sanitizeOriginalFilename(file.originalname),
     };
 
+    const isProduction = process.env.NODE_ENV === 'production' || env.isProduction;
+    const isConfiguredVal = (v) => Boolean(v && !/^<.*>$/.test(v.trim()));
     const provider = (process.env.STORAGE_PROVIDER || env.storage.provider || 'local').trim();
     const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || env.storage.cloudinary.cloudName || '').trim();
     const apiKey = (process.env.CLOUDINARY_API_KEY || env.storage.cloudinary.apiKey || '').trim();
     const apiSecret = (process.env.CLOUDINARY_API_SECRET || env.storage.cloudinary.apiSecret || '').trim();
 
-    if (provider === 'cloudinary' && cloudName && apiKey && apiSecret) {
+    if (provider === 'cloudinary') {
+      if (!isConfiguredVal(cloudName) || !isConfiguredVal(apiKey) || !isConfiguredVal(apiSecret)) {
+        const error = new Error('Cloud image storage is not configured');
+        error.statusCode = 503;
+        throw error;
+      }
       return await this._uploadToCloudinary(cleanFile, {
         cloudName,
         apiKey,
         apiSecret,
         folder: (process.env.CLOUDINARY_FOLDER || env.storage.cloudinary.folder || 'wareshop/providers').trim(),
       });
+    }
+
+    if (isProduction) {
+      const error = new Error('Local disk image storage is disabled in production');
+      error.statusCode = 503;
+      throw error;
     }
 
     return await this._uploadToLocalStorage(cleanFile);
@@ -157,12 +170,20 @@ export const storageService = {
   async deleteImage(publicId) {
     if (!publicId || typeof publicId !== 'string') return;
 
+    const isProduction = process.env.NODE_ENV === 'production' || env.isProduction;
+    const isConfiguredVal = (v) => Boolean(v && !/^<.*>$/.test(v.trim()));
     const provider = (process.env.STORAGE_PROVIDER || env.storage.provider || 'local').trim();
     const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || env.storage.cloudinary.cloudName || '').trim();
     const apiKey = (process.env.CLOUDINARY_API_KEY || env.storage.cloudinary.apiKey || '').trim();
     const apiSecret = (process.env.CLOUDINARY_API_SECRET || env.storage.cloudinary.apiSecret || '').trim();
 
-    if (provider === 'cloudinary' && cloudName && apiKey && apiSecret) {
+    if (provider === 'cloudinary') {
+      if (!isConfiguredVal(cloudName) || !isConfiguredVal(apiKey) || !isConfiguredVal(apiSecret)) {
+        logger.warn('Skipping Cloudinary asset deletion: Cloudinary credentials not configured', {
+          publicId,
+        });
+        return;
+      }
       try {
         const timestamp = Math.floor(Date.now() / 1000);
         const signature = createCloudinarySignature({ public_id: publicId, timestamp }, apiSecret);
@@ -180,8 +201,8 @@ export const storageService = {
       } catch (err) {
         logger.warn('Failed to delete Cloudinary asset', { publicId, error: err.message });
       }
-    } else {
-      // Prevent path traversal on local delete
+    } else if (!isProduction) {
+      // Prevent path traversal on local delete (development/test only)
       const safeBasename = path.basename(publicId);
       const localFile = path.join(env.storage.uploadDir, safeBasename);
       if (fs.existsSync(localFile)) {

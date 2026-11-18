@@ -28,7 +28,7 @@ import {
   RefreshCw,
   MapPin,
   Image as ImageIcon,
-  Smartphone,
+  Mail,
   KeyRound,
   Store,
   Briefcase,
@@ -72,6 +72,7 @@ const STATUS_BADGES = {
 const EMPTY_FORM = {
   businessName: '',
   contactPerson: '',
+  phone: '',
   email: '',
   category: '',
   customCategoryName: '',
@@ -91,7 +92,7 @@ export default function BecomePartnerPage() {
   usePageMeta({
     title: 'Provider Portal — List & Manage Commercial Properties | WARESHOP',
     description:
-      'Authenticate with your Indian mobile number via OTP to submit and manage commercial shop, office, warehouse, and godown listings on WARESHOP.',
+      'Authenticate with your email address via Email OTP to submit and manage commercial shop, office, warehouse, and godown listings on WARESHOP.',
     canonical: 'https://wareshop.in/become-a-partner',
   });
 
@@ -114,14 +115,21 @@ export default function BecomePartnerPage() {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [editingListingId, setEditingListingId] = useState(null);
 
-  // OTP Authentication state
+  // Email OTP Authentication state
+  const [authEmail, setAuthEmail] = useState('');
   const [authPhone, setAuthPhone] = useState('');
   const [authName, setAuthName] = useState('');
   const [authOtp, setAuthOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authPhase, setAuthPhase] = useState('idle'); // idle | sending | verifying
   const [authError, setAuthError] = useState('');
+  const [authErrorTitle, setAuthErrorTitle] = useState('Authentication Error');
   const [authNotice, setAuthNotice] = useState('');
+  const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
+  const [otpRemainingSeconds, setOtpRemainingSeconds] = useState(0);
+  const [verifiedEmailToken, setVerifiedEmailToken] = useState('');
+  const [emailVerifiedSuccess, setEmailVerifiedSuccess] = useState(false);
 
   // Categories
   const [availableCategories, setAvailableCategories] = useState(fallbackCategories);
@@ -137,10 +145,20 @@ export default function BecomePartnerPage() {
   const [submissionSuccess, setSubmissionSuccess] = useState(null);
 
   // Profile form state
-  const [profileForm, setProfileForm] = useState({ name: '', email: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
+
+  // Resend cooldown and OTP expiry countdown timer
+  useEffect(() => {
+    if (resendCooldownSeconds <= 0 && otpRemainingSeconds <= 0) return undefined;
+    const timer = setInterval(() => {
+      setResendCooldownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      setOtpRemainingSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldownSeconds, otpRemainingSeconds]);
 
   // Load active categories from backend
   useEffect(() => {
@@ -174,11 +192,12 @@ export default function BecomePartnerPage() {
         setListings(Array.isArray(res.data.listings) ? res.data.listings : []);
         setProfileForm({
           name: acct.name || '',
-          email: acct.email || '',
+          phone: acct.phone || '',
         });
         setFormData((prev) => ({
           ...prev,
           contactPerson: prev.contactPerson || acct.name || '',
+          phone: prev.phone || acct.phone || '',
           email: prev.email || acct.email || '',
         }));
         return true;
@@ -218,68 +237,123 @@ export default function BecomePartnerPage() {
     }
   };
 
-  // --- OTP AUTHENTICATION HANDLERS ---
+  // --- EMAIL OTP AUTHENTICATION HANDLERS ---
   const handleSendOtp = async (e) => {
     if (e) e.preventDefault();
     setAuthError('');
+    setAuthErrorTitle('Authentication Error');
     setAuthNotice('');
 
+    const cleanEmail = authEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+
     const cleanPhone = authPhone.replace(/\D/g, '');
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setAuthError('Please enter a valid 10-digit Indian mobile number (starting with 6–9).');
+    if (cleanPhone && !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setAuthError('Business mobile number must be a valid 10-digit Indian mobile number (starting with 6–9).');
       return;
     }
 
     setAuthLoading(true);
+    setAuthPhase('sending');
     try {
-      const res = await leadService.sendOtp(cleanPhone);
+      const res = await leadService.sendOtp(cleanEmail);
       setOtpSent(true);
       setAuthOtp('');
+      setVerifiedEmailToken('');
+      setEmailVerifiedSuccess(false);
+      setOtpRemainingSeconds(res?.data?.expiresInSeconds || 300);
+      setResendCooldownSeconds(res?.data?.cooldownSeconds || 60);
       setAuthNotice(
-        res?.message || `A 6-digit OTP has been sent via SMS to +91 ${cleanPhone}.`
+        res?.message || `A 6-digit verification OTP has been sent to ${cleanEmail}.`
       );
     } catch (err) {
-      setAuthError(
-        err.message || 'Unable to send OTP right now. Please verify your number or try again.'
-      );
+      const msg = err?.message || 'Unable to send Email OTP right now. Please try again.';
+      if (err?.status === 429) {
+        setAuthErrorTitle('Resend Cooldown Active');
+        const waitMatch = msg.match(/wait\s+(\d+)\s+seconds/i);
+        if (waitMatch) {
+          setResendCooldownSeconds(parseInt(waitMatch[1], 10));
+        }
+      } else {
+        setAuthErrorTitle('Email Delivery Failed');
+      }
+      setAuthError(msg);
     } finally {
       setAuthLoading(false);
+      setAuthPhase('idle');
     }
   };
 
   const handleVerifyAndLogin = async (e) => {
     if (e) e.preventDefault();
     setAuthError('');
+    setAuthErrorTitle('Verification Error');
     setAuthNotice('');
 
+    const cleanEmail = authEmail.trim().toLowerCase();
     const cleanPhone = authPhone.replace(/\D/g, '');
-    const cleanOtp = authOtp.replace(/\D/g, '');
-    if (!/^\d{6}$/.test(cleanOtp)) {
-      setAuthError('Please enter the 6-digit OTP received on your mobile.');
+    if (cleanPhone && !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setAuthError('Business mobile number must be a valid 10-digit Indian mobile number.');
       return;
     }
 
+    const cleanOtp = authOtp.replace(/\D/g, '');
+    if (!verifiedEmailToken) {
+      if (otpSent && otpRemainingSeconds <= 0) {
+        setAuthErrorTitle('Expired OTP');
+        setAuthError('Your 6-digit Email OTP has expired. Please request a new OTP.');
+        return;
+      }
+      if (!/^\d{6}$/.test(cleanOtp)) {
+        setAuthError('Please enter the 6-digit OTP sent to your email address.');
+        return;
+      }
+    }
+
     setAuthLoading(true);
+    setAuthPhase('verifying');
     try {
-      const verifyRes = await leadService.verifyOtp(cleanPhone, cleanOtp);
-      const verificationToken = verifyRes?.data?.verificationToken;
-      if (!verificationToken) {
-        throw new Error('OTP verification did not return a valid session token.');
+      let tokenToUse = verifiedEmailToken;
+      if (!tokenToUse) {
+        const verifyRes = await leadService.verifyOtp(cleanEmail, cleanOtp);
+        tokenToUse = verifyRes?.data?.verificationToken;
+        if (!tokenToUse) {
+          throw new Error('Email OTP verification did not return a valid session token.');
+        }
+        setVerifiedEmailToken(tokenToUse);
+        setEmailVerifiedSuccess(true);
+        setAuthNotice('Email Verified! Signing you in to the Provider Dashboard...');
       }
 
       await leadService.registerOrLogin({
-        phone: cleanPhone,
-        verificationToken,
-        name: authName.trim(),
+        email: cleanEmail,
+        verificationToken: tokenToUse,
+        phone: cleanPhone || undefined,
+        name: authName.trim() || undefined,
       });
 
       await loadDashboardData();
       const targetTab = searchParams.get('tab') || 'overview';
       setActiveTab(targetTab);
     } catch (err) {
-      setAuthError(err.message || 'OTP verification failed. Please check the code and try again.');
+      const msg = err?.message || 'OTP verification failed. Please check the code and try again.';
+      if (/expired/i.test(msg)) {
+        setAuthErrorTitle('Expired OTP');
+        setOtpRemainingSeconds(0);
+      } else if (/incorrect/i.test(msg)) {
+        setAuthErrorTitle('Incorrect OTP');
+      } else if (/maximum|attempts/i.test(msg)) {
+        setAuthErrorTitle('OTP Locked');
+      } else {
+        setAuthErrorTitle('Verification Error');
+      }
+      setAuthError(msg);
     } finally {
       setAuthLoading(false);
+      setAuthPhase('idle');
     }
   };
 
@@ -291,6 +365,10 @@ export default function BecomePartnerPage() {
     setAuthOtp('');
     setAuthNotice('');
     setAuthError('');
+    setVerifiedEmailToken('');
+    setEmailVerifiedSuccess(false);
+    setResendCooldownSeconds(0);
+    setOtpRemainingSeconds(0);
   };
 
   // --- LISTING FORM HANDLERS ---
@@ -304,6 +382,7 @@ export default function BecomePartnerPage() {
     setFormData({
       ...EMPTY_FORM,
       contactPerson: account?.name || '',
+      phone: account?.phone || '',
       email: account?.email || '',
     });
     switchTab('submit');
@@ -325,6 +404,7 @@ export default function BecomePartnerPage() {
     setFormData({
       businessName: item.businessName || '',
       contactPerson: item.contactPerson || account?.name || '',
+      phone: item.phone || account?.phone || '',
       email: item.email || account?.email || '',
       category: catValue,
       customCategoryName: item.customCategoryName || item.customCategoryRequest?.requestedName || '',
@@ -408,6 +488,13 @@ export default function BecomePartnerPage() {
     if (!formData.contactPerson.trim() || formData.contactPerson.trim().length < 2) {
       errs.contactPerson = 'Contact person name is required.';
     }
+    const cleanListingPhone = (account?.phoneVerified ? account.phone : formData.phone || '').replace(
+      /\D/g,
+      ''
+    );
+    if (!/^[6-9]\d{9}$/.test(cleanListingPhone)) {
+      errs.phone = 'A valid 10-digit Indian business mobile number is required.';
+    }
     if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
       errs.email = 'Please enter a valid email address or leave it blank.';
     }
@@ -461,10 +548,13 @@ export default function BecomePartnerPage() {
     setIsSubmitting(true);
     try {
       const payload = new FormData();
+      const listingPhone = account?.phoneVerified
+        ? account.phone
+        : formData.phone.replace(/\D/g, '');
       payload.append('businessName', formData.businessName.trim());
       payload.append('contactPerson', formData.contactPerson.trim());
-      payload.append('phone', account.phone);
-      payload.append('email', formData.email.trim());
+      payload.append('phone', listingPhone);
+      payload.append('email', formData.email.trim() || account?.email || '');
       payload.append('category', formData.category.trim());
       if (formData.category === 'other') {
         payload.append('customCategoryName', formData.customCategoryName.trim());
@@ -518,12 +608,20 @@ export default function BecomePartnerPage() {
     e.preventDefault();
     setProfileMessage('');
     setProfileError('');
+    const cleanPhone = (profileForm.phone || '').replace(/\D/g, '');
+    if (cleanPhone && !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setProfileError('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
     setProfileSaving(true);
     try {
-      const res = await leadService.updateProviderProfile({
+      const payload = {
         name: profileForm.name.trim(),
-        email: profileForm.email.trim(),
-      });
+      };
+      if (!account?.phoneVerified && cleanPhone) {
+        payload.phone = cleanPhone;
+      }
+      const res = await leadService.updateProviderProfile(payload);
       if (res?.success) {
         setProfileMessage('Account profile updated successfully.');
         await loadDashboardData();
@@ -547,9 +645,16 @@ export default function BecomePartnerPage() {
   }
 
   // ============================================================================
-  // UNAUTHENTICATED VIEW: 2FACTOR OTP REGISTRATION & LOGIN
+  // UNAUTHENTICATED VIEW: EMAIL OTP REGISTRATION & LOGIN
   // ============================================================================
   if (!account) {
+    const formatCountdown = (totalSeconds) => {
+      const mins = Math.floor(totalSeconds / 60);
+      const secs = totalSeconds % 60;
+      return `${mins}:${String(secs).padStart(2, '0')}`;
+    };
+    const isOtpExpired = otpSent && otpRemainingSeconds <= 0 && !verifiedEmailToken;
+
     return (
       <div className="bg-[#F7F8FA] min-h-screen pb-16">
         <div className="bg-white border-b border-slate-200">
@@ -565,13 +670,13 @@ export default function BecomePartnerPage() {
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF5EF] border border-[#FFE6D5] text-[#D95513] text-xs font-extrabold uppercase tracking-wider mb-3">
                   <ShieldCheck className="w-4 h-4 text-[#F36B21]" />
-                  <span>Provider Portal & OTP Authentication</span>
+                  <span>Provider Portal & Email OTP Authentication</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-950 tracking-tight leading-tight">
                   List Your Commercial Property or Business on WARESHOP
                 </h1>
                 <p className="text-slate-600 text-sm sm:text-base leading-relaxed mt-3">
-                  Register or sign in with your Indian mobile number via 2Factor SMS OTP. Once
+                  Register or sign in with your email address via Email OTP. Once
                   authenticated, you can submit new listings for{' '}
                   <strong className="text-slate-900">
                     Shops, Offices, Warehouses, and Godowns
@@ -634,16 +739,16 @@ export default function BecomePartnerPage() {
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <span>
                         <strong className="text-slate-900">Direct Customer Calls:</strong>{' '}
-                        Verified commercial buyers and tenants call you directly on your phone
-                        number without middlemen.
+                        Interested commercial buyers and tenants call you directly on your business
+                        phone number without middlemen.
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <span>
-                        <strong className="text-slate-900">OTP-Locked Ownership:</strong> Your
-                        listing’s contact number is locked to your OTP-verified mobile number so no
-                        one can impersonate your business.
+                        <strong className="text-slate-900">Email-Verified Ownership:</strong> Your
+                        provider portal account is protected with single-use Email OTP verification
+                        and administrator listing review.
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
@@ -659,7 +764,7 @@ export default function BecomePartnerPage() {
               </div>
             </div>
 
-            {/* Right Column: OTP Login / Registration Card */}
+            {/* Right Column: Email OTP Login / Registration Card */}
             <div className="lg:col-span-6">
               <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-card">
                 {/* Step Indicator */}
@@ -671,32 +776,34 @@ export default function BecomePartnerPage() {
                         : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     }`}
                   >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>1. Mobile Number</span>
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>1. Email Address</span>
                   </div>
                   <div className="h-px flex-1 bg-slate-200" />
                   <div
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold ${
-                      otpSent
+                      emailVerifiedSuccess
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : otpSent
                         ? 'bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5]'
                         : 'bg-slate-100 text-slate-400 border border-slate-200'
                     }`}
                   >
                     <KeyRound className="w-3.5 h-3.5" />
-                    <span>2. Verify SMS OTP</span>
+                    <span>{emailVerifiedSuccess ? '2. Email Verified' : '2. Verify Email OTP'}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 mb-2">
                   <span className="w-11 h-11 rounded-xl bg-[#FFF5EF] border border-[#FFE6D5] text-[#F36B21] flex items-center justify-center shrink-0">
-                    <PhoneCall className="w-5 h-5" />
+                    <Mail className="w-5 h-5" />
                   </span>
                   <div>
                     <h2 className="text-xl font-black text-slate-950">
                       Provider Sign In / Register
                     </h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      New and returning property owners sign in using 2Factor SMS OTP
+                      New and returning property owners sign in using Email OTP
                     </p>
                   </div>
                 </div>
@@ -704,7 +811,7 @@ export default function BecomePartnerPage() {
                 {authError && (
                   <Alert
                     type="error"
-                    title="Authentication Error"
+                    title={authErrorTitle}
                     message={authError}
                     className="mt-4"
                   />
@@ -722,10 +829,41 @@ export default function BecomePartnerPage() {
                 >
                   <div>
                     <label
+                      htmlFor="provider-auth-email"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                    >
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="provider-auth-email"
+                      type="email"
+                      value={authEmail}
+                      disabled={otpSent && authLoading}
+                      onChange={(e) => {
+                        setAuthEmail(e.target.value);
+                        if (otpSent) {
+                          setOtpSent(false);
+                          setAuthOtp('');
+                          setVerifiedEmailToken('');
+                          setEmailVerifiedSuccess(false);
+                          setOtpRemainingSeconds(0);
+                        }
+                      }}
+                      placeholder="owner@business.com"
+                      className="w-full px-3.5 py-3 text-sm sm:text-base font-semibold bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:ring-2 focus:ring-[#F36B21]/15 focus:bg-white transition-all"
+                      required
+                    />
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      We will send a 6-digit verification code to this email address.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
                       htmlFor="provider-auth-phone"
                       className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                     >
-                      Indian Mobile Number <span className="text-red-500">*</span>
+                      Business Mobile Number (Optional for Returning Providers)
                     </label>
                     <div className="relative flex items-center">
                       <span className="absolute left-3.5 text-sm font-extrabold text-slate-500 select-none">
@@ -736,19 +874,17 @@ export default function BecomePartnerPage() {
                         type="tel"
                         maxLength={10}
                         value={authPhone}
-                        disabled={otpSent && authLoading}
+                        disabled={authLoading}
                         onChange={(e) => {
                           setAuthPhone(e.target.value.replace(/\D/g, ''));
-                          if (otpSent) setOtpSent(false);
                         }}
                         placeholder="98XXXXXXXX"
                         className="w-full pl-12 pr-4 py-3 text-sm sm:text-base font-bold bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:ring-2 focus:ring-[#F36B21]/15 focus:bg-white transition-all"
-                        required
                       />
                     </div>
                     <p className="mt-1.5 text-[11px] text-slate-500">
-                      This verified mobile number will be used for direct customer calls on your
-                      published listings.
+                      Used for direct customer calls on your published listings. You can also enter
+                      or update this inside your listing form.
                     </p>
                   </div>
 
@@ -773,11 +909,15 @@ export default function BecomePartnerPage() {
 
                       <button
                         type="submit"
-                        disabled={authLoading}
+                        disabled={authLoading || resendCooldownSeconds > 0}
                         className="w-full py-3.5 px-6 rounded-lg bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                       >
                         <span>
-                          {authLoading ? 'Sending OTP via 2Factor...' : 'Request SMS OTP'}
+                          {authPhase === 'sending'
+                            ? 'Sending OTP via Email...'
+                            : resendCooldownSeconds > 0
+                            ? `Wait ${resendCooldownSeconds}s to Request OTP`
+                            : 'Request Email OTP'}
                         </span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -790,19 +930,36 @@ export default function BecomePartnerPage() {
                             htmlFor="provider-auth-otp"
                             className="block text-xs font-bold uppercase tracking-wider text-slate-700"
                           >
-                            Enter 6-Digit SMS OTP <span className="text-red-500">*</span>
+                            Enter 6-Digit Email OTP <span className="text-red-500">*</span>
                           </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOtpSent(false);
-                              setAuthOtp('');
-                              setAuthNotice('');
-                            }}
-                            className="text-[11px] font-bold text-[#F36B21] hover:underline cursor-pointer"
-                          >
-                            Change Number
-                          </button>
+                          <div className="flex items-center gap-3">
+                            {!verifiedEmailToken && (
+                              <span
+                                className={`text-[11px] font-bold ${
+                                  isOtpExpired ? 'text-rose-600' : 'text-slate-500'
+                                }`}
+                              >
+                                {isOtpExpired
+                                  ? 'Code expired'
+                                  : `Expires in ${formatCountdown(otpRemainingSeconds)}`}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOtpSent(false);
+                                setAuthOtp('');
+                                setAuthNotice('');
+                                setAuthError('');
+                                setVerifiedEmailToken('');
+                                setEmailVerifiedSuccess(false);
+                                setOtpRemainingSeconds(0);
+                              }}
+                              className="text-[11px] font-bold text-[#F36B21] hover:underline cursor-pointer"
+                            >
+                              Change Email
+                            </button>
+                          </div>
                         </div>
                         <input
                           id="provider-auth-otp"
@@ -810,31 +967,43 @@ export default function BecomePartnerPage() {
                           inputMode="numeric"
                           maxLength={6}
                           value={authOtp}
+                          disabled={Boolean(verifiedEmailToken)}
                           onChange={(e) => setAuthOtp(e.target.value.replace(/\D/g, ''))}
                           placeholder="••••••"
-                          className="w-full px-4 py-3 text-center tracking-[0.45em] text-lg font-black bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:ring-2 focus:ring-[#F36B21]/15 focus:bg-white"
-                          required
+                          className="w-full px-4 py-3 text-center tracking-[0.45em] text-lg font-black bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:ring-2 focus:ring-[#F36B21]/15 focus:bg-white disabled:opacity-60"
+                          required={!verifiedEmailToken}
                         />
+                        {isOtpExpired && (
+                          <p className="mt-1.5 text-xs font-semibold text-rose-600">
+                            This verification code has expired. Please request a new Email OTP.
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex flex-col sm:flex-row gap-3">
                         <button
                           type="submit"
-                          disabled={authLoading}
+                          disabled={authLoading || isOtpExpired}
                           className="flex-1 py-3.5 px-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                         >
                           <span>
-                            {authLoading ? 'Verifying OTP...' : 'Verify OTP & Enter Dashboard'}
+                            {authPhase === 'verifying'
+                              ? 'Verifying Email OTP...'
+                              : verifiedEmailToken
+                              ? 'Email Verified — Complete Sign In'
+                              : 'Verify Email OTP & Enter Dashboard'}
                           </span>
                           <ArrowRight className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
-                          disabled={authLoading}
+                          disabled={authLoading || resendCooldownSeconds > 0}
                           onClick={handleSendOtp}
-                          className="py-3 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
+                          className="py-3 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-xs font-bold text-slate-700 cursor-pointer"
                         >
-                          Resend OTP
+                          {resendCooldownSeconds > 0
+                            ? `Resend OTP (${resendCooldownSeconds}s)`
+                            : 'Resend OTP'}
                         </button>
                       </div>
                     </>
@@ -878,7 +1047,11 @@ export default function BecomePartnerPage() {
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-400 mb-1.5">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>OTP-Verified Provider Session (+91 {account.phone})</span>
+              <span>
+                {account.emailVerified
+                  ? `Email Verified (${account.email})`
+                  : `Authenticated Provider (+91 ${account.phone})`}
+              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               {account.name ? `Welcome, ${account.name}` : 'WARESHOP Provider Dashboard'}
@@ -927,12 +1100,17 @@ export default function BecomePartnerPage() {
           <aside className="lg:col-span-3">
             <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-1">
               <div className="px-3.5 py-2.5 mb-1 border-b border-slate-100">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-                  Verified Mobile Account
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 block">
+                  {account.emailVerified ? 'Email Verified Account' : 'Verified Provider Account'}
                 </span>
-                <span className="text-xs font-extrabold text-slate-900 block mt-0.5">
-                  +91 {account.phone}
+                <span className="text-xs font-extrabold text-slate-900 block mt-0.5 truncate">
+                  {account.email || (account.phone ? `+91 ${account.phone}` : 'Provider Account')}
                 </span>
+                {account.email && account.phone && (
+                  <span className="text-[11px] font-semibold text-slate-500 block mt-0.5">
+                    +91 {account.phone}
+                  </span>
+                )}
               </div>
 
               {navItems.map((item) => {
@@ -1512,13 +1690,57 @@ export default function BecomePartnerPage() {
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                            Verified Mobile (Locked)
+                          <label
+                            htmlFor="listing-phone"
+                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                          >
+                            {account.phoneVerified ? (
+                              'Verified Mobile (Locked)'
+                            ) : (
+                              <>
+                                Business Mobile Number <span className="text-red-500">*</span>
+                              </>
+                            )}
                           </label>
-                          <div className="w-full px-3.5 py-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 font-bold flex items-center justify-between">
-                            <span>+91 {account.phone}</span>
-                            <Lock className="w-3.5 h-3.5 text-emerald-700" />
-                          </div>
+                          {account.phoneVerified ? (
+                            <div className="w-full px-3.5 py-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 font-bold flex items-center justify-between">
+                              <span>+91 {account.phone}</span>
+                              <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="relative flex items-center">
+                                <span className="absolute left-3.5 text-sm font-extrabold text-slate-500 select-none">
+                                  +91
+                                </span>
+                                <input
+                                  id="listing-phone"
+                                  name="phone"
+                                  type="tel"
+                                  maxLength={10}
+                                  value={formData.phone}
+                                  onChange={(e) => {
+                                    const digits = e.target.value.replace(/\D/g, '');
+                                    setFormData((prev) => ({ ...prev, phone: digits }));
+                                    if (errors.phone) {
+                                      setErrors((prev) => {
+                                        const next = { ...prev };
+                                        delete next.phone;
+                                        return next;
+                                      });
+                                    }
+                                  }}
+                                  placeholder="98XXXXXXXX"
+                                  className="w-full pl-12 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-bold focus:outline-none focus:border-[#F36B21] focus:bg-white"
+                                />
+                              </div>
+                              {errors.phone && (
+                                <p className="mt-1 text-xs font-medium text-red-600">
+                                  {errors.phone}
+                                </p>
+                              )}
+                            </>
+                          )}
                         </div>
 
                         <div>
@@ -1749,7 +1971,12 @@ export default function BecomePartnerPage() {
                           />
                           <span className="text-slate-700">
                             <strong className="text-slate-900">
-                              Display my verified phone number (+91 {account.phone}) publicly
+                              Display my{' '}
+                              {account.phoneVerified ? 'verified' : 'business'} phone number
+                              {formData.phone || account.phone
+                                ? ` (+91 ${formData.phone || account.phone})`
+                                : ''}{' '}
+                              publicly
                             </strong>{' '}
                             on this listing once approved and published so customers can call me
                             directly.
@@ -1922,7 +2149,7 @@ export default function BecomePartnerPage() {
                     Provider Account Profile
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Your mobile number is verified via 2Factor SMS OTP and locked to your provider
+                    Your email address is verified via Email OTP and bound to your provider
                     account.
                   </p>
                 </div>
@@ -1939,13 +2166,15 @@ export default function BecomePartnerPage() {
                 <form onSubmit={handleProfileSave} className="space-y-5 max-w-lg">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Verified Indian Mobile Number
+                      Email Address
                     </label>
-                    <div className="px-4 py-3 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800 flex items-center justify-between">
-                      <span>+91 {account.phone}</span>
-                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                        OTP Verified
-                      </span>
+                    <div className="px-4 py-3 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800 flex items-center justify-between gap-2">
+                      <span className="truncate">{account.email || 'Not set'}</span>
+                      {account.emailVerified && (
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                          Email Verified
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -1968,19 +2197,39 @@ export default function BecomePartnerPage() {
 
                   <div>
                     <label
-                      htmlFor="profile-email"
+                      htmlFor="profile-phone"
                       className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                     >
-                      Email Address (Optional)
+                      Business Mobile Number
                     </label>
-                    <input
-                      id="profile-email"
-                      type="email"
-                      value={profileForm.email}
-                      onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))}
-                      placeholder="you@company.com"
-                      className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                    />
+                    {account.phoneVerified ? (
+                      <div className="px-4 py-3 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800 flex items-center justify-between">
+                        <span>+91 {account.phone}</span>
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          Mobile Verified
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3.5 text-sm font-extrabold text-slate-500 select-none">
+                          +91
+                        </span>
+                        <input
+                          id="profile-phone"
+                          type="tel"
+                          maxLength={10}
+                          value={profileForm.phone}
+                          onChange={(e) =>
+                            setProfileForm((p) => ({
+                              ...p,
+                              phone: e.target.value.replace(/\D/g, ''),
+                            }))
+                          }
+                          placeholder="98XXXXXXXX"
+                          className="w-full pl-12 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-bold focus:outline-none focus:border-[#F36B21] focus:bg-white"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <button

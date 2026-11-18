@@ -470,7 +470,7 @@ export default function ProviderProfilePage() {
                 Connect with {provider.businessName}
               </h2>
               <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                Speak directly with the authorized owner of this listing using their OTP-verified
+                Speak directly with the authorized owner of this listing using their business
                 mobile number. WARESHOP never intercepts calls or charges brokerage fees.
               </p>
 
@@ -483,7 +483,7 @@ export default function ProviderProfilePage() {
                   <div className="space-y-3">
                     <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-center">
                       <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">
-                        Owner’s Verified Mobile Number
+                        Owner’s Contact Number
                       </span>
                       <p className="text-xl font-black text-emerald-950 mt-1 tracking-wide">
                         +91 {contact.contactNumber}
@@ -522,7 +522,7 @@ export default function ProviderProfilePage() {
               <div className="mt-6 pt-5 border-t border-slate-100 space-y-2.5 text-xs text-slate-600">
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Mobile number authenticated via 2Factor SMS OTP</span>
+                  <span>Owner account verified via Email OTP</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />

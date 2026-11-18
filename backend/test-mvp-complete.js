@@ -3,7 +3,7 @@
  *
  * Covers all required PART 10 test categories in an isolated, non-destructive environment:
  *   A. Customer Marketplace Tests (Listings, Search, Category Filter, Location Filter, Detail, Contact Reveal, Zero Enquiry Creation)
- *   B. Provider Portal & 2Factor OTP Tests (OTP Send, Cooldown, Verify, Register, Returning Login, Submit Listing with Image, Edit Re-Review, Status/Rejection Visibility)
+ *   B. Provider Portal & Resend Email OTP Tests (OTP Send, Cooldown, Verify, Register, Returning Login, Submit Listing with Image, Edit Re-Review, Status/Rejection Visibility)
  *   C. Admin Panel & Lifecycle State Machine Tests (Login, Dashboard Stats, Applications, Approve, Reject with Reason, Publish, Unpublish, Suspend/Reactivate, Category CRUD & Custom Category Requests)
  *   D. Application Security & Abuse Tests (Unauthenticated Access, IDOR Prevention, Mass Assignment, OTP Brute-Force Lockout, Concurrent Approval Prevention, Publish Preconditions, Image Magic-Byte & EXIF Sanitization, Contact Reveal Rate Limit & Consent Gate)
  */
@@ -15,8 +15,8 @@ import mongoose from 'mongoose';
 process.env.NODE_ENV = 'test';
 process.env.MONGODB_DB_NAME = 'wareshop_mvp_isolated_test';
 process.env.OTP_HMAC_SECRET = 'test-hmac-secret-wareshop-2026-key-32bytes';
-process.env.TWOFACTOR_API_KEY = 'test-2factor-live-key';
-process.env.TWOFACTOR_OTP_TEMPLATE = 'WARESHOP_OTP';
+process.env.RESEND_API_KEY = 're_test_wareshop_resend_key';
+process.env.RESEND_FROM_EMAIL = 'WARESHOP <no-reply@wareshop.in>';
 
 const appModule = await import('./src/app.js');
 const app = appModule.default;
@@ -101,6 +101,9 @@ function matchesCondition(fieldVal, cond) {
     return !list.includes(fieldVal) && !list.includes(String(fieldVal));
   }
   if ('$ne' in cond) {
+    if (cond.$ne === null) {
+      return fieldVal !== null && fieldVal !== undefined;
+    }
     if (cond.$ne instanceof mongoose.Types.ObjectId || fieldVal instanceof mongoose.Types.ObjectId) {
       return String(fieldVal || '') !== String(cond.$ne || '');
     }
@@ -405,19 +408,29 @@ for (const cat of DEFAULT_CATEGORIES) {
   collections.categories.set(String(doc._id), doc);
 }
 
-// Intercept outbound 2Factor SMS HTTP requests to capture the generated OTP without external network calls
-let lastCapturedOtpByPhone = new Map();
+// Intercept outbound Resend API HTTP requests to capture generated OTPs without external network calls
+let lastCapturedOtpByEmail = new Map();
+let lastOutboundEndpoint = null;
+let lastOutboundPayload = null;
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const urlStr = String(input);
-  if (urlStr.startsWith('https://2factor.in/API/V1/')) {
-    // Parse: https://2factor.in/API/V1/{apiKey}/SMS/+91{phone}/{otp}/{template}
-    const match = urlStr.match(/\/SMS\/(?:\+91|%2B91)(\d{10})\/(\d{6})/i);
-    if (match) {
-      lastCapturedOtpByPhone.set(match[1], match[2]);
+  lastOutboundEndpoint = urlStr;
+  if (urlStr.includes('fast2sms.com') || urlStr.includes('2factor.in')) {
+    throw new Error(`Unexpected legacy SMS/WhatsApp call detected: ${urlStr}`);
+  }
+  if (urlStr.includes('api.resend.com/emails')) {
+    const bodyJson = init?.body ? JSON.parse(String(init.body)) : {};
+    lastOutboundPayload = bodyJson;
+    const recipient = Array.isArray(bodyJson.to) ? String(bodyJson.to[0] || '').toLowerCase() : '';
+    const otpMatch = String(bodyJson.text || bodyJson.html || '').match(/\b(\d{6})\b/);
+    if (recipient && otpMatch) {
+      lastCapturedOtpByEmail.set(recipient, otpMatch[1]);
     }
     return new Response(
-      JSON.stringify({ Status: 'Success', Details: `2f-session-${Date.now()}` }),
+      JSON.stringify({
+        id: `resend-email-${Date.now()}`,
+      }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -560,59 +573,106 @@ console.log(' WARESHOP — COMPLETE MVP INTEGRATION & SECURITY TEST SUITE');
 console.log('================================================================\n');
 
 // ---------------------------------------------------------------------------
-// PART A: PROVIDER OTP AUTHENTICATION & PORTAL WORKFLOW
+// PART A: PROVIDER EMAIL OTP AUTHENTICATION & PORTAL WORKFLOW
 // ---------------------------------------------------------------------------
-console.log('--- A. Provider 2Factor OTP Authentication & Portal Workflow ---');
+console.log('--- A. Provider Resend Email OTP Authentication & Portal Workflow ---');
 
+const provider1Email = 'rajesh@bhiwandilogistics.in';
 const provider1Phone = '9820111222';
+const provider2Email = 'suresh@navicoldchain.in';
 const provider2Phone = '9820333444';
 let provider1Token = null;
 let provider2Token = null;
 let provider1ApplicationId = null;
 
-await test('A.1 Provider requests OTP via 2Factor Manual OTP endpoint and cooldown blocks immediate duplicate', async () => {
+await test('A.1 Provider requests Email OTP via Resend endpoint and 60s cooldown blocks immediate duplicate', async () => {
   const sendRes = await httpRequest('/api/v1/provider-auth/otp/send', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.10' },
-    body: { phone: provider1Phone },
+    body: { email: '  Rajesh@BhiwandiLogistics.IN  ' },
   });
-  assert(sendRes.status === 200, `Expected 200 on OTP send, got ${sendRes.status}`);
-  assert(lastCapturedOtpByPhone.has(provider1Phone), 'Expected 2Factor gateway to receive generated 6-digit OTP');
+  assert(sendRes.status === 200, `Expected 200 on Email OTP send, got ${sendRes.status}`);
+  assert(lastCapturedOtpByEmail.has(provider1Email), 'Expected Resend email gateway to receive generated 6-digit OTP');
+  assert(
+    lastOutboundEndpoint && lastOutboundEndpoint.includes('api.resend.com/emails'),
+    'Expected outbound delivery to use Resend Email API'
+  );
+  assert(
+    !lastOutboundEndpoint.includes('fast2sms.com') && !lastOutboundEndpoint.includes('2factor.in'),
+    'Expected Fast2SMS/2Factor to NOT be used'
+  );
+  assert(
+    sendRes.body?.data?.emailMasked && !sendRes.body?.data?.otp,
+    'Expected masked email and zero plaintext OTP exposure in response'
+  );
+
+  // Verify plaintext OTP is never persisted in OtpChallenge
+  const latestChallenge = Array.from(collections.otpChallenges.values()).find(
+    (c) => c.email === provider1Email
+  );
+  assert(latestChallenge, 'Expected OtpChallenge document created');
+  assert(!latestChallenge.phone, 'Expected OtpChallenge.phone to remain unset for email challenges');
+  assert(
+    latestChallenge.otpHash && latestChallenge.otpHash !== lastCapturedOtpByEmail.get(provider1Email),
+    'Expected OtpChallenge to store only HMAC hash, never plaintext OTP'
+  );
 
   // Immediate second request within 60s cooldown -> 429
   const cooldownRes = await httpRequest('/api/v1/provider-auth/otp/send', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.10' },
-    body: { phone: provider1Phone },
+    body: { email: provider1Email },
   });
   assert(cooldownRes.status === 429, `Expected 429 cooldown block, got ${cooldownRes.status}`);
+  assert(cooldownRes.headers['retry-after'], 'Expected Retry-After header on cooldown 429');
 });
 
-await test('A.2 Invalid OTP is rejected and valid OTP issues one-time verificationToken', async () => {
+await test('A.2 Invalid OTP is rejected, valid OTP issues one-time verificationToken, and Email OTP never marks phoneVerified', async () => {
   const badRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.10' },
-    body: { phone: provider1Phone, otp: '000000' },
+    body: { email: provider1Email, otp: '000000' },
   });
   assert(badRes.status === 400, `Expected 400 for wrong OTP, got ${badRes.status}`);
 
-  const realOtp = lastCapturedOtpByPhone.get(provider1Phone);
+  const realOtp = lastCapturedOtpByEmail.get(provider1Email);
   const verifyRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.10' },
-    body: { phone: provider1Phone, otp: realOtp },
+    body: { email: provider1Email, otp: realOtp },
   });
   assert(verifyRes.status === 200, `Expected 200 on valid OTP verify, got ${verifyRes.status}`);
+  assert(verifyRes.body?.data?.emailVerified === true, 'Expected emailVerified=true on verify response');
   const verificationToken = verifyRes.body?.data?.verificationToken;
   assert(verificationToken && verificationToken.length === 64, 'Expected 64-char verificationToken');
 
-  // Register provider account using verificationToken
+  // Replaying already-verified OTP must fail
+  const replayOtpRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
+    method: 'POST',
+    headers: { 'X-Forwarded-For': '203.0.113.10' },
+    body: { email: provider1Email, otp: realOtp },
+  });
+  assert(replayOtpRes.status === 400, `Expected 400 when replaying used OTP, got ${replayOtpRes.status}`);
+
+  // Unauthorized registration with wrong email or missing verificationToken -> 403
+  const wrongEmailReg = await httpRequest('/api/v1/provider-auth/register', {
+    method: 'POST',
+    headers: { 'X-Forwarded-For': '203.0.113.10' },
+    body: { email: 'attacker@example.com', verificationToken, phone: provider1Phone },
+  });
+  assert(wrongEmailReg.status === 403, `Expected 403 when binding verificationToken to wrong email, got ${wrongEmailReg.status}`);
+
+  // Register provider account using bound verificationToken
   const regRes = await httpRequest('/api/v1/provider-auth/register', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.10' },
-    body: { phone: provider1Phone, verificationToken },
+    body: { email: provider1Email, verificationToken, phone: provider1Phone },
   });
   assert(regRes.status === 201, `Expected 201 on new provider registration, got ${regRes.status}`);
+  assert(regRes.body?.data?.emailVerified === true, 'Expected emailVerified=true on registered provider');
+  assert(regRes.body?.data?.phoneVerified === false, 'Email OTP must NEVER mark phoneVerified=true');
+  assert(regRes.body?.data?.phone === provider1Phone, 'Expected provider business mobile number preserved');
+  assert(regRes.headers['set-cookie']?.some((c) => c.includes('wareshop_provider_session=')), 'Expected session cookie');
   provider1Token = regRes.body?.data?.token;
   assert(provider1Token && provider1Token.length === 64, 'Expected provider session token');
 
@@ -620,12 +680,12 @@ await test('A.2 Invalid OTP is rejected and valid OTP issues one-time verificati
   const reuseRes = await httpRequest('/api/v1/provider-auth/register', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.10' },
-    body: { phone: provider1Phone, verificationToken },
+    body: { email: provider1Email, verificationToken },
   });
   assert(reuseRes.status === 403, `Expected 403 when reusing consumed verificationToken, got ${reuseRes.status}`);
 });
 
-await test('A.3 Returning provider can log in again via OTP and update profile (phone remains locked)', async () => {
+await test('A.3 Returning provider can log in again via Email OTP and update profile (verified email remains locked)', async () => {
   // Expire cooldown on previous challenge so provider1 can request a new login OTP
   for (const ch of collections.otpChallenges.values()) {
     ch.sentAt = new Date(Date.now() - 120_000);
@@ -634,38 +694,40 @@ await test('A.3 Returning provider can log in again via OTP and update profile (
   const sendRes = await httpRequest('/api/v1/provider-auth/otp/send', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.11' },
-    body: { phone: provider1Phone },
+    body: { email: provider1Email },
   });
-  assert(sendRes.status === 200, `Expected 200 on returning provider OTP send, got ${sendRes.status}`);
+  assert(sendRes.status === 200, `Expected 200 on returning provider Email OTP send, got ${sendRes.status}`);
 
-  const loginOtp = lastCapturedOtpByPhone.get(provider1Phone);
+  const loginOtp = lastCapturedOtpByEmail.get(provider1Email);
   const verifyRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.11' },
-    body: { phone: provider1Phone, otp: loginOtp },
+    body: { email: provider1Email, otp: loginOtp },
   });
   const loginRes = await httpRequest('/api/v1/provider-auth/login', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.11' },
-    body: { phone: provider1Phone, verificationToken: verifyRes.body.data.verificationToken },
+    body: { email: provider1Email, verificationToken: verifyRes.body.data.verificationToken },
   });
   assert(loginRes.status === 200, `Expected 200 on returning provider login, got ${loginRes.status}`);
   assert(loginRes.body.data.isNewAccount === false, 'Expected isNewAccount=false for returning provider');
+  assert(loginRes.body.data.phone === provider1Phone, 'Expected existing phone preserved on returning login');
+  assert(loginRes.body.data.phoneVerified === false, 'Expected phoneVerified to remain false');
   provider1Token = loginRes.body.data.token;
 
-  // Attempt to change phone via profile endpoint -> 400
-  const changePhoneRes = await httpRequest('/api/v1/provider-auth/profile', {
+  // Attempt to change verified email via profile endpoint -> 400
+  const changeEmailRes = await httpRequest('/api/v1/provider-auth/profile', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${provider1Token}` },
-    body: { name: 'Rajesh Logistics Owner', phone: '9999999999' },
+    body: { name: 'Rajesh Logistics Owner', email: 'hacked@otherdomain.in' },
   });
-  assert(changePhoneRes.status === 400, `Expected 400 when attempting to change verified phone, got ${changePhoneRes.status}`);
+  assert(changeEmailRes.status === 400, `Expected 400 when attempting to change verified email, got ${changeEmailRes.status}`);
 
-  // Valid profile update (name & optional email) -> 200
+  // Valid profile update (name) -> 200
   const profileRes = await httpRequest('/api/v1/provider-auth/profile', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${provider1Token}` },
-    body: { name: 'Rajesh Deshmukh', email: 'rajesh@bhiwandilogistics.in' },
+    body: { name: 'Rajesh Deshmukh' },
   });
   assert(profileRes.status === 200 && profileRes.body.data.name === 'Rajesh Deshmukh', 'Expected profile update 200');
 });
@@ -724,8 +786,8 @@ await test('A.4 Provider submits a listing with a valid JPEG (EXIF stripped) and
   assert(pubRes.status === 200 && pubRes.body.data.providers.length === 0, 'SUBMITTED listing must not appear publicly');
 });
 
-await test('A.5 Submitting a listing with another person’s phone number or malicious non-image file is rejected', async () => {
-  // Wrong phone number -> 400
+await test('A.5 Submitting a listing with an invalid phone number or malicious non-image file is rejected', async () => {
+  // Invalid mobile number -> 400
   const wrongPhoneRes = await httpRequest('/api/v1/provider-portal/listings', {
     method: 'POST',
     headers: {
@@ -733,17 +795,17 @@ await test('A.5 Submitting a listing with another person’s phone number or mal
       'X-Forwarded-For': '203.0.113.13',
     },
     body: {
-      businessName: 'Spoofed Phone Shop',
+      businessName: 'Invalid Phone Shop',
       contactPerson: 'Rajesh Deshmukh',
-      phone: '9123456789',
+      phone: '12345',
       category: 'Shop',
       servicesOffered: 'Retail Showroom',
       city: 'Mumbai',
-      businessDescription: 'Attempting to submit another person phone number.',
+      businessDescription: 'Attempting to submit an invalid phone number.',
       consentToContact: true,
     },
   });
-  assert(wrongPhoneRes.status === 400, `Expected 400 when submitting mismatched phone number, got ${wrongPhoneRes.status}`);
+  assert(wrongPhoneRes.status === 400, `Expected 400 when submitting invalid phone number, got ${wrongPhoneRes.status}`);
 
   // Disguised SVG/script uploaded as .jpg -> 400
   const fakeJpg = Buffer.from('<svg onload="alert(1)"></svg>', 'utf8');
@@ -775,6 +837,106 @@ await test('A.5 Submitting a listing with another person’s phone number or mal
     rawBuffer: badMp.buffer,
   });
   assert(badImgRes.status === 400, `Expected 400 for disguised non-image upload, got ${badImgRes.status}`);
+});
+
+await test('A.6 Email OTP handles expired OTPs, concurrent verification races, and Resend delivery failures without bypassing verification', async () => {
+  // 1. Concurrent verification race: only ONE of two simultaneous /otp/verify calls can succeed
+  const raceEmail = 'Concurrent.Test@WareShop.IN';
+  const normalizedRaceEmail = 'concurrent.test@wareshop.in';
+  const sendRaceRes = await httpRequest('/api/v1/provider-auth/otp/send', {
+    method: 'POST',
+    headers: { 'X-Forwarded-For': '203.0.113.15' },
+    body: { email: raceEmail },
+  });
+  assert(sendRaceRes.status === 200, `Expected 200 for normalized email OTP request, got ${sendRaceRes.status}`);
+  const raceOtp = lastCapturedOtpByEmail.get(normalizedRaceEmail);
+  assert(raceOtp && /^\d{6}$/.test(raceOtp), 'Expected 6-digit OTP captured for normalized email');
+
+  const [verA, verB] = await Promise.all([
+    httpRequest('/api/v1/provider-auth/otp/verify', {
+      method: 'POST',
+      headers: { 'X-Forwarded-For': '203.0.113.15' },
+      body: { email: normalizedRaceEmail, otp: raceOtp },
+    }),
+    httpRequest('/api/v1/provider-auth/otp/verify', {
+      method: 'POST',
+      headers: { 'X-Forwarded-For': '203.0.113.15' },
+      body: { email: normalizedRaceEmail, otp: raceOtp },
+    }),
+  ]);
+  const raceStatuses = [verA.status, verB.status].sort();
+  assert(
+    raceStatuses[0] === 200 && raceStatuses[1] === 400,
+    `Expected strictly one 200 and one 400 on concurrent verification, got ${raceStatuses.join(', ')}`
+  );
+
+  // 2. Expired OTP must be rejected with 400
+  const expiredEmail = 'expired-otp@wareshop.in';
+  const sendExpRes = await httpRequest('/api/v1/provider-auth/otp/send', {
+    method: 'POST',
+    headers: { 'X-Forwarded-For': '203.0.113.17' },
+    body: { email: expiredEmail },
+  });
+  assert(sendExpRes.status === 200, `Expected 200 on OTP send for expiry test, got ${sendExpRes.status}`);
+  const expOtp = lastCapturedOtpByEmail.get(expiredEmail);
+  const expChallenge = Array.from(collections.otpChallenges.values()).find(
+    (c) => c.email === expiredEmail
+  );
+  expChallenge.expiresAt = new Date(Date.now() - 10_000);
+
+  const expiredVerifyRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
+    method: 'POST',
+    headers: { 'X-Forwarded-For': '203.0.113.17' },
+    body: { email: expiredEmail, otp: expOtp },
+  });
+  assert(expiredVerifyRes.status === 400, `Expected 400 for expired OTP, got ${expiredVerifyRes.status}`);
+
+  // 3. Simulate Resend provider delivery failure: returns 502, marks challenge FAILED, never bypasses verification
+  const failingEmail = 'delivery-failure@wareshop.in';
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const urlStr = String(input);
+    if (urlStr.includes('api.resend.com/emails')) {
+      const bodyJson = init?.body ? JSON.parse(String(init.body)) : {};
+      if (Array.isArray(bodyJson.to) && bodyJson.to.includes(failingEmail)) {
+        return new Response(
+          JSON.stringify({ statusCode: 502, name: 'application_error', message: 'Resend outage simulation' }),
+          { status: 502, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    return savedFetch(input, init);
+  };
+
+  try {
+    const failRes = await httpRequest('/api/v1/provider-auth/otp/send', {
+      method: 'POST',
+      headers: { 'X-Forwarded-For': '203.0.113.16' },
+      body: { email: failingEmail },
+    });
+    assert(failRes.status === 502, `Expected 502 on Resend delivery failure, got ${failRes.status}`);
+
+    const failedChallenge = Array.from(collections.otpChallenges.values()).find(
+      (c) => c.email === failingEmail
+    );
+    assert(
+      failedChallenge && failedChallenge.deliveryStatus === 'FAILED',
+      'Expected failed challenge to be marked deliveryStatus=FAILED'
+    );
+
+    // Attempting to verify this failed challenge must fail
+    const bypassAttemptRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
+      method: 'POST',
+      headers: { 'X-Forwarded-For': '203.0.113.16' },
+      body: { email: failingEmail, otp: '123456' },
+    });
+    assert(
+      bypassAttemptRes.status === 400,
+      `Expected 400 verification rejection on failed challenge, got ${bypassAttemptRes.status}`
+    );
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -911,22 +1073,26 @@ await test('C.3 Protected contact-reveal endpoint returns verified owner phone &
 console.log('\n--- D. Security, IDOR, Re-Review on Edit, Suspension & Custom Categories ---');
 
 await test('D.1 Second provider cannot view or edit first provider’s listing (IDOR -> 403)', async () => {
-  // Authenticate second provider
+  // Authenticate second provider via Email OTP
   await httpRequest('/api/v1/provider-auth/otp/send', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.30' },
-    body: { phone: provider2Phone },
+    body: { email: provider2Email },
   });
-  const otp2 = lastCapturedOtpByPhone.get(provider2Phone);
+  const otp2 = lastCapturedOtpByEmail.get(provider2Email);
   const ver2 = await httpRequest('/api/v1/provider-auth/otp/verify', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.30' },
-    body: { phone: provider2Phone, otp: otp2 },
+    body: { email: provider2Email, otp: otp2 },
   });
   const reg2 = await httpRequest('/api/v1/provider-auth/register', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.30' },
-    body: { phone: provider2Phone, verificationToken: ver2.body.data.verificationToken },
+    body: {
+      email: provider2Email,
+      phone: provider2Phone,
+      verificationToken: ver2.body.data.verificationToken,
+    },
   });
   provider2Token = reg2.body.data.token;
 
@@ -1091,21 +1257,21 @@ await test('D.4 Custom category request ("Other") workflow & Rejection with mand
   );
 });
 
-await test('D.5 OTP brute-force (> 5 attempts) locks out the challenge atomically', async () => {
-  const brutePhone = '9820555666';
+await test('D.5 Email OTP brute-force (> 5 attempts) locks out the challenge atomically', async () => {
+  const bruteEmail = 'brute-lockout@wareshop.in';
   await httpRequest('/api/v1/provider-auth/otp/send', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.40' },
-    body: { phone: brutePhone },
+    body: { email: bruteEmail },
   });
-  const realOtp = lastCapturedOtpByPhone.get(brutePhone);
+  const realOtp = lastCapturedOtpByEmail.get(bruteEmail);
 
   // Send 5 wrong OTP attempts
   for (let i = 0; i < 5; i++) {
     const wrongRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
       method: 'POST',
       headers: { 'X-Forwarded-For': '203.0.113.40' },
-      body: { phone: brutePhone, otp: '111111' },
+      body: { email: bruteEmail, otp: '111111' },
     });
     assert(wrongRes.status === 400, `Attempt ${i + 1} should return 400`);
   }
@@ -1114,7 +1280,7 @@ await test('D.5 OTP brute-force (> 5 attempts) locks out the challenge atomicall
   const lockedRes = await httpRequest('/api/v1/provider-auth/otp/verify', {
     method: 'POST',
     headers: { 'X-Forwarded-For': '203.0.113.40' },
-    body: { phone: brutePhone, otp: realOtp },
+    body: { email: bruteEmail, otp: realOtp },
   });
   assert(lockedRes.status === 400, `Expected 6th attempt with real OTP to be rejected after 5 failed attempts, got ${lockedRes.status}`);
 });
@@ -1210,29 +1376,54 @@ await test('D.8 Contact reveal enforces consentToDisplayPhone and per-IP rate li
   assert(limitedRes.status === 429, `Expected 429 on 31st contact reveal from same IP, got ${limitedRes.status}`);
 });
 
-await test('D.9 Missing TWOFACTOR_API_KEY fails with 503 and never simulates fake SMS success', async () => {
+await test('D.9 Missing RESEND_API_KEY or RESEND_FROM_EMAIL fails with 503 and never simulates fake Email OTP success', async () => {
   const { env } = await import('./src/config/env.js');
-  const savedEnvKey = process.env.TWOFACTOR_API_KEY;
-  const savedCfgKey = env.twoFactor.apiKey;
-  process.env.TWOFACTOR_API_KEY = '';
-  env.twoFactor.apiKey = '';
+  const savedEnvKey = process.env.RESEND_API_KEY;
+  const savedCfgKey = env.resend?.apiKey;
+  const savedEnvFrom = process.env.RESEND_FROM_EMAIL;
+  const savedCfgFrom = env.resend?.fromEmail;
+  process.env.RESEND_API_KEY = '';
+  if (env.resend) env.resend.apiKey = '';
   try {
     const noKeyRes = await httpRequest('/api/v1/provider-auth/otp/send', {
       method: 'POST',
       headers: { 'X-Forwarded-For': '203.0.113.50' },
-      body: { phone: '9820777888' },
+      body: { email: 'unconfigured@wareshop.in' },
     });
-    assert(noKeyRes.status === 503, `Expected 503 when TWOFACTOR_API_KEY is missing, got ${noKeyRes.status}`);
+    assert(noKeyRes.status === 503, `Expected 503 when RESEND_API_KEY is missing, got ${noKeyRes.status}`);
     const failedChallenge = Array.from(collections.otpChallenges.values()).find(
-      (c) => c.phone === '9820777888'
+      (c) => c.email === 'unconfigured@wareshop.in'
     );
     assert(
       failedChallenge && failedChallenge.deliveryStatus === 'FAILED',
-      'Expected OtpChallenge deliveryStatus to be marked FAILED when gateway is unconfigured'
+      'Expected OtpChallenge deliveryStatus to be marked FAILED when Resend is unconfigured'
     );
+
+    // Also test missing RESEND_FROM_EMAIL when RESEND_API_KEY is present
+    process.env.RESEND_API_KEY = savedEnvKey;
+    if (env.resend) env.resend.apiKey = savedCfgKey;
+    process.env.RESEND_FROM_EMAIL = '';
+    if (env.resend) env.resend.fromEmail = '';
+
+    const noFromRes = await httpRequest('/api/v1/provider-auth/otp/send', {
+      method: 'POST',
+      headers: { 'X-Forwarded-For': '203.0.113.51' },
+      body: { email: 'unconfigured-from@wareshop.in' },
+    });
+    assert(noFromRes.status === 503, `Expected 503 when RESEND_FROM_EMAIL is missing, got ${noFromRes.status}`);
+
+    // Unauthorized registration without verificationToken -> 403
+    const unauthRegRes = await httpRequest('/api/v1/provider-auth/register', {
+      method: 'POST',
+      headers: { 'X-Forwarded-For': '203.0.113.52' },
+      body: { email: 'bypass@wareshop.in' },
+    });
+    assert(unauthRegRes.status === 403, `Expected 403 for registration without verificationToken, got ${unauthRegRes.status}`);
   } finally {
-    process.env.TWOFACTOR_API_KEY = savedEnvKey;
-    env.twoFactor.apiKey = savedCfgKey;
+    process.env.RESEND_API_KEY = savedEnvKey;
+    if (env.resend) env.resend.apiKey = savedCfgKey;
+    process.env.RESEND_FROM_EMAIL = savedEnvFrom;
+    if (env.resend) env.resend.fromEmail = savedCfgFrom;
   }
 });
 

@@ -197,8 +197,9 @@ export const validatePartner = (req, res, next) => {
     });
   }
 
-  // Verified phone number must match the authenticated provider account when present
+  // Business mobile number: locked when phoneVerified on account, otherwise validated as 10-digit Indian mobile
   const authenticatedPhone = req.providerAccount?.phone || '';
+  const isPhoneVerified = Boolean(req.providerAccount?.phoneVerified);
   const rawPhone = raw.phone !== undefined ? String(raw.phone).replace(/\D/g, '') : authenticatedPhone;
 
   if (!rawPhone || !PHONE_REGEX.test(rawPhone)) {
@@ -206,16 +207,20 @@ export const validatePartner = (req, res, next) => {
       field: 'phone',
       message: 'A valid 10-digit Indian mobile number is required',
     });
-  } else if (authenticatedPhone && rawPhone !== authenticatedPhone) {
+  } else if (isPhoneVerified && authenticatedPhone && rawPhone !== authenticatedPhone) {
     errors.push({
       field: 'phone',
       message: 'Contact number must match your OTP-verified mobile number',
     });
   }
 
-  // Email is optional per WARESHOP specification, validated when provided
-  const email = typeof raw.email === 'string' ? sanitizeString(raw.email).toLowerCase() : '';
-  if (email && (!EMAIL_REGEX.test(email) || email.length > 120)) {
+  // Email defaults to authenticated provider's verified email when omitted, validated when provided
+  const rawEmail =
+    raw.email !== undefined
+      ? sanitizeString(String(raw.email || '')).toLowerCase()
+      : (req.providerAccount?.email || '').toLowerCase();
+  const email = rawEmail;
+  if (email && (!EMAIL_REGEX.test(email) || email.length > 254)) {
     errors.push({
       field: 'email',
       message: 'Please enter a valid email address or leave blank',
@@ -317,7 +322,7 @@ export const validatePartner = (req, res, next) => {
     businessName,
     contactPerson,
     name: contactPerson,
-    phone: authenticatedPhone || rawPhone,
+    phone: isPhoneVerified ? authenticatedPhone : rawPhone || authenticatedPhone,
     email,
     category,
     customCategoryName: isOtherCategory ? customCategoryName : '',

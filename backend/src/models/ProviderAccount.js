@@ -3,12 +3,21 @@ import crypto from 'crypto';
 
 const providerAccountSchema = new mongoose.Schema(
   {
+    // Business mobile number (10-digit Indian mobile). Optional at registration so Email OTP
+    // accounts can exist before a phone is provided; never populated with an email address.
     phone: {
       type: String,
-      required: [true, 'Verified mobile number is required'],
-      unique: true,
       trim: true,
       match: [/^[6-9]\d{9}$/, 'Must be a valid 10-digit Indian mobile number'],
+      default: undefined,
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+    phoneVerifiedAt: {
+      type: Date,
+      default: null,
     },
     name: {
       type: String,
@@ -20,8 +29,16 @@ const providerAccountSchema = new mongoose.Schema(
       type: String,
       trim: true,
       lowercase: true,
-      maxlength: 120,
+      maxlength: 254,
       default: '',
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerifiedAt: {
+      type: Date,
+      default: null,
     },
     role: {
       type: String,
@@ -44,9 +61,10 @@ const providerAccountSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Preserved for backward compatibility with existing records
     verifiedAt: {
       type: Date,
-      required: true,
+      default: null,
     },
     sessionTokenHash: {
       type: String,
@@ -69,6 +87,24 @@ const providerAccountSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+  }
+);
+
+// Unique phone index for non-empty phones without breaking accounts created without a phone yet
+providerAccountSchema.index(
+  { phone: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { phone: { $type: 'string', $gt: '' } },
+  }
+);
+
+// Unique email index scoped to email-verified provider accounts for safe backward compatibility
+providerAccountSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { emailVerified: true },
   }
 );
 

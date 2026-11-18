@@ -10,13 +10,12 @@ import {
   updateProviderProfile,
   logoutProvider,
 } from '../controllers/providerAuthController.js';
+import { normalizeEmail, isValidEmail } from '../utils/validation.js';
 
 const router = express.Router();
 
-function normalizePhoneKey(req) {
-  const raw = req.body?.phone;
-  if (typeof raw !== 'string' && typeof raw !== 'number') return '';
-  return String(raw).replace(/\D/g, '').slice(-10);
+function normalizeEmailKey(req) {
+  return normalizeEmail(req.body?.email);
 }
 
 function rateLimitKey(req) {
@@ -27,14 +26,14 @@ function rateLimitKey(req) {
   return ipKeyGenerator(req.ip);
 }
 
-function otpPhoneRateLimitKey(req) {
-  const phone = normalizePhoneKey(req);
+function otpEmailRateLimitKey(req) {
+  const email = normalizeEmailKey(req);
   const suite = env.isTest
     ? req.get('x-wareshop-test-suite') || req.get('x-konnevia-test-suite')
     : null;
   const prefix = suite && /^[a-z0-9-]{1,64}$/i.test(suite) ? `test:${suite}:` : '';
-  if (phone && /^[6-9]\d{9}$/.test(phone)) {
-    return `${prefix}phone:${phone}`;
+  if (email && isValidEmail(email)) {
+    return `${prefix}email:${email}`;
   }
   return `${prefix}ip:${ipKeyGenerator(req.ip)}`;
 }
@@ -51,13 +50,13 @@ const otpRequestIpLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const otpRequestPhoneLimiter = rateLimit({
+const otpRequestEmailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  keyGenerator: otpPhoneRateLimitKey,
+  keyGenerator: otpEmailRateLimitKey,
   message: {
     success: false,
-    message: 'Too many OTP requests for this mobile number. Please try again after 15 minutes.',
+    message: 'Too many OTP requests for this email address. Please try again after 15 minutes.',
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -67,8 +66,8 @@ const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 25,
   keyGenerator: (req) => {
-    const phone = normalizePhoneKey(req);
-    return `${rateLimitKey(req)}:verify:${phone || 'unknown'}`;
+    const email = normalizeEmailKey(req);
+    return `${rateLimitKey(req)}:verify:${email || 'unknown'}`;
   },
   message: {
     success: false,
@@ -82,8 +81,8 @@ const providerSessionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   keyGenerator: (req) => {
-    const phone = normalizePhoneKey(req);
-    return `${rateLimitKey(req)}:session:${phone || 'unknown'}`;
+    const email = normalizeEmailKey(req);
+    return `${rateLimitKey(req)}:session:${email || 'unknown'}`;
   },
   message: {
     success: false,
@@ -93,7 +92,7 @@ const providerSessionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post(['/otp/request', '/otp/send'], otpRequestIpLimiter, otpRequestPhoneLimiter, requestOtp);
+router.post(['/otp/request', '/otp/send'], otpRequestIpLimiter, otpRequestEmailLimiter, requestOtp);
 router.post('/otp/verify', otpVerifyLimiter, verifyOtp);
 router.post('/register', providerSessionLimiter, registerProvider);
 router.post('/login', providerSessionLimiter, registerProvider);

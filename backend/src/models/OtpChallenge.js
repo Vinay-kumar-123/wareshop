@@ -2,10 +2,25 @@ import mongoose from 'mongoose';
 
 const otpChallengeSchema = new mongoose.Schema(
   {
+    channel: {
+      type: String,
+      enum: ['EMAIL', 'WHATSAPP', 'SMS'],
+      default: 'EMAIL',
+      index: true,
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 254,
+      default: undefined,
+    },
+    // Preserved solely for backward compatibility with historical phone OTP challenge documents.
+    // Never store an email address in this field.
     phone: {
       type: String,
-      required: true,
       match: /^[6-9]\d{9}$/,
+      default: undefined,
     },
     otpHash: {
       type: String,
@@ -66,7 +81,9 @@ const otpChallengeSchema = new mongoose.Schema(
   }
 );
 
+otpChallengeSchema.index({ email: 1, createdAt: -1 });
 otpChallengeSchema.index({ phone: 1, createdAt: -1 });
+otpChallengeSchema.index({ requestIp: 1, sentAt: -1 });
 otpChallengeSchema.index({ sentAt: -1 });
 
 export const OtpChallenge = mongoose.model('OtpChallenge', otpChallengeSchema);

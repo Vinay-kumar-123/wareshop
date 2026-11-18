@@ -98,7 +98,7 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>2Factor OTP Verified Owners</span>
+              <span>Email OTP Verified Owners</span>
             </span>
             <span className="text-slate-600">|</span>
             <Link

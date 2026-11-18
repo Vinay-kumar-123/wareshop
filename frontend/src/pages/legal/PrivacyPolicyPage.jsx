@@ -53,9 +53,9 @@ export default function PrivacyPolicyPage() {
             <ul className="list-disc list-inside space-y-2 text-slate-600">
               <li>
                 <strong className="text-[#171717]">Provider Account & OTP Verification:</strong>{' '}
-                10-digit Indian mobile number, optional account holder name and email address, and
+                Email address, business mobile number, optional account holder name, and
                 cryptographic OTP challenge metadata used to authenticate business owners via
-                2Factor SMS OTP.
+                Email OTP.
               </li>
               <li>
                 <strong className="text-[#171717]">Commercial Listing Information:</strong>{' '}
@@ -82,7 +82,7 @@ export default function PrivacyPolicyPage() {
               3. Direct Contact & Owner Consent
             </h2>
             <p>
-              A provider’s verified mobile number is never exposed in bulk public search responses.
+              A provider’s business mobile number is never exposed in bulk public search responses.
               It is revealed to prospective customers through our rate-limited contact endpoint only
               when:
             </p>
@@ -90,8 +90,8 @@ export default function PrivacyPolicyPage() {
               <li>The listing has been approved and published by a WARESHOP administrator;</li>
               <li>The provider account and category are active; and</li>
               <li>
-                The provider has granted explicit consent to display their verified phone number for
-                direct customer calls.
+                The provider has granted explicit consent to display their business mobile number
+                for direct customer calls.
               </li>
             </ul>
           </section>
@@ -117,8 +117,8 @@ export default function PrivacyPolicyPage() {
                 storage).
               </li>
               <li>
-                <strong className="text-[#171717]">SMS OTP Delivery:</strong> 2Factor SMS API (used
-                solely for Indian mobile OTP verification).
+                <strong className="text-[#171717]">Email OTP Delivery:</strong> Resend Email API (used
+                solely for provider Email OTP verification).
               </li>
               <li>
                 <strong className="text-[#171717]">Media Hosting:</strong> Cloudinary (for

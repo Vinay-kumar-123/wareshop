@@ -119,7 +119,8 @@ export default function AboutPage() {
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 WARESHOP does not collect customer leads into a central admin inbox or resell your
                 phone number. When you find a suitable shop, office, warehouse, or godown, you
-                reveal the owner’s OTP-verified contact number and speak with them directly.
+                reveal the email-verified owner’s business contact number and speak with them
+                directly.
               </p>
             </div>
           </div>
@@ -214,8 +215,8 @@ export default function AboutPage() {
                     <strong className="font-bold block text-[#171717]">
                       Direct Owner Phone Numbers:
                     </strong>
-                    Reveal the verified mobile number of the business or property owner and call
-                    immediately.
+                    Reveal the business mobile number of the email-verified property or business
+                    owner and call immediately.
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -249,10 +250,10 @@ export default function AboutPage() {
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <strong className="font-bold block text-[#171717]">
-                      Fast 2Factor SMS OTP Login:
+                      Fast Email OTP Login:
                     </strong>
-                    Authenticate with your Indian mobile number and manage all your listings from a
-                    dedicated Provider Dashboard.
+                    Authenticate with your verified email address and manage all your listings from
+                    a dedicated Provider Dashboard.
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -261,7 +262,7 @@ export default function AboutPage() {
                     <strong className="font-bold block text-[#171717]">
                       Receive Direct Customer Calls:
                     </strong>
-                    Interested customers contact you directly on your verified phone number with
+                    Interested customers contact you directly on your business mobile number with
                     full display-consent control.
                   </div>
                 </li>

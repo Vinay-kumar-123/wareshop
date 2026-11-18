@@ -531,14 +531,16 @@ export default function AdminProviderEditPage() {
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-                  Verified Phone Number (Locked to Account)
+                  {provider?.providerAccount?.phoneVerified
+                    ? 'Verified Phone Number (Locked to Account)'
+                    : 'Business Mobile Number'}
                 </label>
                 <input
                   type="text"
                   name="contactNumber"
                   value={formData.contactNumber}
                   onChange={handleChange}
-                  readOnly={Boolean(provider?.providerAccountId)}
+                  readOnly={Boolean(provider?.providerAccount?.phoneVerified)}
                   className="w-full text-xs p-3 bg-slate-100 border border-slate-200 rounded-lg font-mono text-slate-800"
                 />
               </div>

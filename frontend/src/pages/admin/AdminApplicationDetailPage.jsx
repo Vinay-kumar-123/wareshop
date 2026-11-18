@@ -430,7 +430,11 @@ export default function AdminApplicationDetailPage() {
             </div>
 
             <div>
-              <span className="text-xs text-slate-400 block mb-0.5">OTP-Verified Phone</span>
+              <span className="text-xs text-slate-400 block mb-0.5">
+                {application.providerAccount?.phoneVerified
+                  ? 'OTP-Verified Phone'
+                  : 'Business Mobile Number'}
+              </span>
               <a
                 href={`tel:+91${application.phone}`}
                 className="text-sm font-mono font-bold text-[#F36B21] hover:underline"
@@ -441,7 +445,11 @@ export default function AdminApplicationDetailPage() {
 
             {application.email && (
               <div>
-                <span className="text-xs text-slate-400 block mb-0.5">Email Address</span>
+                <span className="text-xs text-slate-400 block mb-0.5">
+                  {application.providerAccount?.emailVerified
+                    ? 'Email Address (Email Verified)'
+                    : 'Email Address'}
+                </span>
                 <a
                   href={`mailto:${application.email}`}
                   className="text-xs text-slate-700 hover:underline"

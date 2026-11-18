@@ -110,7 +110,7 @@ export async function requireProvider(req, res, next) {
     if (!token) {
       return errorResponse(
         res,
-        'Provider authentication required. Please verify your mobile number via OTP.',
+        'Provider authentication required. Please verify your email address via OTP.',
         401
       );
     }

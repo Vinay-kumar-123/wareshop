@@ -4,25 +4,25 @@ import ProviderAccount from '../models/ProviderAccount.js';
 import env from '../config/env.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { sanitizeString } from '../utils/referenceId.js';
-import { sendOtpSms } from '../services/twoFactorService.js';
+import {
+  normalizeEmail,
+  isValidEmail,
+  maskEmail,
+  normalizeIndianPhone,
+} from '../utils/validation.js';
+import { sendOtpEmail } from '../services/resendEmailService.js';
 
 const PROVIDER_COOKIE_NAME = 'wareshop_provider_session';
 const PHONE_REGEX = /^[6-9]\d{9}$/;
 const OTP_REGEX = /^\d{6}$/;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// In-flight mutex per phone number to prevent parallel race conditions on OTP send cooldown
+// In-flight mutex per email address to prevent parallel race conditions on OTP send cooldown
 const inFlightOtpRequests = new Set();
 
-function normalizePhone(value) {
-  if (typeof value !== 'string' && typeof value !== 'number') return '';
-  return String(value).replace(/\D/g, '').trim();
-}
-
-function hmacOtp(phone, otp) {
+function hmacOtp(email, otp) {
   return crypto
     .createHmac('sha256', env.otp.hmacSecret)
-    .update(`${phone}:${otp}`)
+    .update(`email:${email}:${otp}`)
     .digest('hex');
 }
 
@@ -49,37 +49,43 @@ function getProviderCookieOptions() {
   };
 }
 
-function formatProviderAccountDto(account) {
+export function formatProviderAccountDto(account) {
+  const phone = account.phone || '';
+  const email = account.email || '';
   return {
     id: String(account._id),
     providerAccountId: String(account._id),
-    phone: account.phone,
-    phoneMasked: `******${account.phone.slice(-4)}`,
+    phone,
+    phoneMasked: phone ? `******${phone.slice(-4)}` : '',
+    phoneVerified: Boolean(account.phoneVerified),
     name: account.name || '',
-    email: account.email || '',
+    email,
+    emailMasked: email ? maskEmail(email) : '',
+    emailVerified: Boolean(account.emailVerified),
+    emailVerifiedAt: account.emailVerifiedAt || null,
     role: account.role || 'PROVIDER',
     status: account.status || 'ACTIVE',
     suspensionReason: account.status === 'SUSPENDED' ? account.suspensionReason || '' : '',
-    verifiedAt: account.verifiedAt,
-    lastLoginAt: account.lastLoginAt,
+    verifiedAt: account.verifiedAt || null,
+    lastLoginAt: account.lastLoginAt || null,
   };
 }
 
 /**
- * POST /api/v1/provider-auth/otp/request
- * Generates a 6-digit OTP, persists an HMAC challenge atomically, and dispatches SMS via 2Factor.
+ * POST /api/v1/provider-auth/otp/request (and /otp/send)
+ * Generates a 6-digit OTP, persists an HMAC challenge atomically, and dispatches Email OTP via Resend.
  */
 export async function requestOtp(req, res, next) {
-  const phone = normalizePhone(req.body?.phone);
-  if (!PHONE_REGEX.test(phone)) {
-    return errorResponse(res, 'Enter a valid 10-digit Indian mobile number', 400);
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) {
+    return errorResponse(res, 'Enter a valid email address', 400);
   }
 
-  if (inFlightOtpRequests.has(phone)) {
+  if (inFlightOtpRequests.has(email)) {
     return errorResponse(res, 'Please wait before requesting another OTP', 429);
   }
 
-  inFlightOtpRequests.add(phone);
+  inFlightOtpRequests.add(email);
   let createdChallenge = null;
 
   try {
@@ -88,9 +94,10 @@ export async function requestOtp(req, res, next) {
     const dayThreshold = new Date(now - 24 * 60 * 60_000);
     const hourThreshold = new Date(now - 60 * 60_000);
 
-    // 1. Enforce 60-second per-phone cooldown
+    // 1. Enforce 60-second per-email resend cooldown
     const recentChallenge = await OtpChallenge.findOne({
-      phone,
+      channel: 'EMAIL',
+      email,
       deliveryStatus: { $in: ['PENDING', 'SENT'] },
       sentAt: { $gt: cooldownThreshold },
     })
@@ -98,25 +105,54 @@ export async function requestOtp(req, res, next) {
       .lean();
 
     if (recentChallenge) {
-      return errorResponse(res, 'Please wait 60 seconds before requesting another OTP', 429);
-    }
-
-    // 2. Enforce daily per-phone SMS cap
-    const phoneDayCount = await OtpChallenge.countDocuments({
-      phone,
-      deliveryStatus: { $in: ['PENDING', 'SENT'] },
-      sentAt: { $gt: dayThreshold },
-    });
-
-    if (phoneDayCount >= env.otp.maxPerPhonePerDay) {
+      const elapsedMs = now - new Date(recentChallenge.sentAt).getTime();
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((env.otp.cooldownMs - elapsedMs) / 1000)
+      );
+      res.set('Retry-After', String(retryAfterSeconds));
       return errorResponse(
         res,
-        'Maximum daily OTP requests reached for this mobile number. Please try again tomorrow.',
+        `Please wait ${retryAfterSeconds} seconds before requesting another OTP`,
         429
       );
     }
 
-    // 3. Enforce global hourly SMS budget cap (SMS pumping protection)
+    // 2. Enforce daily per-email OTP cap
+    const emailDayCount = await OtpChallenge.countDocuments({
+      channel: 'EMAIL',
+      email,
+      deliveryStatus: { $in: ['PENDING', 'SENT'] },
+      sentAt: { $gt: dayThreshold },
+    });
+
+    if (emailDayCount >= env.otp.maxPerEmailPerDay) {
+      return errorResponse(
+        res,
+        'Maximum daily OTP requests reached for this email address. Please try again tomorrow.',
+        429
+      );
+    }
+
+    // 3. Enforce per-IP hourly abuse cap
+    const requestIp = String(req.ip || '').trim();
+    if (requestIp) {
+      const ipHourCount = await OtpChallenge.countDocuments({
+        requestIp,
+        deliveryStatus: { $in: ['PENDING', 'SENT'] },
+        sentAt: { $gt: hourThreshold },
+      });
+
+      if (ipHourCount >= env.otp.maxPerIpPerHour) {
+        return errorResponse(
+          res,
+          'Too many OTP requests from this IP address. Please try again shortly.',
+          429
+        );
+      }
+    }
+
+    // 4. Enforce global hourly OTP budget cap
     const globalHourCount = await OtpChallenge.countDocuments({
       deliveryStatus: { $in: ['PENDING', 'SENT'] },
       sentAt: { $gt: hourThreshold },
@@ -130,35 +166,55 @@ export async function requestOtp(req, res, next) {
       );
     }
 
-    // 4. Generate OTP and persist challenge BEFORE external SMS dispatch (REL-09)
+    // 5. Generate cryptographic 6-digit OTP and persist challenge BEFORE external dispatch
     const otp = crypto.randomInt(100000, 1000000).toString();
-    const otpHash = hmacOtp(phone, otp);
+    const otpHash = hmacOtp(email, otp);
     const expiresAt = new Date(now + env.otp.expiryMs);
+    const expiresInMinutes = Math.max(1, Math.round(env.otp.expiryMs / 60_000));
 
     createdChallenge = await OtpChallenge.create({
-      phone,
+      channel: 'EMAIL',
+      email,
       otpHash,
       deliveryStatus: 'PENDING',
       expiresAt,
       recordExpiresAt: new Date(now + 24 * 60 * 60_000),
       sentAt: new Date(now),
-      requestIp: req.ip || '',
+      requestIp,
     });
 
-    // 5. Dispatch SMS via 2Factor API
-    const smsResult = await sendOtpSms({ phone, otp });
+    // 6. Dispatch Email OTP via Resend API
+    const dispatchResult = await sendOtpEmail({
+      email,
+      otp,
+      expiresInMinutes,
+    });
+
+    // Invalidate any prior unverified SENT challenges for this email so only the latest OTP is valid
+    await OtpChallenge.updateMany(
+      {
+        _id: { $ne: createdChallenge._id },
+        channel: 'EMAIL',
+        email,
+        deliveryStatus: 'SENT',
+        verifiedAt: null,
+        expiresAt: { $gt: new Date(now) },
+      },
+      { $set: { expiresAt: new Date(now) } }
+    );
 
     createdChallenge.deliveryStatus = 'SENT';
-    createdChallenge.providerSessionId = smsResult?.providerSessionId || '';
+    createdChallenge.providerSessionId = dispatchResult?.providerMessageId || '';
     await createdChallenge.save();
 
     return successResponse(
       res,
       {
-        phoneMasked: `******${phone.slice(-4)}`,
+        emailMasked: maskEmail(email),
         expiresInSeconds: Math.floor(env.otp.expiryMs / 1000),
+        cooldownSeconds: Math.floor(env.otp.cooldownMs / 1000),
       },
-      'OTP sent to your mobile number'
+      'OTP sent to your email address'
     );
   } catch (err) {
     if (createdChallenge) {
@@ -169,7 +225,7 @@ export async function requestOtp(req, res, next) {
     }
     next(err);
   } finally {
-    inFlightOtpRequests.delete(phone);
+    inFlightOtpRequests.delete(email);
   }
 }
 
@@ -179,33 +235,46 @@ export async function requestOtp(req, res, next) {
  */
 export async function verifyOtp(req, res, next) {
   try {
-    const phone = normalizePhone(req.body?.phone);
-    const otp = typeof req.body?.otp === 'string' || typeof req.body?.otp === 'number'
-      ? String(req.body.otp).trim()
-      : '';
+    const email = normalizeEmail(req.body?.email);
+    const otp =
+      typeof req.body?.otp === 'string' || typeof req.body?.otp === 'number'
+        ? String(req.body.otp).trim()
+        : '';
 
-    if (!PHONE_REGEX.test(phone) || !OTP_REGEX.test(otp)) {
-      return errorResponse(res, 'Enter a valid mobile number and 6-digit OTP', 400);
+    if (!isValidEmail(email) || !OTP_REGEX.test(otp)) {
+      return errorResponse(res, 'Enter a valid email address and 6-digit OTP', 400);
     }
 
     const now = new Date();
 
-    // Find the most recent unverified SENT challenge for this phone
+    // Find the most recent unverified SENT challenge for this email
     const latestChallenge = await OtpChallenge.findOne({
-      phone,
+      channel: 'EMAIL',
+      email,
       deliveryStatus: 'SENT',
       verifiedAt: null,
-      expiresAt: { $gt: now },
     })
       .sort({ createdAt: -1 })
-      .select('_id attempts')
+      .select('_id attempts expiresAt')
       .lean();
 
-    if (!latestChallenge || latestChallenge.attempts >= env.otp.maxAttempts) {
+    if (!latestChallenge) {
       return errorResponse(res, 'OTP is invalid or expired', 400);
     }
 
-    // Atomically increment attempt count ONLY if still under maxAttempts and unverified
+    if (new Date(latestChallenge.expiresAt).getTime() <= now.getTime()) {
+      return errorResponse(res, 'OTP has expired. Please request a new OTP.', 400);
+    }
+
+    if (latestChallenge.attempts >= env.otp.maxAttempts) {
+      return errorResponse(
+        res,
+        'Maximum verification attempts exceeded. Please request a new OTP.',
+        400
+      );
+    }
+
+    // Atomically increment attempt count ONLY if still under maxAttempts, unexpired, and unverified
     const claimedChallenge = await OtpChallenge.findOneAndUpdate(
       {
         _id: latestChallenge._id,
@@ -221,9 +290,9 @@ export async function verifyOtp(req, res, next) {
       return errorResponse(res, 'OTP is invalid or expired', 400);
     }
 
-    const expectedHash = hmacOtp(phone, otp);
+    const expectedHash = hmacOtp(email, otp);
     if (!safeEqualHex(claimedChallenge.otpHash, expectedHash)) {
-      return errorResponse(res, 'OTP is invalid or expired', 400);
+      return errorResponse(res, 'Incorrect OTP. Please check the code and try again.', 400);
     }
 
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -254,9 +323,10 @@ export async function verifyOtp(req, res, next) {
       {
         verificationToken,
         expiresInSeconds: 600,
-        phoneMasked: `******${phone.slice(-4)}`,
+        emailMasked: maskEmail(email),
+        emailVerified: true,
       },
-      'Mobile number verified'
+      'Email address verified'
     );
   } catch (err) {
     next(err);
@@ -265,23 +335,39 @@ export async function verifyOtp(req, res, next) {
 
 /**
  * POST /api/v1/provider-auth/register (also /login)
- * Atomically consumes the one-time verificationToken and either creates a new ProviderAccount
- * or authenticates an existing returning ProviderAccount, issuing a server-side session.
+ * Atomically consumes the one-time verificationToken bound to the verified email and either
+ * creates a new ProviderAccount or authenticates an existing returning ProviderAccount,
+ * issuing a server-side session without ever marking phoneVerified via email OTP.
  */
 export async function registerProvider(req, res, next) {
   try {
-    const phone = normalizePhone(req.body?.phone);
+    const email = normalizeEmail(req.body?.email);
     const verificationToken =
       typeof req.body?.verificationToken === 'string' ? req.body.verificationToken.trim() : '';
 
-    if (!PHONE_REGEX.test(phone) || !verificationToken) {
-      return errorResponse(res, 'A valid mobile verification is required', 403);
+    if (!isValidEmail(email) || !verificationToken) {
+      return errorResponse(res, 'A valid email verification is required', 403);
     }
+
+    const rawPhone = req.body?.phone;
+    const cleanPhone =
+      rawPhone !== undefined && rawPhone !== null && String(rawPhone).trim() !== ''
+        ? normalizeIndianPhone(rawPhone)
+        : '';
+
+    if (cleanPhone && !PHONE_REGEX.test(cleanPhone)) {
+      return errorResponse(res, 'Enter a valid 10-digit Indian mobile number', 400);
+    }
+
+    const cleanName =
+      typeof req.body?.name === 'string' ? sanitizeString(req.body.name).slice(0, 100) : '';
 
     const challenge = await OtpChallenge.findOneAndUpdate(
       {
-        phone,
+        channel: 'EMAIL',
+        email,
         authorizationHash: hashToken(verificationToken),
+        verifiedAt: { $ne: null },
         consumedAt: null,
         authorizationExpiresAt: { $gt: new Date() },
       },
@@ -290,33 +376,78 @@ export async function registerProvider(req, res, next) {
     );
 
     if (!challenge) {
-      return errorResponse(res, 'A valid mobile verification is required', 403);
+      return errorResponse(res, 'A valid email verification is required', 403);
     }
 
     const sessionToken = crypto.randomBytes(32).toString('hex');
     const sessionTokenHash = ProviderAccount.hashSessionToken(sessionToken);
     const sessionDurationHours = 24;
     const sessionExpiresAt = new Date(Date.now() + sessionDurationHours * 60 * 60 * 1000);
+    const verifiedTimestamp = challenge.verifiedAt || new Date();
 
-    let account = await ProviderAccount.findOne({ phone });
+    let account = await ProviderAccount.findOne({ email, emailVerified: true });
     let isNewAccount = false;
 
     if (!account) {
+      if (cleanPhone) {
+        const phoneOwner = await ProviderAccount.findOne({ phone: cleanPhone }).lean();
+        if (phoneOwner) {
+          return errorResponse(
+            res,
+            'This mobile number is already associated with another provider account.',
+            409
+          );
+        }
+      }
+
       isNewAccount = true;
-      account = await ProviderAccount.create({
-        phone,
-        verifiedAt: challenge.verifiedAt || new Date(),
+      const createPayload = {
+        email,
+        emailVerified: true,
+        emailVerifiedAt: verifiedTimestamp,
+        phoneVerified: false,
+        phoneVerifiedAt: null,
+        verifiedAt: verifiedTimestamp,
         lastLoginAt: new Date(),
         status: 'ACTIVE',
         sessionTokenHash,
         sessionExpiresAt,
-      });
+      };
+      if (cleanPhone) {
+        createPayload.phone = cleanPhone;
+      }
+      if (cleanName) {
+        createPayload.name = cleanName;
+      }
+      account = await ProviderAccount.create(createPayload);
     } else {
       account.sessionTokenHash = sessionTokenHash;
       account.sessionExpiresAt = sessionExpiresAt;
       account.lastLoginAt = new Date();
+      account.emailVerified = true;
+      if (!account.emailVerifiedAt) {
+        account.emailVerifiedAt = verifiedTimestamp;
+      }
       if (!account.verifiedAt) {
-        account.verifiedAt = challenge.verifiedAt || new Date();
+        account.verifiedAt = verifiedTimestamp;
+      }
+      if (!account.phone && cleanPhone) {
+        const phoneOwner = await ProviderAccount.findOne({
+          phone: cleanPhone,
+          _id: { $ne: account._id },
+        }).lean();
+        if (phoneOwner) {
+          return errorResponse(
+            res,
+            'This mobile number is already associated with another provider account.',
+            409
+          );
+        }
+        account.phone = cleanPhone;
+        account.phoneVerified = false;
+      }
+      if (!account.name && cleanName) {
+        account.name = cleanName;
       }
       await account.save();
     }
@@ -358,19 +489,60 @@ export async function getProviderMe(req, res) {
 
 /**
  * PUT /api/v1/provider-auth/profile
- * Allows authenticated provider to update name and optional email. Phone remains locked.
+ * Allows authenticated provider to update name and unverified business mobile number.
+ * Verified email (and verified mobile on legacy accounts) remain locked.
  */
 export async function updateProviderProfile(req, res, next) {
   try {
     const account = req.providerAccount;
-    const { name, email } = req.body || {};
+    const { name, email, phone } = req.body || {};
 
-    if (req.body?.phone !== undefined && normalizePhone(req.body.phone) !== account.phone) {
-      return errorResponse(
-        res,
-        'Verified mobile number cannot be changed without re-verification.',
-        400
-      );
+    if (email !== undefined) {
+      const cleanEmail = typeof email === 'string' ? normalizeEmail(email) : '';
+      if (account.emailVerified && cleanEmail !== account.email) {
+        return errorResponse(
+          res,
+          'Verified email address cannot be changed without re-verification.',
+          400
+        );
+      }
+      if (!account.emailVerified) {
+        if (cleanEmail && (!isValidEmail(cleanEmail) || cleanEmail.length > 254)) {
+          return errorResponse(res, 'Please provide a valid email address or leave blank', 400);
+        }
+        account.email = cleanEmail;
+      }
+    }
+
+    if (phone !== undefined) {
+      const cleanPhone =
+        phone !== null && String(phone).trim() !== '' ? normalizeIndianPhone(phone) : '';
+      if (account.phoneVerified && cleanPhone !== account.phone) {
+        return errorResponse(
+          res,
+          'Verified mobile number cannot be changed without re-verification.',
+          400
+        );
+      }
+      if (!account.phoneVerified) {
+        if (cleanPhone && !PHONE_REGEX.test(cleanPhone)) {
+          return errorResponse(res, 'Please provide a valid 10-digit Indian mobile number', 400);
+        }
+        if (cleanPhone && cleanPhone !== account.phone) {
+          const phoneOwner = await ProviderAccount.findOne({
+            phone: cleanPhone,
+            _id: { $ne: account._id },
+          }).lean();
+          if (phoneOwner) {
+            return errorResponse(
+              res,
+              'This mobile number is already associated with another provider account.',
+              409
+            );
+          }
+          account.phone = cleanPhone;
+        }
+      }
     }
 
     if (name !== undefined) {
@@ -378,14 +550,6 @@ export async function updateProviderProfile(req, res, next) {
         return errorResponse(res, 'Name must be a string up to 100 characters', 400);
       }
       account.name = sanitizeString(name).slice(0, 100);
-    }
-
-    if (email !== undefined) {
-      const cleanEmail = typeof email === 'string' ? sanitizeString(email).toLowerCase() : '';
-      if (cleanEmail && (!EMAIL_REGEX.test(cleanEmail) || cleanEmail.length > 120)) {
-        return errorResponse(res, 'Please provide a valid email address or leave blank', 400);
-      }
-      account.email = cleanEmail;
     }
 
     await account.save();
