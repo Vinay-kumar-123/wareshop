@@ -27,6 +27,24 @@ export const leadService = {
     return res;
   },
 
+  async getGoogleNonce() {
+    return api.post('/provider-auth/google/nonce', {});
+  },
+
+  async googleLogin({ idToken, nonce, attemptToken, phone }) {
+    const res = await api.post('/provider-auth/google', {
+      idToken,
+      nonce,
+      attemptToken,
+      ...(phone ? { phone } : {}),
+    });
+    const issuedToken = res?.data?.providerToken || res?.data?.token;
+    if (res?.success && issuedToken) {
+      setProviderToken(issuedToken);
+    }
+    return res;
+  },
+
   async getProviderMe() {
     return api.get('/provider-auth/me');
   },

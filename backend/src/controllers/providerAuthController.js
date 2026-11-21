@@ -11,6 +11,7 @@ import {
   normalizeIndianPhone,
 } from '../utils/validation.js';
 import { sendOtpEmail } from '../services/resendEmailService.js';
+import { verifyGoogleIdToken, googleAuthService } from '../services/googleAuthService.js';
 
 const PROVIDER_COOKIE_NAME = 'wareshop_provider_session';
 const PHONE_REGEX = /^[6-9]\d{9}$/;
@@ -63,6 +64,8 @@ export function formatProviderAccountDto(account) {
     emailMasked: email ? maskEmail(email) : '',
     emailVerified: Boolean(account.emailVerified),
     emailVerifiedAt: account.emailVerifiedAt || null,
+    googleLinked: Boolean(account.googleId),
+    authProvider: account.authProvider || (account.googleId ? 'GOOGLE' : 'EMAIL_OTP'),
     role: account.role || 'PROVIDER',
     status: account.status || 'ACTIVE',
     suspensionReason: account.status === 'SUSPENDED' ? account.suspensionReason || '' : '',
@@ -425,6 +428,11 @@ export async function registerProvider(req, res, next) {
       account.sessionExpiresAt = sessionExpiresAt;
       account.lastLoginAt = new Date();
       account.emailVerified = true;
+      if (account.googleId) {
+        account.authProvider = 'BOTH';
+      } else if (!account.authProvider) {
+        account.authProvider = 'EMAIL_OTP';
+      }
       if (!account.emailVerifiedAt) {
         account.emailVerifiedAt = verifiedTimestamp;
       }
@@ -469,6 +477,242 @@ export async function registerProvider(req, res, next) {
         isNewAccount,
       },
       isNewAccount ? 'Provider account created' : 'Provider authenticated successfully',
+      isNewAccount ? 201 : 200
+    );
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/provider-auth/google/nonce
+ * Issues a server-generated, short-lived (10 min), single-use nonce plus an attempt token that
+ * binds the nonce to this sign-in attempt. The nonce must be embedded into the Google ID token
+ * (via Google Identity Services `nonce`) and both values returned to POST /google.
+ */
+export async function issueGoogleNonce(req, res, next) {
+  try {
+    const issued = await googleAuthService.issueNonce({ requestIp: String(req.ip || '') });
+    res.set('Cache-Control', 'no-store');
+    return successResponse(res, issued, 'Google sign-in nonce issued');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/provider-auth/google
+ * Verifies a Google ID token on the backend using Google's official verification library,
+ * requires and atomically consumes a server-issued single-use nonce (replay protection),
+ * creates a new ProviderAccount or safely links/authenticates an existing account with the
+ * same verified email address, and issues an HttpOnly provider session without requiring Email OTP
+ * and without ever marking mobile phone numbers as verified.
+ */
+export async function googleAuthProvider(req, res, next) {
+  try {
+    const rawToken =
+      typeof req.body?.idToken === 'string'
+        ? req.body.idToken
+        : typeof req.body?.credential === 'string'
+        ? req.body.credential
+        : '';
+    const suppliedNonce = typeof req.body?.nonce === 'string' ? req.body.nonce.trim() : '';
+    const attemptToken =
+      typeof req.body?.attemptToken === 'string' ? req.body.attemptToken.trim() : '';
+
+    if (!suppliedNonce || !attemptToken) {
+      return errorResponse(
+        res,
+        'A valid Google sign-in nonce is required. Please retry Google Sign-In.',
+        400
+      );
+    }
+
+    const rawPhone = req.body?.phone;
+    const cleanPhone =
+      rawPhone !== undefined && rawPhone !== null && String(rawPhone).trim() !== ''
+        ? normalizeIndianPhone(rawPhone)
+        : '';
+
+    if (cleanPhone && !PHONE_REGEX.test(cleanPhone)) {
+      return errorResponse(res, 'Enter a valid 10-digit Indian mobile number', 400);
+    }
+
+    // 1. Cryptographically verify the ID token; its signed nonce claim must equal suppliedNonce
+    const verifiedGoogle = await verifyGoogleIdToken({
+      idToken: rawToken,
+      expectedNonce: suppliedNonce,
+    });
+
+    // 2. Atomically consume the server-issued nonce (single use, unexpired, bound to attempt)
+    const nonceConsumed = await googleAuthService.consumeNonce({
+      nonce: verifiedGoogle.nonce,
+      attemptToken,
+    });
+    if (!nonceConsumed) {
+      return errorResponse(
+        res,
+        'Google sign-in request is expired or has already been used. Please retry Google Sign-In.',
+        401
+      );
+    }
+
+    const { googleId, email, name: googleName } = verifiedGoogle;
+
+    const [accountByGoogleId, accountByEmail] = await Promise.all([
+      ProviderAccount.findOne({ googleId }),
+      ProviderAccount.findOne({ email, emailVerified: true }),
+    ]);
+
+    if (
+      accountByGoogleId &&
+      accountByEmail &&
+      String(accountByGoogleId._id) !== String(accountByEmail._id)
+    ) {
+      return errorResponse(
+        res,
+        'This Google account conflicts with an existing provider account.',
+        409
+      );
+    }
+
+    if (accountByEmail && accountByEmail.googleId && accountByEmail.googleId !== googleId) {
+      return errorResponse(
+        res,
+        'This email address is already linked to a different Google account.',
+        409
+      );
+    }
+
+    if (accountByGoogleId && accountByGoogleId.email && accountByGoogleId.email !== email) {
+      return errorResponse(
+        res,
+        'This Google account is already linked to a different provider email address.',
+        409
+      );
+    }
+
+    let account = accountByGoogleId || accountByEmail;
+    let isNewAccount = false;
+    let accountLinked = false;
+
+    const now = new Date();
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const sessionTokenHash = ProviderAccount.hashSessionToken(sessionToken);
+    const sessionDurationHours = 24;
+    const sessionExpiresAt = new Date(now.getTime() + sessionDurationHours * 60 * 60 * 1000);
+
+    if (!account) {
+      if (cleanPhone) {
+        const phoneOwner = await ProviderAccount.findOne({ phone: cleanPhone }).lean();
+        if (phoneOwner) {
+          return errorResponse(
+            res,
+            'This mobile number is already associated with another provider account.',
+            409
+          );
+        }
+      }
+
+      isNewAccount = true;
+      const createPayload = {
+        email,
+        googleId,
+        authProvider: 'GOOGLE',
+        emailVerified: true,
+        emailVerifiedAt: now,
+        phoneVerified: false,
+        phoneVerifiedAt: null,
+        verifiedAt: now,
+        lastLoginAt: now,
+        status: 'ACTIVE',
+        sessionTokenHash,
+        sessionExpiresAt,
+      };
+      if (cleanPhone) {
+        createPayload.phone = cleanPhone;
+      }
+      if (googleName) {
+        createPayload.name = googleName;
+      }
+      account = await ProviderAccount.create(createPayload);
+    } else {
+      const hadGoogleId = Boolean(account.googleId);
+      if (!hadGoogleId) {
+        // Atomic conditional link: succeeds only if no different Google identity was linked concurrently
+        const linked = await ProviderAccount.findOneAndUpdate(
+          {
+            _id: account._id,
+            $or: [{ googleId: null }, { googleId: '' }, { googleId }],
+          },
+          { $set: { googleId } },
+          { new: true }
+        );
+        if (!linked) {
+          return errorResponse(
+            res,
+            'This email address is already linked to a different Google account.',
+            409
+          );
+        }
+        account.googleId = googleId;
+        accountLinked = true;
+      }
+      account.authProvider =
+        !hadGoogleId || account.authProvider === 'EMAIL_OTP' || account.authProvider === 'BOTH'
+          ? 'BOTH'
+          : 'GOOGLE';
+      account.sessionTokenHash = sessionTokenHash;
+      account.sessionExpiresAt = sessionExpiresAt;
+      account.lastLoginAt = now;
+      account.emailVerified = true;
+      if (!account.emailVerifiedAt) {
+        account.emailVerifiedAt = now;
+      }
+      if (!account.verifiedAt) {
+        account.verifiedAt = now;
+      }
+      if (!account.phone && cleanPhone) {
+        const phoneOwner = await ProviderAccount.findOne({
+          phone: cleanPhone,
+          _id: { $ne: account._id },
+        }).lean();
+        if (phoneOwner) {
+          return errorResponse(
+            res,
+            'This mobile number is already associated with another provider account.',
+            409
+          );
+        }
+        account.phone = cleanPhone;
+        account.phoneVerified = false;
+      }
+      if (!account.name && googleName) {
+        account.name = googleName;
+      }
+      await account.save();
+    }
+
+    res.cookie(PROVIDER_COOKIE_NAME, sessionToken, {
+      ...getProviderCookieOptions(),
+      maxAge: sessionDurationHours * 60 * 60 * 1000,
+    });
+
+    const dto = formatProviderAccountDto(account);
+
+    return successResponse(
+      res,
+      {
+        ...dto,
+        token: sessionToken,
+        providerToken: sessionToken,
+        expiresAt: sessionExpiresAt,
+        isNewAccount,
+        accountLinked,
+      },
+      isNewAccount
+        ? 'Provider account created with Google'
+        : 'Provider authenticated with Google successfully',
       isNewAccount ? 201 : 200
     );
   } catch (err) {
@@ -585,6 +829,8 @@ export default {
   requestOtp,
   verifyOtp,
   registerProvider,
+  issueGoogleNonce,
+  googleAuthProvider,
   getProviderMe,
   updateProviderProfile,
   logoutProvider,

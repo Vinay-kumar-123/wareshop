@@ -40,6 +40,17 @@ const providerAccountSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    googleId: {
+      type: String,
+      trim: true,
+      maxlength: 128,
+      default: undefined,
+    },
+    authProvider: {
+      type: String,
+      enum: ['EMAIL_OTP', 'GOOGLE', 'BOTH'],
+      default: 'EMAIL_OTP',
+    },
     role: {
       type: String,
       enum: ['PROVIDER'],
@@ -105,6 +116,15 @@ providerAccountSchema.index(
   {
     unique: true,
     partialFilterExpression: { emailVerified: true },
+  }
+);
+
+// Unique Google subject identifier index for accounts linked with Google Sign-In
+providerAccountSchema.index(
+  { googleId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { googleId: { $type: 'string', $gt: '' } },
   }
 );
 

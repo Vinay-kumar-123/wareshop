@@ -23,6 +23,7 @@ const app = appModule.default;
 const Admin = (await import('./src/models/Admin.js')).default;
 const ProviderAccount = (await import('./src/models/ProviderAccount.js')).default;
 const OtpChallenge = (await import('./src/models/OtpChallenge.js')).default;
+const GoogleAuthNonce = (await import('./src/models/GoogleAuthNonce.js')).default;
 const Category = (await import('./src/models/Category.js')).default;
 const CustomCategoryRequest = (await import('./src/models/CustomCategoryRequest.js')).default;
 const Lead = (await import('./src/models/Lead.js')).default;
@@ -31,6 +32,12 @@ const ActivityLog = (await import('./src/models/ActivityLog.js')).default;
 const { DEFAULT_CATEGORIES } = await import('./src/services/listingLifecycleService.js');
 const { validateAndSanitizeImage } = await import('./src/utils/imageSecurity.js');
 const storageService = (await import('./src/services/storageService.js')).default;
+const googleAuthService = (await import('./src/services/googleAuthService.js')).default;
+const {
+  buildOtpEmailHtml,
+  buildOtpEmailText,
+  OTP_EMAIL_SUBJECT,
+} = await import('./src/services/resendEmailService.js');
 
 // Simulate connected MongoDB readyState (1) without touching any external database
 Object.defineProperty(mongoose.connection, 'readyState', {
@@ -45,6 +52,7 @@ const collections = {
   admins: new Map(),
   providerAccounts: new Map(),
   otpChallenges: new Map(),
+  googleAuthNonces: new Map(),
   categories: new Map(),
   customCategoryRequests: new Map(),
   leads: new Map(),
@@ -316,6 +324,7 @@ function attachStoreMethods(Model, store) {
 attachStoreMethods(Category, collections.categories);
 attachStoreMethods(CustomCategoryRequest, collections.customCategoryRequests);
 attachStoreMethods(OtpChallenge, collections.otpChallenges);
+attachStoreMethods(GoogleAuthNonce, collections.googleAuthNonces);
 attachStoreMethods(ProviderAccount, collections.providerAccounts);
 attachStoreMethods(Lead, collections.leads);
 attachStoreMethods(Provider, collections.providers);
@@ -1807,6 +1816,743 @@ await test('E.1 Admin creates category with image -> signed Cloudinary upload to
     globalThis.fetch = savedFetch;
     storageService.uploadImage = savedUploadFn;
     storageService.deleteImage = savedDeleteFn;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PART F: GOOGLE OAUTH 2.0 AUTHENTICATION, ACCOUNT LINKING & WARERENT EMAIL BRANDING
+// ---------------------------------------------------------------------------
+console.log('\n--- F. Google OAuth 2.0 Authentication, Account Linking & WARERENT Email Branding ---');
+
+const TEST_GOOGLE_CLIENT_ID = '1234567890-warerenttest.apps.googleusercontent.com';
+const SAMPLE_JWT_FORMAT_TOKEN =
+  'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJl';
+
+async function requestServerGoogleNonce(suiteKey = 'google-nonce-helper') {
+  const res = await httpRequest('/api/v1/provider-auth/google/nonce', {
+    method: 'POST',
+    headers: { 'x-wareshop-test-suite': suiteKey },
+    body: {},
+  });
+  assert(
+    res.status === 200 && res.body?.data?.nonce && res.body?.data?.attemptToken,
+    `Expected 200 from /provider-auth/google/nonce, got ${res.status}`
+  );
+  return res.body.data;
+}
+
+await test('F.1 Provider OTP email templates use WARERENT branding in subject, HTML, and plain text', async () => {
+  assert(
+    OTP_EMAIL_SUBJECT === 'Your WARERENT Verification Code',
+    `Expected WARERENT email subject, got "${OTP_EMAIL_SUBJECT}"`
+  );
+
+  const html = buildOtpEmailHtml({ otp: '654321', expiresInMinutes: 5 });
+  const text = buildOtpEmailText({ otp: '654321', expiresInMinutes: 5 });
+
+  assert(
+    html.includes('WARERENT Provider Portal Verification') &&
+      html.includes('WARERENT provider account') &&
+      html.includes('654321'),
+    'HTML OTP template must contain WARERENT Provider Portal Verification and WARERENT provider account'
+  );
+  assert(
+    text.includes('WARERENT Provider Portal Verification') &&
+      text.includes('WARERENT provider account') &&
+      text.includes('654321'),
+    'Plain-text OTP template must contain WARERENT Provider Portal Verification and WARERENT provider account'
+  );
+  assert(
+    !/wareshop/i.test(html) && !/wareshop/i.test(text) && !/wareshop/i.test(OTP_EMAIL_SUBJECT),
+    'OTP email templates must not contain legacy WARESHOP branding'
+  );
+
+  assert(
+    lastOutboundPayload &&
+      lastOutboundPayload.subject === 'Your WARERENT Verification Code' &&
+      !/wareshop/i.test(lastOutboundPayload.html) &&
+      !/wareshop/i.test(lastOutboundPayload.text),
+    'Actual dispatched Resend payload must use WARERENT branding'
+  );
+});
+
+await test('F.2 Missing GOOGLE_CLIENT_ID fails closed (503) on nonce & auth endpoints without breaking Email OTP', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  process.env.GOOGLE_CLIENT_ID = '';
+  try {
+    const nonceRes = await httpRequest('/api/v1/provider-auth/google/nonce', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-unconfigured-nonce' },
+      body: {},
+    });
+    assert(nonceRes.status === 503, `Expected 503 on /google/nonce when GOOGLE_CLIENT_ID is unset, got ${nonceRes.status}`);
+
+    const res = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-unconfigured' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: 'a'.repeat(64),
+        attemptToken: 'b'.repeat(64),
+      },
+    });
+    assert(res.status === 503, `Expected 503 when GOOGLE_CLIENT_ID is unset, got ${res.status}`);
+  } finally {
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
+  }
+});
+
+await test('F.3 Invalid, malformed, wrong-audience, wrong-issuer, expired, missing-nonce, and mismatched-nonce Google tokens are rejected', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  const savedVerifyDelegate = googleAuthService._verifyWithOAuthClient;
+  process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+
+  try {
+    const n0 = await requestServerGoogleNonce('google-invalid-nonce-0');
+
+    // 1. Missing nonce or attemptToken -> 400
+    const missingNonceRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-0' },
+      body: { idToken: SAMPLE_JWT_FORMAT_TOKEN },
+    });
+    assert(missingNonceRes.status === 400, `Expected 400 when nonce is missing, got ${missingNonceRes.status}`);
+
+    // 2. Malformed non-JWT token -> 400
+    const badFormatRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-1' },
+      body: { idToken: 'not-a-valid-jwt', nonce: n0.nonce, attemptToken: n0.attemptToken },
+    });
+    assert(badFormatRes.status === 400, `Expected 400 for malformed token, got ${badFormatRes.status}`);
+
+    // 3. Real google-auth-library OAuth2Client rejects forged/unsigned JWT -> 401
+    const forgedRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-2' },
+      body: { idToken: SAMPLE_JWT_FORMAT_TOKEN, nonce: n0.nonce, attemptToken: n0.attemptToken },
+    });
+    assert(forgedRes.status === 401, `Expected 401 from OAuth2Client on forged JWT, got ${forgedRes.status}`);
+
+    // 4. Wrong audience -> 401
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: '9999999999-wrongaud.apps.googleusercontent.com',
+      sub: 'google-sub-wrong-aud',
+      email: 'wrongaud@warerent.in',
+      email_verified: true,
+      nonce: n0.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const wrongAudRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-3' },
+      body: { idToken: SAMPLE_JWT_FORMAT_TOKEN, nonce: n0.nonce, attemptToken: n0.attemptToken },
+    });
+    assert(wrongAudRes.status === 401, `Expected 401 for wrong audience, got ${wrongAudRes.status}`);
+
+    // 5. Wrong issuer -> 401
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://evil-issuer.example.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-wrong-iss',
+      email: 'wrongiss@warerent.in',
+      email_verified: true,
+      nonce: n0.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const wrongIssRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-4' },
+      body: { idToken: SAMPLE_JWT_FORMAT_TOKEN, nonce: n0.nonce, attemptToken: n0.attemptToken },
+    });
+    assert(wrongIssRes.status === 401, `Expected 401 for wrong issuer, got ${wrongIssRes.status}`);
+
+    // 6. Expired token -> 401
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-expired',
+      email: 'expired@warerent.in',
+      email_verified: true,
+      nonce: n0.nonce,
+      exp: Math.floor(Date.now() / 1000) - 60,
+    });
+    const expiredRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-5' },
+      body: { idToken: SAMPLE_JWT_FORMAT_TOKEN, nonce: n0.nonce, attemptToken: n0.attemptToken },
+    });
+    assert(expiredRes.status === 401, `Expected 401 for expired Google token, got ${expiredRes.status}`);
+
+    // 7. Nonce mismatch between token claim and supplied nonce -> 401
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-nonce',
+      email: 'nonce@warerent.in',
+      email_verified: true,
+      nonce: 'c'.repeat(64),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const badNonceRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-6' },
+      body: { idToken: SAMPLE_JWT_FORMAT_TOKEN, nonce: n0.nonce, attemptToken: n0.attemptToken },
+    });
+    assert(badNonceRes.status === 401, `Expected 401 for mismatched OAuth nonce, got ${badNonceRes.status}`);
+
+    // 8. Forged client-generated nonce (never issued by server) -> 401
+    const forgedClientNonce = 'd'.repeat(64);
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-forged-nonce',
+      email: 'forgednonce@warerent.in',
+      email_verified: true,
+      nonce: forgedClientNonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const unissuedNonceRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-invalid-7' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: forgedClientNonce,
+        attemptToken: 'e'.repeat(64),
+      },
+    });
+    assert(unissuedNonceRes.status === 401, `Expected 401 for unissued client-forged nonce, got ${unissuedNonceRes.status}`);
+  } finally {
+    googleAuthService._verifyWithOAuthClient = savedVerifyDelegate;
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
+  }
+});
+
+await test('F.4 Unverified Google email claim (email_verified !== true) is rejected with HTTP 403', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  const savedVerifyDelegate = googleAuthService._verifyWithOAuthClient;
+  process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+
+  try {
+    const issued = await requestServerGoogleNonce('google-unverified-nonce');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-unverified-email',
+      email: 'unverified.google@warerent.in',
+      email_verified: false,
+      name: 'Unverified User',
+      nonce: issued.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const res = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-unverified-email' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: issued.nonce,
+        attemptToken: issued.attemptToken,
+      },
+    });
+    assert(res.status === 403, `Expected 403 for unverified Google email, got ${res.status}`);
+
+    const count = await ProviderAccount.countDocuments({ email: 'unverified.google@warerent.in' });
+    assert(count === 0, 'Unverified Google email must never create a ProviderAccount');
+  } finally {
+    googleAuthService._verifyWithOAuthClient = savedVerifyDelegate;
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
+  }
+});
+
+await test('F.5 Successful Google Sign-In creates provider account, issues session, ignores spoofed body fields, and never marks phoneVerified', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  const savedVerifyDelegate = googleAuthService._verifyWithOAuthClient;
+  process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+
+  try {
+    const issued = await requestServerGoogleNonce('google-success-nonce');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-new-provider-1001',
+      email: 'google.owner@warerent.in',
+      email_verified: true,
+      name: 'Anita Desai',
+      nonce: issued.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const loginRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-success-new' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: issued.nonce,
+        attemptToken: issued.attemptToken,
+        phone: '9820777888',
+        // Attempt to spoof email, phoneVerified, and role in request body (must be ignored)
+        email: 'attacker@spoofed.com',
+        phoneVerified: true,
+        role: 'SUPER_ADMIN',
+      },
+    });
+
+    assert(loginRes.status === 201, `Expected 201 for new Google provider, got ${loginRes.status}`);
+    const data = loginRes.body?.data;
+    assert(data?.isNewAccount === true, 'Expected isNewAccount=true');
+    assert(data?.email === 'google.owner@warerent.in', 'Must use verified Google token email, never req.body.email');
+    assert(data?.emailVerified === true, 'Expected emailVerified=true');
+    assert(data?.phone === '9820777888', 'Expected optional valid phone to be saved');
+    assert(data?.phoneVerified === false, 'Google Sign-In must NEVER mark phoneVerified=true');
+    assert(data?.googleLinked === true && data?.authProvider === 'GOOGLE', 'Expected googleLinked=true and authProvider=GOOGLE');
+    assert(data?.token && /^[a-f0-9]{64}$/i.test(data.token), 'Expected 64-char hex session token');
+
+    const rawCookies = loginRes.headers['set-cookie'] || [];
+    const cookieStr = Array.isArray(rawCookies) ? rawCookies.join('; ') : String(rawCookies);
+    assert(
+      cookieStr.includes('wareshop_provider_session=') && /httponly/i.test(cookieStr),
+      'Expected HttpOnly wareshop_provider_session cookie to be set'
+    );
+
+    // Verify immediate access to /me and /provider-portal/dashboard without needing Email OTP
+    const meRes = await httpRequest('/api/v1/provider-auth/me', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${data.token}` },
+    });
+    assert(meRes.status === 200 && meRes.body?.data?.email === 'google.owner@warerent.in', 'Expected /me to succeed with Google session');
+
+    const dashRes = await httpRequest('/api/v1/provider-portal/dashboard', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${data.token}` },
+    });
+    assert(dashRes.status === 200 && dashRes.body?.data?.account?.email === 'google.owner@warerent.in', 'Expected /provider-portal/dashboard to succeed with Google session');
+  } finally {
+    googleAuthService._verifyWithOAuthClient = savedVerifyDelegate;
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
+  }
+});
+
+await test('F.6 Safe account linking & duplicate account prevention for existing Email-OTP provider', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  const savedVerifyDelegate = googleAuthService._verifyWithOAuthClient;
+  process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+
+  try {
+    const beforeCount = await ProviderAccount.countDocuments({ email: provider2Email });
+    assert(beforeCount === 1, 'Expected existing Email-OTP provider2 account to exist');
+    const existingBefore = await ProviderAccount.findOne({ email: provider2Email }).lean();
+
+    const issuedLink = await requestServerGoogleNonce('google-link-nonce-1');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-provider2-link',
+      email: provider2Email.toUpperCase(),
+      email_verified: true,
+      name: 'Overwritten Name Should Not Apply',
+      nonce: issuedLink.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const linkRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-account-link' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: issuedLink.nonce,
+        attemptToken: issuedLink.attemptToken,
+      },
+    });
+
+    assert(linkRes.status === 200, `Expected 200 on linking existing account, got ${linkRes.status}`);
+    const data = linkRes.body?.data;
+    assert(data?.isNewAccount === false, 'Expected isNewAccount=false when linking existing account');
+    assert(data?.accountLinked === true, 'Expected accountLinked=true on first Google link');
+    assert(data?.googleLinked === true && data?.authProvider === 'BOTH', 'Expected authProvider=BOTH after linking Google to Email-OTP account');
+    assert(
+      String(data?.id) === String(existingBefore._id),
+      'Linked session must resolve to the exact same ProviderAccount ID'
+    );
+    assert(
+      data?.name === existingBefore.name && data?.phone === existingBefore.phone,
+      'Account linking must NOT overwrite existing provider name or phone'
+    );
+    assert(data?.phoneVerified === false, 'Account linking must keep phoneVerified=false');
+
+    const afterCount = await ProviderAccount.countDocuments({ email: provider2Email });
+    assert(afterCount === 1, 'Account linking must never create duplicate ProviderAccount records');
+
+    // Attempting to authenticate the same email with a DIFFERENT Google sub must be rejected (409)
+    const issuedConflict = await requestServerGoogleNonce('google-link-nonce-2');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-different-impostor',
+      email: provider2Email,
+      email_verified: true,
+      name: 'Impostor',
+      nonce: issuedConflict.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const conflictRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-account-conflict' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: issuedConflict.nonce,
+        attemptToken: issuedConflict.attemptToken,
+      },
+    });
+    assert(conflictRes.status === 409, `Expected 409 when different Google sub claims already-linked email, got ${conflictRes.status}`);
+  } finally {
+    googleAuthService._verifyWithOAuthClient = savedVerifyDelegate;
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
+  }
+});
+
+await test('F.7 Suspended provider account restrictions are preserved when signing in with Google', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  const savedVerifyDelegate = googleAuthService._verifyWithOAuthClient;
+  process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+
+  try {
+    // Suspend provider1 via admin endpoint first (since D.3 reactivated provider1 at the end of D.3)
+    const preSuspRes = await httpRequest(`/api/v1/admin/providers/${publishedProviderId}/suspend`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { reason: 'Compliance hold for Google auth restriction test.' },
+    });
+    assert(preSuspRes.status === 200, `Expected 200 on admin suspend, got ${preSuspRes.status}`);
+
+    const issuedSusp = await requestServerGoogleNonce('google-susp-nonce');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-suspended-provider1',
+      email: provider1Email,
+      email_verified: true,
+      name: 'Rajesh Logistics',
+      nonce: issuedSusp.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const suspLoginRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-suspended-check' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: issuedSusp.nonce,
+        attemptToken: issuedSusp.attemptToken,
+        status: 'ACTIVE',
+      },
+    });
+
+    assert(suspLoginRes.status === 200, `Expected 200 on suspended account login, got ${suspLoginRes.status}`);
+    assert(
+      suspLoginRes.body?.data?.status === 'SUSPENDED',
+      'Google Sign-In must preserve SUSPENDED account status and never reset it to ACTIVE'
+    );
+    const suspToken = suspLoginRes.body?.data?.token;
+
+    // Attempting to submit a listing while suspended must still be rejected with 403
+    const blockedSubmit = await httpRequest('/api/v1/leads/partner', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${suspToken}`,
+        'x-wareshop-test-suite': 'google-suspended-submit',
+      },
+      body: {
+        businessName: 'Suspended Bypass Attempt Warehouse',
+        contactPerson: 'Rajesh Sharma',
+        phone: provider1Phone,
+        email: provider1Email,
+        category: 'Warehouse',
+        servicesOffered: 'Cold storage, loading dock',
+        city: 'Mumbai',
+        businessDescription: 'Attempting to submit a listing while suspended via Google login.',
+        consentToContact: true,
+      },
+    });
+    assert(
+      blockedSubmit.status === 403,
+      `Suspended provider authenticated via Google must be blocked (403) from submitting listings, got ${blockedSubmit.status}`
+    );
+
+    // Attempting to mutate profile while suspended must also be rejected with 403
+    const blockedProfile = await httpRequest('/api/v1/provider-auth/profile', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${suspToken}`,
+        'x-wareshop-test-suite': 'google-suspended-profile',
+      },
+      body: { name: 'Bypass Profile Edit' },
+    });
+    assert(
+      blockedProfile.status === 403,
+      `Suspended provider must be blocked (403) from mutating profile, got ${blockedProfile.status}`
+    );
+  } finally {
+    await httpRequest(`/api/v1/admin/providers/${publishedProviderId}/reactivate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    }).catch(() => {});
+    googleAuthService._verifyWithOAuthClient = savedVerifyDelegate;
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
+  }
+});
+
+await test('F.8 Expired nonce, sequential replay, and concurrent replay attacks on Google Sign-In are blocked', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  const savedVerifyDelegate = googleAuthService._verifyWithOAuthClient;
+  process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+
+  try {
+    // 1. Expired server-issued nonce -> 401
+    const expiredIssued = await requestServerGoogleNonce('google-exp-nonce');
+    const expNonceHash = crypto.createHash('sha256').update(expiredIssued.nonce).digest('hex');
+    await GoogleAuthNonce.updateOne(
+      { nonceHash: expNonceHash },
+      { $set: { expiresAt: new Date(Date.now() - 5_000) } }
+    );
+
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-new-provider-1001',
+      email: 'google.owner@warerent.in',
+      email_verified: true,
+      name: 'Anita Desai',
+      nonce: expiredIssued.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const expNonceRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-exp-nonce-auth' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: expiredIssued.nonce,
+        attemptToken: expiredIssued.attemptToken,
+      },
+    });
+    assert(expNonceRes.status === 401, `Expected 401 for expired server nonce, got ${expNonceRes.status}`);
+
+    // 2. Concurrent replay attack (5 simultaneous requests with the same valid nonce + attemptToken)
+    const raceIssued = await requestServerGoogleNonce('google-race-nonce');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-new-provider-1001',
+      email: 'google.owner@warerent.in',
+      email_verified: true,
+      name: 'Anita Desai',
+      nonce: raceIssued.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    const concurrentResponses = await Promise.all(
+      [1, 2, 3, 4, 5].map((i) =>
+        httpRequest('/api/v1/provider-auth/google', {
+          method: 'POST',
+          headers: { 'x-wareshop-test-suite': `google-race-${i}` },
+          body: {
+            idToken: SAMPLE_JWT_FORMAT_TOKEN,
+            nonce: raceIssued.nonce,
+            attemptToken: raceIssued.attemptToken,
+          },
+        })
+      )
+    );
+
+    const successResponses = concurrentResponses.filter((r) => r.status === 200);
+    const rejectedResponses = concurrentResponses.filter((r) => r.status === 401);
+    assert(
+      successResponses.length === 1 && rejectedResponses.length === 4,
+      `Expected strictly 1 success (200) and 4 replay rejections (401) in concurrent replay test, got ${successResponses.length} successes and ${rejectedResponses.length} 401s`
+    );
+
+    // 3. Sequential replay of the already-consumed nonce -> 401
+    const seqReplayRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-seq-replay' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: raceIssued.nonce,
+        attemptToken: raceIssued.attemptToken,
+      },
+    });
+    assert(seqReplayRes.status === 401, `Expected 401 on sequential replay of consumed nonce, got ${seqReplayRes.status}`);
+  } finally {
+    googleAuthService._verifyWithOAuthClient = savedVerifyDelegate;
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
+  }
+});
+
+await test('F.9 Provider session rotation, expiration, logout invalidation, login-CSRF protection, and Admin isolation', async () => {
+  const savedClientId = process.env.GOOGLE_CLIENT_ID;
+  const savedVerifyDelegate = googleAuthService._verifyWithOAuthClient;
+  process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+
+  try {
+    // 1. Cross-site HTML form login-CSRF attempt (application/x-www-form-urlencoded) -> 403
+    const formCsrfRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'x-wareshop-test-suite': 'google-login-csrf',
+      },
+      rawBuffer: Buffer.from('idToken=abc&nonce=def&attemptToken=ghi', 'utf8'),
+    });
+    assert(formCsrfRes.status === 403, `Expected 403 on form-urlencoded login CSRF attempt, got ${formCsrfRes.status}`);
+
+    // 1b. Non-JSON Content-Type on auth endpoint -> 403
+    const nonJsonCsrfRes = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-wareshop-test-suite': 'google-nonjson-csrf',
+      },
+      rawBuffer: Buffer.from('{"idToken":"abc"}', 'utf8'),
+    });
+    assert(nonJsonCsrfRes.status === 403, `Expected 403 on non-JSON Content-Type auth attempt, got ${nonJsonCsrfRes.status}`);
+
+    // 1c. Untrusted Referer origin on auth endpoint (when Origin is stripped) -> 403
+    const untrustedRefAuthRes = await httpRequest('/api/v1/provider-auth/google/nonce', {
+      method: 'POST',
+      headers: {
+        Referer: 'https://evil-attacker.example.com/csrf.html',
+        'x-wareshop-test-suite': 'google-referer-csrf',
+      },
+      body: {},
+    });
+    assert(
+      untrustedRefAuthRes.status === 403,
+      `Expected 403 on untrusted Referer origin for auth endpoint, got ${untrustedRefAuthRes.status}`
+    );
+
+    // 2. First login issues sessionToken1; second login rotates sessionTokenHash and invalidates sessionToken1
+    const issued1 = await requestServerGoogleNonce('google-sess-1');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-new-provider-1001',
+      email: 'google.owner@warerent.in',
+      email_verified: true,
+      name: 'Anita Desai',
+      nonce: issued1.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const login1 = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-sess-login-1' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: issued1.nonce,
+        attemptToken: issued1.attemptToken,
+      },
+    });
+    const token1 = login1.body?.data?.token;
+    assert(token1, 'Expected session token from first login');
+
+    const issued2 = await requestServerGoogleNonce('google-sess-2');
+    googleAuthService._verifyWithOAuthClient = async () => ({
+      iss: 'https://accounts.google.com',
+      aud: TEST_GOOGLE_CLIENT_ID,
+      sub: 'google-sub-new-provider-1001',
+      email: 'google.owner@warerent.in',
+      email_verified: true,
+      name: 'Anita Desai',
+      nonce: issued2.nonce,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const login2 = await httpRequest('/api/v1/provider-auth/google', {
+      method: 'POST',
+      headers: { 'x-wareshop-test-suite': 'google-sess-login-2' },
+      body: {
+        idToken: SAMPLE_JWT_FORMAT_TOKEN,
+        nonce: issued2.nonce,
+        attemptToken: issued2.attemptToken,
+      },
+    });
+    const token2 = login2.body?.data?.token;
+    assert(token2 && token2 !== token1, 'Expected new rotated session token on second login');
+
+    // Old session token (token1) must now be rejected (401)
+    const oldTokenMe = await httpRequest('/api/v1/provider-auth/me', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    assert(oldTokenMe.status === 401, `Expected 401 when reusing superseded session token, got ${oldTokenMe.status}`);
+
+    // 3. Admin security isolation: provider session token (even if Google email matches admin email) cannot access /api/v1/admin/*
+    const adminAccessAttempt = await httpRequest('/api/v1/admin/dashboard', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token2}` },
+    });
+    assert(
+      adminAccessAttempt.status === 401,
+      `Provider session token must be rejected (401) on admin endpoints, got ${adminAccessAttempt.status}`
+    );
+
+    // 3b. Cookie-authenticated state-changing request from untrusted Referer origin is rejected (403 CSRF)
+    const cookieRefererCsrf = await httpRequest('/api/v1/provider-auth/profile', {
+      method: 'PUT',
+      headers: {
+        Cookie: `wareshop_provider_session=${token2}`,
+        'X-Requested-With': 'XMLHttpRequest',
+        Referer: 'https://evil-attacker.example.com/exploit',
+      },
+      body: { name: 'Cross-Site Cookie Mutation' },
+    });
+    assert(
+      cookieRefererCsrf.status === 403,
+      `Expected 403 on cookie-authenticated mutation with untrusted Referer origin, got ${cookieRefererCsrf.status}`
+    );
+
+    // 4. Logout invalidates token2 immediately
+    const logoutRes = await httpRequest('/api/v1/provider-auth/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token2}` },
+      body: {},
+    });
+    assert(logoutRes.status === 200, `Expected 200 on provider logout, got ${logoutRes.status}`);
+
+    const afterLogoutMe = await httpRequest('/api/v1/provider-auth/me', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token2}` },
+    });
+    assert(afterLogoutMe.status === 401, `Expected 401 after logout invalidates session, got ${afterLogoutMe.status}`);
+
+    // 5. Security headers: Cross-Origin-Opener-Policy must be same-origin-allow-popups (not same-origin) and CSP must permit GIS
+    const coopHeader = String(login2.headers['cross-origin-opener-policy'] || '');
+    const cspHeader = String(login2.headers['content-security-policy'] || '');
+    assert(
+      coopHeader === 'same-origin-allow-popups',
+      `Expected Cross-Origin-Opener-Policy: same-origin-allow-popups, got "${coopHeader}"`
+    );
+    assert(
+      cspHeader.includes('https://accounts.google.com/gsi/client') &&
+        cspHeader.includes('https://accounts.google.com/gsi/'),
+      `Expected Content-Security-Policy to permit Google Identity Services, got "${cspHeader}"`
+    );
+
+    // 6. Quoted GOOGLE_CLIENT_ID (e.g. pasted with quotes in Render/Vercel dashboard) is normalized cleanly
+    process.env.GOOGLE_CLIENT_ID = `"${TEST_GOOGLE_CLIENT_ID}"`;
+    const quotedNonce = await requestServerGoogleNonce('google-quoted-client-id');
+    assert(Boolean(quotedNonce?.nonce), 'Expected quoted GOOGLE_CLIENT_ID to be normalized and accepted');
+  } finally {
+    googleAuthService._verifyWithOAuthClient = savedVerifyDelegate;
+    if (savedClientId !== undefined) process.env.GOOGLE_CLIENT_ID = savedClientId;
+    else delete process.env.GOOGLE_CLIENT_ID;
   }
 });
 

@@ -1,21 +1,30 @@
 import { Resend } from 'resend';
 import env from '../config/env.js';
+import logger from '../utils/logger.js';
 import { normalizeEmail, isValidEmail } from '../utils/validation.js';
 
 const OTP_CODE_REGEX = /^\d{6}$/;
 const PLACEHOLDER_REGEX = /^<.*>$/;
 
+export const OTP_EMAIL_SUBJECT = 'Your WARERENT Verification Code';
+
 function isConfiguredValue(val) {
   return Boolean(val && !PLACEHOLDER_REGEX.test(val.trim()));
 }
 
-function buildOtpEmailHtml({ otp, expiresInMinutes }) {
+export function buildOtpEmailText({ otp, expiresInMinutes = 5 }) {
+  const safeMinutes = Math.max(1, Number(expiresInMinutes) || 5);
+  return `WARERENT Provider Portal Verification\n\nYour WARERENT verification code is ${otp}. Use this code to sign in or register your WARERENT provider account.\n\nThis code expires in ${safeMinutes} minutes and can only be used once. If you did not request this code, please ignore this email.`;
+}
+
+export function buildOtpEmailHtml({ otp, expiresInMinutes = 5 }) {
+  const safeMinutes = Math.max(1, Number(expiresInMinutes) || 5);
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WARESHOP Verification Code</title>
+    <title>WARERENT Provider Portal Verification</title>
   </head>
   <body style="margin:0;padding:0;background-color:#F7F8FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#171717;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;">
@@ -24,25 +33,30 @@ function buildOtpEmailHtml({ otp, expiresInMinutes }) {
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:480px;background-color:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
             <tr>
               <td style="background-color:#171717;padding:20px 24px;">
-                <span style="font-size:18px;font-weight:800;letter-spacing:-0.02em;color:#FFFFFF;">WARESHOP</span>
-                <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#F36B21;margin-top:4px;">Provider Portal Verification</span>
+                <span style="font-size:18px;font-weight:800;letter-spacing:-0.02em;color:#FFFFFF;">WARERENT</span>
+                <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#F36B21;margin-top:4px;">WARERENT Provider Portal Verification</span>
               </td>
             </tr>
             <tr>
               <td style="padding:28px 24px;">
                 <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#171717;">Verify your email address</h1>
                 <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#475569;">
-                  Use the 6-digit verification code below to sign in or register your WARESHOP provider account.
+                  Use the 6-digit verification code below to sign in or register your WARERENT provider account.
                 </p>
                 <div style="background-color:#FFF5EF;border:1px solid #FFE6D5;border-radius:10px;padding:18px;text-align:center;margin-bottom:20px;">
                   <span style="font-size:32px;font-weight:800;letter-spacing:0.25em;color:#D95513;font-family:monospace;">${otp}</span>
                 </div>
                 <p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:#475569;">
-                  This code expires in <strong>${expiresInMinutes} minutes</strong> and can only be used once.
+                  This code expires in <strong>${safeMinutes} minutes</strong> and can only be used once.
                 </p>
                 <p style="margin:0;font-size:12px;line-height:1.5;color:#64748B;">
                   If you did not request this code, you can safely ignore this email. Never share your verification code with anyone.
                 </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="background-color:#F8FAFC;border-top:1px solid #E2E8F0;padding:14px 24px;text-align:center;">
+                <span style="font-size:11px;color:#64748B;">&copy; WARERENT Commercial Marketplace &middot; Automated verification email</span>
               </td>
             </tr>
           </table>
@@ -97,8 +111,8 @@ export async function sendOtpEmail({ email, otp, expiresInMinutes = 5 }) {
     const emailPayload = {
       from: fromEmail,
       to: [cleanEmail],
-      subject: 'Your WARESHOP Verification Code',
-      text: `Your WARESHOP verification code is ${cleanOtp}. This code expires in ${safeMinutes} minutes and can only be used once. If you did not request this code, please ignore this email.`,
+      subject: OTP_EMAIL_SUBJECT,
+      text: buildOtpEmailText({ otp: cleanOtp, expiresInMinutes: safeMinutes }),
       html: buildOtpEmailHtml({ otp: cleanOtp, expiresInMinutes: safeMinutes }),
       ...(isConfiguredValue(replyTo) ? { replyTo } : {}),
     };
@@ -108,6 +122,14 @@ export async function sendOtpEmail({ email, otp, expiresInMinutes = 5 }) {
     });
 
     if (error || !data?.id) {
+      const safeResendMessage = String(
+        error?.message || 'No message ID returned by Resend'
+      ).replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
+      logger.error('Resend API rejected OTP email dispatch', {
+        resendErrorName: error?.name || 'unknown_error',
+        resendStatusCode: error?.statusCode || null,
+        resendMessage: safeResendMessage,
+      });
       const gatewayError = new Error('Unable to send OTP via email service at this time');
       gatewayError.statusCode = 502;
       throw gatewayError;
@@ -135,4 +157,7 @@ export async function sendOtpEmail({ email, otp, expiresInMinutes = 5 }) {
 
 export default {
   sendOtpEmail,
+  buildOtpEmailHtml,
+  buildOtpEmailText,
+  OTP_EMAIL_SUBJECT,
 };

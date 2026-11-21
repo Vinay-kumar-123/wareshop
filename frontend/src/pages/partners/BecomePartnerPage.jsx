@@ -88,6 +88,155 @@ const EMPTY_FORM = {
   consentToDisplayPhone: true,
 };
 
+// Public OAuth 2.0 Web Client ID (not a secret). Must equal backend GOOGLE_CLIENT_ID.
+const GOOGLE_CLIENT_ID = String(import.meta.env?.VITE_GOOGLE_CLIENT_ID || '')
+  .trim()
+  .replace(/^['"]+|['"]+$/g, '')
+  .trim();
+const IS_GOOGLE_CLIENT_CONFIGURED = /^\d+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(
+  GOOGLE_CLIENT_ID
+);
+const GOOGLE_GSI_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
+
+function describeGoogleNonceFailure(errInfo) {
+  const status = errInfo?.status ?? 0;
+  const msg = String(errInfo?.message || '').trim();
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'this site';
+
+  if (status === 503) {
+    if (/not configured/i.test(msg)) {
+      return {
+        title: 'Google Sign-In Not Configured on Server',
+        message:
+          'Google Sign-In is enabled in the frontend build, but GOOGLE_CLIENT_ID is not configured on the backend server. Please verify backend environment variables or continue with Email OTP below.',
+      };
+    }
+    return {
+      title: 'Authentication Service Temporarily Unavailable',
+      message:
+        msg ||
+        'The WARERENT authentication service is temporarily unavailable. Please try again shortly or continue with Email OTP below.',
+    };
+  }
+
+  if (status === 403) {
+    return {
+      title: 'Origin Not Authorized by Backend',
+      message: `The backend server rejected the Google Sign-In initialization request from ${origin}. Please ensure CORS_ORIGIN on the backend includes ${origin}, or continue with Email OTP below.`,
+    };
+  }
+
+  if (status === 404) {
+    return {
+      title: 'Google Sign-In Service Unavailable',
+      message:
+        'The backend Google Sign-In nonce endpoint (/api/v1/provider-auth/google/nonce) returned 404 Not Found. Please ensure the backend service is running the latest deployment, or continue with Email OTP below.',
+    };
+  }
+
+  if (status === 429) {
+    return {
+      title: 'Too Many Google Sign-In Attempts',
+      message:
+        msg ||
+        'Too many Google Sign-In initialization requests. Please wait a few minutes or continue with Email OTP below.',
+    };
+  }
+
+  if (status === 0) {
+    return {
+      title: 'Network Connection Error',
+      message:
+        msg ||
+        'Unable to reach the WARERENT server to initialize Google Sign-In. Please check your internet connection or continue with Email OTP below.',
+    };
+  }
+
+  return {
+    title: 'Google Sign-In Initialization Failed',
+    message:
+      msg ||
+      'Unable to initialize a secure Google Sign-In session right now. Please try again or continue with Email OTP below.',
+  };
+}
+
+function describeGooglePromptNotification(notification, hasRenderedButton) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'this site';
+
+  if (notification?.isNotDisplayed?.()) {
+    const reason =
+      typeof notification.getNotDisplayedReason === 'function'
+        ? String(notification.getNotDisplayedReason() || '')
+        : 'unknown_reason';
+
+    if (reason === 'unregistered_origin') {
+      return {
+        title: 'Unauthorized JavaScript Origin',
+        message: `Google rejected Sign-In for ${origin} (unregistered_origin). Please add ${origin} to Authorized JavaScript Origins for this OAuth 2.0 Web Client ID in Google Cloud Console, or continue with Email OTP below.`,
+      };
+    }
+
+    if (reason === 'invalid_client' || reason === 'missing_client_id') {
+      return {
+        title: 'Invalid Google Client Configuration',
+        message: `Google rejected the configured OAuth 2.0 Client ID (${reason}). Please verify VITE_GOOGLE_CLIENT_ID and GOOGLE_CLIENT_ID match a valid Web Client ID, or continue with Email OTP below.`,
+      };
+    }
+
+    if (reason === 'secure_http_required' || reason === 'browser_not_supported') {
+      return {
+        title: 'Browser or HTTPS Requirement',
+        message: `Google Sign-In prompt cannot run in this browser context (${reason}). Please use HTTPS or continue with Email OTP below.`,
+      };
+    }
+
+    if (reason === 'opt_out_or_no_session' || reason === 'suppressed_by_user') {
+      if (hasRenderedButton) {
+        return null;
+      }
+      return {
+        title: 'No Active Google Session Detected',
+        message:
+          'Google One Tap could not detect an active Google session in this browser (or third-party sign-in cookies are disabled). Please click the Google Sign-In button directly or continue with Email OTP below.',
+      };
+    }
+
+    if (hasRenderedButton) {
+      return null;
+    }
+
+    return {
+      title: 'Google Sign-In Prompt Unavailable',
+      message: `Google Sign-In prompt could not be displayed (${reason}). Please verify that ${origin} is listed in Google Cloud Console Authorized JavaScript Origins and that popups/third-party sign-in are permitted, or continue with Email OTP below.`,
+    };
+  }
+
+  if (notification?.isSkippedMoment?.()) {
+    const reason =
+      typeof notification.getSkippedReason === 'function'
+        ? String(notification.getSkippedReason() || '')
+        : '';
+
+    if (reason === 'user_cancel' || reason === 'tap_outside' || reason === 'auto_cancel') {
+      return {
+        title: 'Google Sign-In Dismissed',
+        message:
+          'Google Sign-In prompt was closed before completing authentication. You can try again or continue with Email OTP below.',
+      };
+    }
+
+    if (reason === 'issuing_failed') {
+      return {
+        title: 'Google Token Issuance Failed',
+        message:
+          'Google could not issue an authentication token for this session. Please try again or continue with Email OTP below.',
+      };
+    }
+  }
+
+  return null;
+}
+
 export default function BecomePartnerPage() {
   usePageMeta({
     title: 'Provider Portal — List & Manage Commercial Properties | WARERENT',
@@ -130,6 +279,13 @@ export default function BecomePartnerPage() {
   const [otpRemainingSeconds, setOtpRemainingSeconds] = useState(0);
   const [verifiedEmailToken, setVerifiedEmailToken] = useState('');
   const [emailVerifiedSuccess, setEmailVerifiedSuccess] = useState(false);
+  const [googleScriptReady, setGoogleScriptReady] = useState(false);
+  const googleButtonContainerRef = useRef(null);
+  // Server-issued single-use nonce + attempt token, held in memory only (never persisted)
+  const googleAttemptRef = useRef(null);
+  const googleNonceErrorRef = useRef(null);
+  const googleScriptLoadErrorRef = useRef(false);
+  const googleCallbackRef = useRef(null);
 
   // Categories
   const [availableCategories, setAvailableCategories] = useState(fallbackCategories);
@@ -369,6 +525,289 @@ export default function BecomePartnerPage() {
     setEmailVerifiedSuccess(false);
     setResendCooldownSeconds(0);
     setOtpRemainingSeconds(0);
+    googleAttemptRef.current = null;
+    googleNonceErrorRef.current = null;
+    setGoogleScriptReady(false);
+  };
+
+  // --- GOOGLE OAUTH AUTHENTICATION HANDLERS ---
+  const fetchFreshGoogleNonce = useCallback(async () => {
+    if (!IS_GOOGLE_CLIENT_CONFIGURED) return null;
+    try {
+      const res = await leadService.getGoogleNonce();
+      if (res?.success && res?.data?.nonce && res?.data?.attemptToken) {
+        const issued = {
+          nonce: res.data.nonce,
+          attemptToken: res.data.attemptToken,
+        };
+        googleAttemptRef.current = issued;
+        googleNonceErrorRef.current = null;
+        return issued;
+      }
+      googleAttemptRef.current = null;
+      googleNonceErrorRef.current = {
+        status: 500,
+        message: res?.message || 'Unable to issue Google sign-in security nonce.',
+      };
+    } catch (err) {
+      googleAttemptRef.current = null;
+      googleNonceErrorRef.current = {
+        status: typeof err?.status === 'number' ? err.status : 0,
+        message: err?.message || 'Unable to connect to the WARERENT authentication server.',
+      };
+    }
+    return null;
+  }, []);
+
+  const initializeAndRenderGoogleButton = useCallback(
+    async ({ forceNewNonce = false } = {}) => {
+      if (!IS_GOOGLE_CLIENT_CONFIGURED || !window.google?.accounts?.id) {
+        setGoogleScriptReady(false);
+        return { ok: false, reason: 'script_unavailable' };
+      }
+
+      const issued =
+        (!forceNewNonce && googleAttemptRef.current) || (await fetchFreshGoogleNonce());
+      if (!issued?.nonce || !window.google?.accounts?.id) {
+        setGoogleScriptReady(false);
+        return {
+          ok: false,
+          reason: 'nonce_failed',
+          error: googleNonceErrorRef.current,
+        };
+      }
+
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (resp) => googleCallbackRef.current?.(resp),
+          nonce: issued.nonce,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          ux_mode: 'popup',
+        });
+
+        const container = googleButtonContainerRef.current;
+        if (!container) {
+          setGoogleScriptReady(false);
+          return { ok: false, reason: 'container_unmounted' };
+        }
+
+        container.innerHTML = '';
+        const parentWidth = container.parentElement?.clientWidth || container.offsetWidth || 360;
+        const targetWidth = Math.max(240, Math.min(400, Math.floor(parentWidth)));
+
+        window.google.accounts.id.renderButton(container, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'rectangular',
+          logo_alignment: 'left',
+          width: targetWidth,
+        });
+
+        const hasRenderedButton =
+          Boolean(container.querySelector('[role="button"], iframe')) ||
+          container.childElementCount > 0;
+        setGoogleScriptReady(hasRenderedButton);
+        return {
+          ok: hasRenderedButton,
+          reason: hasRenderedButton ? 'ready' : 'render_failed',
+        };
+      } catch (err) {
+        setGoogleScriptReady(false);
+        return {
+          ok: false,
+          reason: 'init_exception',
+          error: { status: 0, message: err?.message || 'Failed to initialize Google Identity Services.' },
+        };
+      }
+    },
+    [fetchFreshGoogleNonce]
+  );
+
+  const handleGoogleCredentialResponse = useCallback(
+    async (response) => {
+      const idToken = response?.credential;
+      if (!idToken) {
+        setAuthErrorTitle('Google Sign-In Cancelled');
+        setAuthError(
+          'Google Sign-In did not return an authentication token. Please try again or continue with Email OTP.'
+        );
+        return;
+      }
+
+      const cleanPhone = authPhone.replace(/\D/g, '');
+      if (cleanPhone && !/^[6-9]\d{9}$/.test(cleanPhone)) {
+        setAuthErrorTitle('Validation Error');
+        setAuthError(
+          'Business mobile number must be a valid 10-digit Indian mobile number (starting with 6–9).'
+        );
+        return;
+      }
+
+      const activeAttempt = googleAttemptRef.current;
+      if (!activeAttempt?.nonce || !activeAttempt?.attemptToken) {
+        setAuthErrorTitle('Google Session Expired');
+        setAuthError(
+          'Your Google sign-in security nonce expired. Please click Continue with Google again.'
+        );
+        await initializeAndRenderGoogleButton({ forceNewNonce: true });
+        return;
+      }
+
+      setAuthError('');
+      setAuthErrorTitle('Google Authentication Error');
+      setAuthNotice('Verifying your Google account...');
+      setAuthLoading(true);
+      setAuthPhase('google');
+
+      try {
+        // Consume the single-use attempt reference immediately in memory
+        googleAttemptRef.current = null;
+        await leadService.googleLogin({
+          idToken,
+          nonce: activeAttempt.nonce,
+          attemptToken: activeAttempt.attemptToken,
+          phone: cleanPhone || undefined,
+        });
+
+        await loadDashboardData();
+        const targetTab = searchParams.get('tab') || 'overview';
+        setActiveTab(targetTab);
+      } catch (err) {
+        setAuthNotice('');
+        const status = err?.status ?? 0;
+        const msg =
+          err?.message ||
+          'Unable to sign in with Google right now. Please try again or continue with Email OTP.';
+
+        if (status === 0) {
+          setAuthErrorTitle('Network Connection Error');
+        } else if (status === 503) {
+          setAuthErrorTitle('Google Sign-In Unavailable');
+        } else if (status === 409) {
+          setAuthErrorTitle('Account Conflict');
+        } else if (status === 429) {
+          setAuthErrorTitle('Too Many Attempts');
+        } else if (status === 401 && /audience|client/i.test(msg)) {
+          setAuthErrorTitle('Google Client ID Mismatch');
+        } else if (status === 401 && /nonce|expired/i.test(msg)) {
+          setAuthErrorTitle('Google Session Expired');
+        } else {
+          setAuthErrorTitle('Google Sign-In Failed');
+        }
+        setAuthError(msg);
+        await initializeAndRenderGoogleButton({ forceNewNonce: true });
+      } finally {
+        setAuthLoading(false);
+        setAuthPhase('idle');
+      }
+    },
+    [authPhone, initializeAndRenderGoogleButton, loadDashboardData, searchParams]
+  );
+
+  useEffect(() => {
+    googleCallbackRef.current = handleGoogleCredentialResponse;
+  }, [handleGoogleCredentialResponse]);
+
+  useEffect(() => {
+    if (checkingSession || account || !IS_GOOGLE_CLIENT_CONFIGURED) return undefined;
+    let cancelled = false;
+
+    const initGoogleIdentity = async () => {
+      if (cancelled || !window.google?.accounts?.id) return;
+      googleScriptLoadErrorRef.current = false;
+      await initializeAndRenderGoogleButton({ forceNewNonce: false });
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogleIdentity();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const existingScript = document.querySelector(`script[src="${GOOGLE_GSI_SCRIPT_SRC}"]`);
+    if (existingScript) {
+      existingScript.addEventListener('load', initGoogleIdentity);
+      return () => {
+        cancelled = true;
+        existingScript.removeEventListener('load', initGoogleIdentity);
+      };
+    }
+
+    const script = document.createElement('script');
+    script.src = GOOGLE_GSI_SCRIPT_SRC;
+    script.async = true;
+    script.defer = true;
+    script.onload = initGoogleIdentity;
+    script.onerror = () => {
+      googleScriptLoadErrorRef.current = true;
+      setGoogleScriptReady(false);
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      cancelled = true;
+      script.onload = null;
+    };
+  }, [checkingSession, account, initializeAndRenderGoogleButton]);
+
+  const handleFallbackGoogleClick = async () => {
+    setAuthError('');
+    setAuthNotice('');
+
+    if (!IS_GOOGLE_CLIENT_CONFIGURED) {
+      setAuthErrorTitle('Google Sign-In Configuration Error');
+      setAuthError(
+        'Google Sign-In is not configured for this frontend deployment (VITE_GOOGLE_CLIENT_ID is missing or invalid). Please continue with Email OTP below.'
+      );
+      return;
+    }
+
+    if (!window.google?.accounts?.id) {
+      setAuthErrorTitle(
+        googleScriptLoadErrorRef.current
+          ? 'Google Sign-In Script Blocked'
+          : 'Google Sign-In Script Unavailable'
+      );
+      setAuthError(
+        'Google Identity Services (https://accounts.google.com/gsi/client) could not be loaded. Please check your network connection, Content-Security-Policy headers, or browser ad/privacy blocker, or continue with Email OTP below.'
+      );
+      return;
+    }
+
+    const initResult = await initializeAndRenderGoogleButton({
+      forceNewNonce: !googleAttemptRef.current,
+    });
+
+    if (!initResult.ok) {
+      if (initResult.reason === 'nonce_failed') {
+        const described = describeGoogleNonceFailure(initResult.error);
+        setAuthErrorTitle(described.title);
+        setAuthError(described.message);
+        return;
+      }
+      setAuthErrorTitle('Google Sign-In Initialization Error');
+      setAuthError(
+        initResult.error?.message ||
+          'Unable to initialize Google Identity Services in this browser. Please continue with Email OTP below.'
+      );
+      return;
+    }
+
+    const hasRenderedButton = Boolean(
+      googleButtonContainerRef.current?.querySelector('[role="button"], iframe')
+    );
+    window.google.accounts.id.prompt((notification) => {
+      const promptIssue = describeGooglePromptNotification(notification, hasRenderedButton);
+      if (promptIssue) {
+        setAuthErrorTitle(promptIssue.title);
+        setAuthError(promptIssue.message);
+      }
+    });
   };
 
   // --- LISTING FORM HANDLERS ---
@@ -803,7 +1242,7 @@ export default function BecomePartnerPage() {
                       Provider Sign In / Register
                     </h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      New and returning property owners sign in using Email OTP
+                      Continue with Google or verify your email address using Email OTP
                     </p>
                   </div>
                 </div>
@@ -823,9 +1262,73 @@ export default function BecomePartnerPage() {
                   </div>
                 )}
 
+                {/* Option 1: Continue with Google */}
+                <div className="mt-6">
+                  <div className="relative w-full">
+                    {IS_GOOGLE_CLIENT_CONFIGURED && (
+                      <div
+                        ref={googleButtonContainerRef}
+                        data-testid="google-gsi-button-container"
+                        className={
+                          googleScriptReady && !authLoading
+                            ? 'flex items-center justify-center w-full min-h-[44px]'
+                            : 'hidden'
+                        }
+                      />
+                    )}
+                    <button
+                      type="button"
+                      id="provider-google-signin-btn"
+                      disabled={authLoading}
+                      onClick={handleFallbackGoogleClick}
+                      className={
+                        googleScriptReady && !authLoading
+                          ? 'hidden'
+                          : 'w-full py-3 px-5 rounded-lg bg-white hover:bg-slate-50 active:bg-slate-100 disabled:opacity-60 border border-slate-300 text-slate-800 text-sm font-bold flex items-center justify-center gap-3 shadow-2xs transition-colors cursor-pointer'
+                      }
+                    >
+                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="#4285F4"
+                          d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
+                        />
+                      </svg>
+                      <span>
+                        {authPhase === 'google'
+                          ? 'Signing in with Google...'
+                          : 'Continue with Google'}
+                      </span>
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-slate-500 text-center">
+                    Instant sign-in with your verified Google account — no separate Email OTP required
+                  </p>
+                </div>
+
+                {/* Auth Option Divider */}
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                    Or Continue with Email OTP
+                  </span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+
                 <form
                   onSubmit={otpSent ? handleVerifyAndLogin : handleSendOtp}
-                  className="mt-6 space-y-5"
+                  className="space-y-5"
                 >
                   <div>
                     <label
