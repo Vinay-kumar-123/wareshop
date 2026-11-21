@@ -5,9 +5,9 @@ import { ShieldCheck } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
   usePageMeta({
-    title: 'Privacy Policy | WARESHOP',
+    title: 'Privacy Policy | WARERENT',
     description:
-      'Read the WARESHOP privacy policy covering provider OTP authentication, commercial listing data, and direct contact privacy.',
+      'Read the WARERENT privacy policy covering provider OTP authentication, commercial listing data, and direct contact privacy.',
     canonical: 'https://wareshop.in/privacy-policy',
   });
 
@@ -26,7 +26,7 @@ export default function PrivacyPolicyPage() {
             <span>Privacy Governance</span>
           </span>
           <h1 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-2">
-            WARESHOP Privacy Policy
+            WARERENT Privacy Policy
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
             Effective Date: January 1, 2026 · Last Updated: November 2026
@@ -39,7 +39,7 @@ export default function PrivacyPolicyPage() {
               1. Overview & Marketplace Model
             </h2>
             <p>
-              WARESHOP operates as a commercial property and business discovery marketplace for
+              WARERENT operates as a commercial property and business discovery marketplace for
               Shops, Offices, Warehouses, and Godowns across India. Our platform connects customers
               with property and business owners directly. We do not operate a central customer
               enquiry call center or sell user data to third-party lead brokers.
@@ -87,7 +87,7 @@ export default function PrivacyPolicyPage() {
               when:
             </p>
             <ul className="list-disc list-inside space-y-1.5 text-slate-600">
-              <li>The listing has been approved and published by a WARESHOP administrator;</li>
+              <li>The listing has been approved and published by a WARERENT administrator;</li>
               <li>The provider account and category are active; and</li>
               <li>
                 The provider has granted explicit consent to display their business mobile number

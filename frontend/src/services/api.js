@@ -1,5 +1,16 @@
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8001/api/v1';
 
+export function resolveMediaUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('/uploads/')) {
+    const apiOrigin = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+    return `${apiOrigin}${trimmed}`;
+  }
+  return trimmed;
+}
+
 // Default request timeout in milliseconds (15s for file uploads or slow cold starts)
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -111,7 +122,7 @@ async function request(endpoint, options = {}) {
       );
     }
     throw new ApiError(
-      'Unable to connect to the WARESHOP server. Please verify your connection or try again shortly.',
+      'Unable to connect to the WARERENT server. Please verify your connection or try again shortly.',
       0
     );
   }

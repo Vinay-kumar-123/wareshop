@@ -5,9 +5,9 @@ import { Scale } from 'lucide-react';
 
 export default function TermsPage() {
   usePageMeta({
-    title: 'Terms & Conditions | WARESHOP',
+    title: 'Terms & Conditions | WARERENT',
     description:
-      'Read the terms and conditions for using the WARESHOP commercial property and business discovery marketplace.',
+      'Read the terms and conditions for using the WARERENT commercial property and business discovery marketplace.',
     canonical: 'https://wareshop.in/terms',
   });
 
@@ -26,7 +26,7 @@ export default function TermsPage() {
             <span>Marketplace Terms</span>
           </span>
           <h1 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight mb-2">
-            WARESHOP Terms & Conditions
+            WARERENT Terms & Conditions
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
             Effective Date: January 1, 2026 · Last Updated: November 2026
@@ -36,12 +36,12 @@ export default function TermsPage() {
         <div className="bg-white p-6 sm:p-10 rounded-xl border border-slate-200/90 shadow-card space-y-8 text-slate-700 text-xs sm:text-sm leading-relaxed">
           <section className="space-y-2.5">
             <h2 className="text-base sm:text-lg font-bold text-[#171717]">
-              1. Role of WARESHOP
+              1. Role of WARERENT
             </h2>
             <p>
-              WARESHOP is an online commercial discovery directory for Shops, Offices, Warehouses,
-              and Godowns across India. WARESHOP facilitates direct discovery and phone contact
-              between prospective customers and listing owners. WARESHOP is not a real estate
+              WARERENT is an online commercial discovery directory for Shops, Offices, Warehouses,
+              and Godowns across India. WARERENT facilitates direct discovery and phone contact
+              between prospective customers and listing owners. WARERENT is not a real estate
               broker, lessor, property manager, or financial escrow agent.
             </p>
           </section>
@@ -59,7 +59,7 @@ export default function TermsPage() {
               <li>
                 All submitted listings enter the{' '}
                 <strong className="text-[#171717]">SUBMITTED</strong> review state. Only authorized
-                WARESHOP administrators may approve, reject, publish, unpublish, or suspend
+                WARERENT administrators may approve, reject, publish, unpublish, or suspend
                 listings.
               </li>
               <li>
@@ -78,7 +78,7 @@ export default function TermsPage() {
               3. Customer Due Diligence
             </h2>
             <p>
-              Customers contacting business or property owners through WARESHOP are responsible for
+              Customers contacting business or property owners through WARERENT are responsible for
               conducting independent physical inspections, verifying property title and municipal
               approvals, and executing formal lease or commercial agreements directly with the
               owner.

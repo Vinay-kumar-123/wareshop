@@ -1,13 +1,16 @@
 import mongoose from 'mongoose';
+import env from '../config/env.js';
 import Category from '../models/Category.js';
 import Provider from '../models/Provider.js';
 import CustomCategoryRequest from '../models/CustomCategoryRequest.js';
 import Lead from '../models/Lead.js';
 import { ensureDefaultCategories } from '../services/listingLifecycleService.js';
 import { logAdminActivity } from '../services/activityLogger.js';
+import storageService from '../services/storageService.js';
 import { escapeRegex } from '../middleware/security.js';
 import { sanitizeString } from '../utils/referenceId.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
+import logger from '../utils/logger.js';
 
 const slugify = (value) =>
   String(value || '')
@@ -19,6 +22,18 @@ const slugify = (value) =>
 
 const VALID_STATUSES = new Set(['ACTIVE', 'INACTIVE']);
 const VALID_REVIEW_ACTIONS = new Set(['approve', 'map', 'reject']);
+
+function getCategoryUploadFolder() {
+  return (
+    process.env.CLOUDINARY_CATEGORY_FOLDER ||
+    env.storage?.cloudinary?.categoryFolder ||
+    'wareshop/categories'
+  ).trim();
+}
+
+function isTruthyFlag(value) {
+  return value === true || value === 'true' || value === '1';
+}
 
 /**
  * GET /api/v1/categories
@@ -92,6 +107,9 @@ export async function getCategories(req, res, next) {
  * POST /api/v1/categories/admin
  */
 export async function createCategory(req, res, next) {
+  let uploadedImage = null;
+  let savedToDb = false;
+
   try {
     await ensureDefaultCategories();
 
@@ -109,7 +127,9 @@ export async function createCategory(req, res, next) {
     }
 
     const displayOrder =
-      req.body?.displayOrder !== undefined ? Number(req.body.displayOrder) : 0;
+      req.body?.displayOrder !== undefined && req.body?.displayOrder !== ''
+        ? Number(req.body.displayOrder)
+        : 0;
     if (Number.isNaN(displayOrder) || displayOrder < 0 || displayOrder > 1000) {
       return errorResponse(res, 'Display order must be a number between 0 and 1000', 400);
     }
@@ -134,8 +154,25 @@ export async function createCategory(req, res, next) {
       typeof req.body?.icon === 'string' && req.body.icon.trim()
         ? sanitizeString(req.body.icon).slice(0, 50)
         : 'Layers';
-    const imageUrl =
-      typeof req.body?.imageUrl === 'string' ? sanitizeString(req.body.imageUrl).slice(0, 500) : '';
+
+    // Upload image only after field validation and uniqueness checks succeed to avoid orphaned assets
+    if (req.file) {
+      try {
+        uploadedImage = await storageService.uploadImage(req.file, {
+          folder: getCategoryUploadFolder(),
+          filePrefix: 'category',
+        });
+      } catch (uploadErr) {
+        logger.warn('Category image upload rejected during creation', {
+          error: uploadErr.message,
+        });
+        return errorResponse(
+          res,
+          uploadErr.message || 'Failed to process category image upload.',
+          uploadErr.statusCode || 400
+        );
+      }
+    }
 
     const created = await Category.create({
       name,
@@ -143,22 +180,32 @@ export async function createCategory(req, res, next) {
       description,
       shortDescription,
       icon,
-      imageUrl,
+      imageUrl: uploadedImage?.url || '',
+      imagePublicId: uploadedImage?.publicId || '',
       displayOrder,
       status,
     });
+    savedToDb = true;
 
     await logAdminActivity({
       adminEmail: req.admin?.email,
       action: 'CATEGORY_CREATED',
       targetType: 'CATEGORY',
       targetId: String(created._id),
-      details: { name: created.name, slug: created.slug, status: created.status },
+      details: {
+        name: created.name,
+        slug: created.slug,
+        status: created.status,
+        hasImage: Boolean(created.imageUrl),
+      },
       req,
     });
 
     return successResponse(res, created, 'Category created successfully', 201);
   } catch (err) {
+    if (!savedToDb && uploadedImage?.publicId) {
+      await storageService.deleteImage(uploadedImage.publicId).catch(() => {});
+    }
     next(err);
   }
 }
@@ -167,6 +214,9 @@ export async function createCategory(req, res, next) {
  * PUT /api/v1/categories/admin/:id
  */
 export async function updateCategory(req, res, next) {
+  let uploadedImage = null;
+  let savedToDb = false;
+
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -181,6 +231,7 @@ export async function updateCategory(req, res, next) {
     const oldName = category.name;
     const oldSlug = category.slug;
     const oldStatus = category.status;
+    const previousImagePublicId = category.imagePublicId || '';
 
     if (req.body?.name !== undefined) {
       const nextName =
@@ -230,14 +281,7 @@ export async function updateCategory(req, res, next) {
           : 'Layers';
     }
 
-    if (req.body?.imageUrl !== undefined) {
-      category.imageUrl =
-        typeof req.body.imageUrl === 'string'
-          ? sanitizeString(req.body.imageUrl).slice(0, 500)
-          : '';
-    }
-
-    if (req.body?.displayOrder !== undefined) {
+    if (req.body?.displayOrder !== undefined && req.body?.displayOrder !== '') {
       const displayOrder = Number(req.body.displayOrder);
       if (Number.isNaN(displayOrder) || displayOrder < 0 || displayOrder > 1000) {
         return errorResponse(res, 'Display order must be between 0 and 1000', 400);
@@ -253,7 +297,49 @@ export async function updateCategory(req, res, next) {
       category.status = nextStatus;
     }
 
+    const shouldRemoveImage = !req.file && isTruthyFlag(req.body?.removeImage);
+
+    // Upload replacement image only after all validations and conflict checks pass
+    if (req.file) {
+      try {
+        uploadedImage = await storageService.uploadImage(req.file, {
+          folder: getCategoryUploadFolder(),
+          filePrefix: 'category',
+        });
+      } catch (uploadErr) {
+        logger.warn('Category image upload rejected during update', {
+          categoryId: String(category._id),
+          error: uploadErr.message,
+        });
+        return errorResponse(
+          res,
+          uploadErr.message || 'Failed to process category image upload.',
+          uploadErr.statusCode || 400
+        );
+      }
+      category.imageUrl = uploadedImage.url;
+      category.imagePublicId = uploadedImage.publicId;
+    } else if (shouldRemoveImage) {
+      category.imageUrl = '';
+      category.imagePublicId = '';
+    }
+
     await category.save();
+    savedToDb = true;
+
+    // Delete previous asset only after the updated category has been persisted successfully
+    if (
+      previousImagePublicId &&
+      ((uploadedImage && previousImagePublicId !== uploadedImage.publicId) || shouldRemoveImage)
+    ) {
+      await storageService.deleteImage(previousImagePublicId).catch((delErr) => {
+        logger.warn('Failed to delete previous category image asset', {
+          categoryId: String(category._id),
+          publicId: previousImagePublicId,
+          error: delErr.message,
+        });
+      });
+    }
 
     // Cascade name/slug updates to linked Provider listings and Lead applications so none are orphaned
     if (oldName !== category.name || oldSlug !== category.slug) {
@@ -298,12 +384,16 @@ export async function updateCategory(req, res, next) {
         slug: category.slug,
         status: category.status,
         displayOrder: category.displayOrder,
+        hasImage: Boolean(category.imageUrl),
       },
       req,
     });
 
     return successResponse(res, category, 'Category updated successfully');
   } catch (err) {
+    if (!savedToDb && uploadedImage?.publicId) {
+      await storageService.deleteImage(uploadedImage.publicId).catch(() => {});
+    }
     next(err);
   }
 }

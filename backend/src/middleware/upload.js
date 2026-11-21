@@ -1,6 +1,7 @@
 import multer from 'multer';
 import env from '../config/env.js';
 import { ALLOWED_MIME_TYPES } from '../services/storageService.js';
+import { sanitizeNoSql } from './security.js';
 import { errorResponse } from '../utils/apiResponse.js';
 
 const storage = multer.memoryStorage();
@@ -27,27 +28,39 @@ export const upload = multer({
   fileFilter,
 });
 
+function createSingleImageUploadMiddleware(fieldName) {
+  return function handleImageUpload(req, res, next) {
+    const uploadSingle = upload.single(fieldName);
+
+    uploadSingle(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return errorResponse(
+            res,
+            `Image is too large. Maximum allowed size is ${env.storage.maxFileSizeMb}MB.`,
+            400
+          );
+        }
+        return errorResponse(res, err.message || 'File upload error', 400);
+      } else if (err) {
+        return errorResponse(res, err.message || 'File processing failed', 400);
+      }
+      if (req.body && typeof req.body === 'object') {
+        req.body = sanitizeNoSql(req.body);
+      }
+      next();
+    });
+  };
+}
+
 /**
  * Middleware wrapper for single shop image upload
  */
-export function handleShopImageUpload(req, res, next) {
-  const uploadSingle = upload.single('shopImage');
+export const handleShopImageUpload = createSingleImageUploadMiddleware('shopImage');
 
-  uploadSingle(req, res, (err) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return errorResponse(
-          res,
-          `Image is too large. Maximum allowed size is ${env.storage.maxFileSizeMb}MB.`,
-          400
-        );
-      }
-      return errorResponse(res, err.message || 'File upload error', 400);
-    } else if (err) {
-      return errorResponse(res, err.message || 'File processing failed', 400);
-    }
-    next();
-  });
-}
+/**
+ * Middleware wrapper for single category image upload
+ */
+export const handleCategoryImageUpload = createSingleImageUploadMiddleware('image');
 
 export default handleShopImageUpload;

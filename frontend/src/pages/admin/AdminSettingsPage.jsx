@@ -55,7 +55,7 @@ export default function AdminSettingsPage() {
             <span>Production Credential Management & Rotation Policy</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            In compliance with WARESHOP security standards, administrator credentials are never
+            In compliance with WARERENT security standards, administrator credentials are never
             hardcoded. All credentials are driven by backend environment variables and salted scrypt
             cryptographic hashing.
           </p>

@@ -437,6 +437,10 @@ globalThis.fetch = async (input, init) => {
   return realFetch(input, init);
 };
 
+// Preserve real storageService methods for Cloudinary integration tests in Part E
+const realStorageUploadImage = storageService.uploadImage.bind(storageService);
+const realStorageDeleteImage = storageService.deleteImage.bind(storageService);
+
 // Stub storageService.uploadImage to run real binary magic-byte + EXIF sanitization without writing files to disk
 storageService.uploadImage = async (file) => {
   const sanitized = validateAndSanitizeImage(file);
@@ -1479,6 +1483,331 @@ await test('D.10 Cookie-authenticated multipart/form-data mutation without X-Req
     legitimateUploadRes.status === 201,
     `Expected 201 for legitimate cookie-authenticated FormData upload with X-Requested-With, got ${legitimateUploadRes.status}`
   );
+});
+
+// ---------------------------------------------------------------------------
+// PART E: ADMIN CATEGORY IMAGE UPLOAD, CLOUDINARY CLEANUP & PUBLIC DISPLAY
+// ---------------------------------------------------------------------------
+console.log('\n--- E. Admin Category Image Management & Cloudinary Storage ---');
+
+await test('E.1 Admin creates category with image -> signed Cloudinary upload to wareshop/categories, stored in DB, returned by public API', async () => {
+  const savedProvider = process.env.STORAGE_PROVIDER;
+  const savedCloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const savedApiKey = process.env.CLOUDINARY_API_KEY;
+  const savedApiSecret = process.env.CLOUDINARY_API_SECRET;
+  const savedCatFolder = process.env.CLOUDINARY_CATEGORY_FOLDER;
+  const savedFetch = globalThis.fetch;
+  const savedUploadFn = storageService.uploadImage;
+  const savedDeleteFn = storageService.deleteImage;
+
+  const cloudinaryCalls = [];
+  let uploadCounter = 0;
+
+  process.env.STORAGE_PROVIDER = 'cloudinary';
+  process.env.CLOUDINARY_CLOUD_NAME = 'wareshop-test-cloud';
+  process.env.CLOUDINARY_API_KEY = 'test-api-key-123';
+  process.env.CLOUDINARY_API_SECRET = 'test-api-secret-xyz';
+  process.env.CLOUDINARY_CATEGORY_FOLDER = 'wareshop/categories';
+
+  storageService.uploadImage = realStorageUploadImage;
+  storageService.deleteImage = realStorageDeleteImage;
+
+  globalThis.fetch = async (input, init) => {
+    const urlStr = String(input);
+    if (urlStr.includes('api.cloudinary.com/v1_1/wareshop-test-cloud/image/upload')) {
+      const params = new URLSearchParams(String(init?.body || ''));
+      const folder = params.get('folder');
+      const signature = params.get('signature');
+      const timestamp = params.get('timestamp');
+      const fileDataUri = params.get('file') || '';
+      uploadCounter += 1;
+      const publicId = `${folder}/cat-asset-${uploadCounter}`;
+      const secureUrl = `https://res.cloudinary.com/wareshop-test-cloud/image/upload/v${timestamp}/${publicId}.jpg`;
+      cloudinaryCalls.push({ action: 'upload', folder, signature, timestamp, fileDataUri, publicId, secureUrl });
+      return new Response(
+        JSON.stringify({ secure_url: secureUrl, public_id: publicId }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (urlStr.includes('api.cloudinary.com/v1_1/wareshop-test-cloud/image/destroy')) {
+      const params = new URLSearchParams(String(init?.body || ''));
+      const publicId = params.get('public_id');
+      const signature = params.get('signature');
+      cloudinaryCalls.push({ action: 'destroy', publicId, signature });
+      return new Response(
+        JSON.stringify({ result: 'ok' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return savedFetch(input, init);
+  };
+
+  try {
+    const validJpeg = createValidJpegWithExif();
+    const mp = buildMultipartRequest(
+      {
+        name: 'Industrial Shed',
+        shortDescription: 'PEB & Manufacturing Sheds',
+        description: 'Heavy-duty industrial sheds and manufacturing floors across India.',
+        displayOrder: '5',
+        status: 'ACTIVE',
+      },
+      {
+        fieldName: 'image',
+        filename: 'industrial-shed.jpg',
+        contentType: 'image/jpeg',
+        buffer: validJpeg,
+      }
+    );
+
+    const createRes = await httpRequest('/api/v1/categories/admin', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': mp.contentType,
+      },
+      rawBuffer: mp.buffer,
+    });
+
+    assert(createRes.status === 201, `Expected 201 creating category with image, got ${createRes.status}: ${JSON.stringify(createRes.body)}`);
+    assert(cloudinaryCalls.length === 1 && cloudinaryCalls[0].action === 'upload', 'Expected 1 Cloudinary upload call');
+    assert(cloudinaryCalls[0].folder === 'wareshop/categories', `Expected Cloudinary folder wareshop/categories, got ${cloudinaryCalls[0].folder}`);
+    assert(Boolean(cloudinaryCalls[0].signature), 'Expected signed Cloudinary upload');
+    assert(!cloudinaryCalls[0].fileDataUri.includes(Buffer.from('GPS-SECRET-COORDINATES').toString('base64')), 'Expected EXIF stripped before Cloudinary upload');
+
+    const createdCat = createRes.body.data;
+    assert(createdCat.imageUrl === cloudinaryCalls[0].secureUrl, 'Category doc must store Cloudinary secure_url');
+    assert(createdCat.imagePublicId === cloudinaryCalls[0].publicId, 'Category doc must store Cloudinary public_id');
+
+    // Public Categories API must return the uploaded imageUrl
+    const pubCatsRes = await httpRequest('/api/v1/categories');
+    assert(pubCatsRes.status === 200, `Expected 200 from public categories API, got ${pubCatsRes.status}`);
+    const publicShed = pubCatsRes.body.data.find((c) => c.slug === 'industrial-shed');
+    assert(publicShed, 'Newly created active category must appear in public categories API');
+    assert(publicShed.imageUrl === createdCat.imageUrl, 'Public categories API must return uploaded imageUrl');
+
+    // E.2: Replace existing category image -> deletes previous asset ONLY after DB save
+    const replaceMp = buildMultipartRequest(
+      {
+        name: 'Industrial Shed',
+        shortDescription: 'Updated PEB Sheds',
+        description: 'Updated description for industrial sheds.',
+        displayOrder: '5',
+        status: 'ACTIVE',
+      },
+      {
+        fieldName: 'image',
+        filename: 'industrial-shed-v2.jpg',
+        contentType: 'image/jpeg',
+        buffer: validJpeg,
+      }
+    );
+
+    const replaceRes = await httpRequest(`/api/v1/categories/admin/${createdCat._id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': replaceMp.contentType,
+      },
+      rawBuffer: replaceMp.buffer,
+    });
+    assert(replaceRes.status === 200, `Expected 200 replacing category image, got ${replaceRes.status}`);
+    assert(replaceRes.body.data.imagePublicId === 'wareshop/categories/cat-asset-2', 'Expected updated imagePublicId');
+    assert(
+      cloudinaryCalls.some((c) => c.action === 'destroy' && c.publicId === 'wareshop/categories/cat-asset-1'),
+      'Expected previous Cloudinary asset to be deleted after successful replacement save'
+    );
+
+    // Verify rollback / orphan cleanup if DB save fails during replacement
+    const storedCat = collections.categories.get(String(createdCat._id));
+    const origSave = storedCat.save;
+    storedCat.save = async () => {
+      throw new Error('Simulated DB write failure');
+    };
+    const callsBeforeFailure = cloudinaryCalls.length;
+    const failedSaveRes = await httpRequest(`/api/v1/categories/admin/${createdCat._id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': replaceMp.contentType,
+      },
+      rawBuffer: replaceMp.buffer,
+    });
+    storedCat.save = origSave;
+    // Restore fields on in-memory doc mutated prior to failed save
+    storedCat.imageUrl = replaceRes.body.data.imageUrl;
+    storedCat.imagePublicId = replaceRes.body.data.imagePublicId;
+
+    assert(failedSaveRes.status === 500, `Expected 500 on simulated DB save failure, got ${failedSaveRes.status}`);
+    const failureCalls = cloudinaryCalls.slice(callsBeforeFailure);
+    assert(
+      failureCalls.some((c) => c.action === 'destroy' && c.publicId === 'wareshop/categories/cat-asset-3'),
+      'Expected newly uploaded orphan asset to be cleaned up when DB save fails'
+    );
+    assert(
+      !failureCalls.some((c) => c.action === 'destroy' && c.publicId === 'wareshop/categories/cat-asset-2'),
+      'Previous active asset must NOT be deleted when DB save fails'
+    );
+
+    // E.3: Remove image -> clears imageUrl & imagePublicId and deletes Cloudinary asset
+    const removeRes = await httpRequest(`/api/v1/categories/admin/${createdCat._id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { removeImage: true },
+    });
+    assert(removeRes.status === 200, `Expected 200 when removing category image, got ${removeRes.status}`);
+    assert(removeRes.body.data.imageUrl === '', 'Expected imageUrl cleared after removal');
+    assert(removeRes.body.data.imagePublicId === '', 'Expected imagePublicId cleared after removal');
+    assert(
+      cloudinaryCalls.some((c) => c.action === 'destroy' && c.publicId === 'wareshop/categories/cat-asset-2'),
+      'Expected Cloudinary asset cleanup on image removal'
+    );
+
+    // Existing category without image can be created, edited, deactivated, and reactivated
+    const noImgCreate = await httpRequest('/api/v1/categories/admin', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: {
+        name: 'Logistics Yard',
+        shortDescription: 'Open Yard & Container Storage',
+        description: 'Open logistics yards for container parking and heavy machinery.',
+        displayOrder: 6,
+        status: 'ACTIVE',
+      },
+    });
+    assert(noImgCreate.status === 201, `Expected 201 creating category without image, got ${noImgCreate.status}`);
+    assert(noImgCreate.body.data.imageUrl === '', 'Category created without image should have empty imageUrl');
+
+    const deactivateRes = await httpRequest(`/api/v1/categories/admin/${noImgCreate.body.data._id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { status: 'INACTIVE' },
+    });
+    assert(deactivateRes.status === 200 && deactivateRes.body.data.status === 'INACTIVE', 'Category deactivation must continue working');
+
+    const activateRes = await httpRequest(`/api/v1/categories/admin/${noImgCreate.body.data._id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { status: 'ACTIVE' },
+    });
+    assert(activateRes.status === 200 && activateRes.body.data.status === 'ACTIVE', 'Category activation must continue working');
+
+    // E.4: Validation & authorization checks (must not call Cloudinary)
+    const callsBeforeValidationTests = cloudinaryCalls.length;
+
+    // 4a. Unauthenticated user rejected (401)
+    const unauthUpload = await httpRequest('/api/v1/categories/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': mp.contentType },
+      rawBuffer: mp.buffer,
+    });
+    assert(unauthUpload.status === 401, `Expected 401 for unauthenticated category image upload, got ${unauthUpload.status}`);
+
+    // 4b. Provider token (non-admin) rejected (401)
+    const providerUpload = await httpRequest(`/api/v1/categories/admin/${createdCat._id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${provider1Token}`,
+        'Content-Type': replaceMp.contentType,
+      },
+      rawBuffer: replaceMp.buffer,
+    });
+    assert(providerUpload.status === 401, `Expected 401 for non-admin provider token on category update, got ${providerUpload.status}`);
+
+    // 4c. Disguised non-image (SVG with image/jpeg MIME) rejected (400)
+    const fakeMp = buildMultipartRequest(
+      { name: 'Disguised Image Cat', status: 'ACTIVE' },
+      {
+        fieldName: 'image',
+        filename: 'fake.jpg',
+        contentType: 'image/jpeg',
+        buffer: Buffer.from('<svg onload="alert(1)"></svg>', 'utf8'),
+      }
+    );
+    const fakeImgRes = await httpRequest('/api/v1/categories/admin', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': fakeMp.contentType,
+      },
+      rawBuffer: fakeMp.buffer,
+    });
+    assert(fakeImgRes.status === 400, `Expected 400 for disguised non-image category upload, got ${fakeImgRes.status}`);
+
+    // 4d. Unsupported MIME type (image/gif) rejected (400)
+    const gifMp = buildMultipartRequest(
+      { name: 'Gif Cat', status: 'ACTIVE' },
+      {
+        fieldName: 'image',
+        filename: 'anim.gif',
+        contentType: 'image/gif',
+        buffer: Buffer.from('GIF89a1234567890', 'ascii'),
+      }
+    );
+    const gifRes = await httpRequest('/api/v1/categories/admin', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': gifMp.contentType,
+      },
+      rawBuffer: gifMp.buffer,
+    });
+    assert(gifRes.status === 400, `Expected 400 for unsupported GIF MIME type, got ${gifRes.status}`);
+
+    // 4e. Duplicate category name rejected (409) BEFORE uploading to Cloudinary
+    const dupMp = buildMultipartRequest(
+      { name: 'Industrial Shed', status: 'ACTIVE' },
+      {
+        fieldName: 'image',
+        filename: 'dup.jpg',
+        contentType: 'image/jpeg',
+        buffer: validJpeg,
+      }
+    );
+    const dupRes = await httpRequest('/api/v1/categories/admin', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': dupMp.contentType,
+      },
+      rawBuffer: dupMp.buffer,
+    });
+    assert(dupRes.status === 409, `Expected 409 for duplicate category name, got ${dupRes.status}`);
+
+    // 4f. Oversized file (>5MB) rejected (400)
+    const hugeMp = buildMultipartRequest(
+      { name: 'Huge Image Cat', status: 'ACTIVE' },
+      {
+        fieldName: 'image',
+        filename: 'huge.jpg',
+        contentType: 'image/jpeg',
+        buffer: Buffer.alloc(5 * 1024 * 1024 + 1024, 0xff),
+      }
+    );
+    const hugeRes = await httpRequest('/api/v1/categories/admin', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': hugeMp.contentType,
+      },
+      rawBuffer: hugeMp.buffer,
+    });
+    assert(hugeRes.status === 400, `Expected 400 for >5MB category image, got ${hugeRes.status}`);
+
+    assert(
+      cloudinaryCalls.length === callsBeforeValidationTests,
+      `Expected zero Cloudinary calls on rejected/unauthorized uploads, got ${cloudinaryCalls.length - callsBeforeValidationTests}`
+    );
+  } finally {
+    process.env.STORAGE_PROVIDER = savedProvider;
+    process.env.CLOUDINARY_CLOUD_NAME = savedCloudName;
+    process.env.CLOUDINARY_API_KEY = savedApiKey;
+    process.env.CLOUDINARY_API_SECRET = savedApiSecret;
+    process.env.CLOUDINARY_CATEGORY_FOLDER = savedCatFolder;
+    globalThis.fetch = savedFetch;
+    storageService.uploadImage = savedUploadFn;
+    storageService.deleteImage = savedDeleteFn;
+  }
 });
 
 await new Promise((resolve) => server.close(resolve));

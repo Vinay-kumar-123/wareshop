@@ -24,8 +24,8 @@ export default function AdminLayout({ children, title, subtitle }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   usePageMeta({
-    title: title ? `${title} | WARESHOP Admin` : 'WARESHOP Admin',
-    description: 'Restricted WARESHOP administration console.',
+    title: title ? `${title} | WARERENT Admin` : 'WARERENT Admin',
+    description: 'Restricted WARERENT administration console.',
     canonical: false,
     noIndex: true,
   });
@@ -70,12 +70,21 @@ export default function AdminLayout({ children, title, subtitle }) {
   return (
     <div className="min-h-screen bg-[#F7F8FA] flex flex-col md:flex-row font-sans text-slate-900">
       {/* Mobile Header */}
-      <header className="md:hidden bg-slate-950 text-white px-4 py-3.5 flex items-center justify-between border-b border-slate-800">
+      <header className="md:hidden bg-slate-950 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-[#F36B21] flex items-center justify-center font-black text-white text-xs">
-            W
-          </div>
-          <span className="font-black text-base tracking-tight text-white">WARESHOP</span>
+          <Link
+            to="/admin"
+            className="inline-flex items-center justify-center bg-white rounded-lg h-10 overflow-hidden shadow-2xs"
+            aria-label="WARERENT Admin home"
+          >
+            <img
+              src="/warerent-logo.png"
+              alt="WARERENT"
+              width="1280"
+              height="543"
+              className="h-[68px] w-auto max-w-none object-contain -ml-1.5 -mr-1"
+            />
+          </Link>
           <span className="text-[10px] uppercase font-bold text-[#F36B21] tracking-widest px-1.5 py-0.5 rounded bg-[#F36B21]/15 border border-[#F36B21]/30">
             Admin
           </span>
@@ -97,22 +106,28 @@ export default function AdminLayout({ children, title, subtitle }) {
         }`}
       >
         <div>
-          <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#F36B21] text-white flex items-center justify-center font-black text-base shadow-xs">
-                W
-              </div>
-              <div>
-                <span className="text-lg font-black tracking-tight text-white block leading-none">
-                  WARESHOP
-                </span>
-                <span className="block text-[10px] uppercase font-bold text-[#F36B21] tracking-widest mt-1">
-                  Operations Console
-                </span>
-              </div>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 text-[#F36B21]" />
+          <div className="px-5 py-4 border-b border-slate-800/80">
+            <Link
+              to="/admin"
+              className="inline-flex items-center justify-center bg-white rounded-xl h-12 overflow-hidden shadow-xs"
+              aria-label="WARERENT Admin home"
+            >
+              <img
+                src="/warerent-logo.png"
+                alt="WARERENT"
+                width="1280"
+                height="543"
+                className="h-[82px] w-auto max-w-none object-contain -ml-1.5 -mr-1"
+              />
+            </Link>
+            <div className="mt-2.5 flex items-center justify-between gap-2">
+              <span className="text-[10px] uppercase font-extrabold text-[#F36B21] tracking-widest">
+                Operations Console
+              </span>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-bold text-slate-400">
+                <ShieldCheck className="w-3 h-3 text-[#F36B21]" />
+                <span>Admin</span>
+              </span>
             </div>
           </div>
 

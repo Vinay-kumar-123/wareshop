@@ -27,9 +27,9 @@ const iconMap = {
 
 export default function AboutPage() {
   usePageMeta({
-    title: 'About WARESHOP | Commercial Property & Business Directory',
+    title: 'About WARERENT | Commercial Property & Business Directory',
     description:
-      'Learn how WARESHOP connects businesses and customers directly with commercial shop, office, warehouse and godown owners across India.',
+      'Learn how WARERENT connects businesses and customers directly with commercial shop, office, warehouse and godown owners across India.',
     canonical: 'https://wareshop.in/about',
   });
 
@@ -38,7 +38,7 @@ export default function AboutPage() {
       {/* Top Breadcrumb Bar */}
       <div className="bg-white border-b border-slate-200/90">
         <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
-          <Breadcrumb items={[{ label: 'About WARESHOP' }]} />
+          <Breadcrumb items={[{ label: 'About WARERENT' }]} />
         </div>
       </div>
 
@@ -55,7 +55,7 @@ export default function AboutPage() {
                 Direct Commercial Discovery Across India
               </h1>
               <p className="text-sm sm:text-lg text-slate-600 leading-relaxed mb-7">
-                WARESHOP is a commercial business and property discovery marketplace built to help
+                WARERENT is a commercial business and property discovery marketplace built to help
                 retailers, enterprises, logistics operators, and traders find{' '}
                 <strong className="text-[#171717] font-semibold">
                   Shops, Offices, Warehouses, and Godowns
@@ -83,7 +83,7 @@ export default function AboutPage() {
               <div className="rounded-xl overflow-hidden border border-slate-200 shadow-elevated bg-slate-900">
                 <img
                   src={heroCommercialVisual}
-                  alt="WARESHOP commercial real estate and business infrastructure"
+                  alt="WARERENT commercial real estate and business infrastructure"
                   className="w-full h-64 sm:h-72 object-cover"
                 />
               </div>
@@ -103,7 +103,7 @@ export default function AboutPage() {
               <h2 className="text-xl sm:text-2xl font-bold text-[#171717] mb-3">Our Core Mission</h2>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 Commercial property search in India is often slowed down by opaque lead brokers and
-                middlemen call centers. WARESHOP provides a clean, searchable directory where
+                middlemen call centers. WARERENT provides a clean, searchable directory where
                 verified business and property owners publish their spaces and customers reach out to
                 them directly by phone.
               </p>
@@ -117,7 +117,7 @@ export default function AboutPage() {
                 Direct Customer-to-Business Model
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                WARESHOP does not collect customer leads into a central admin inbox or resell your
+                WARERENT does not collect customer leads into a central admin inbox or resell your
                 phone number. When you find a suitable shop, office, warehouse, or godown, you
                 reveal the email-verified owner’s business contact number and speak with them
                 directly.
@@ -138,7 +138,7 @@ export default function AboutPage() {
               Four Primary Commercial Verticals
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Every listing on WARESHOP is organized by commercial property and business category for
+              Every listing on WARERENT is organized by commercial property and business category for
               fast, structured discovery.
             </p>
           </div>
