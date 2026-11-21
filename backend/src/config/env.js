@@ -152,6 +152,14 @@ export function buildEnv(rawEnv = process.env) {
       replyTo: (rawEnv.RESEND_REPLY_TO || '').trim(),
     },
 
+    // Google OAuth 2.0 Configuration (Optional alongside Email OTP)
+    google: {
+      clientId: (rawEnv.GOOGLE_CLIENT_ID || '')
+        .trim()
+        .replace(/^['"]+|['"]+$/g, '')
+        .trim(),
+    },
+
     // OTP Security & Rate Controls
     otp: {
       hmacSecret: otpHmacSecret,
@@ -270,6 +278,19 @@ export function validateEnv(config = env) {
       extractedFromEmail.endsWith('.invalid')
     ) {
       errors.push('RESEND_FROM_EMAIL is required in production and must contain a valid sender email address.');
+    }
+
+    // GOOGLE_CLIENT_ID is optional alongside Email OTP; if provided it must be a well-formed
+    // public OAuth 2.0 Web Client ID (fail closed at startup on typos or unreplaced placeholders)
+    const googleClientId = (config.google?.clientId || '')
+      .trim()
+      .replace(/^['"]+|['"]+$/g, '')
+      .trim();
+    if (
+      googleClientId &&
+      !/^\d+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(googleClientId)
+    ) {
+      errors.push('GOOGLE_CLIENT_ID must be a valid Google OAuth 2.0 Web Client ID when configured.');
     }
 
     if (config.storage?.provider !== 'cloudinary') {

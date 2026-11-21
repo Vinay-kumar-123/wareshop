@@ -1,11 +1,18 @@
 import express from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import env from '../config/env.js';
-import { requireProvider } from '../middleware/auth.js';
+import {
+  requireProvider,
+  requireActiveProvider,
+  isTrustedRequestOrigin,
+} from '../middleware/auth.js';
+import { errorResponse } from '../utils/apiResponse.js';
 import {
   requestOtp,
   verifyOtp,
   registerProvider,
+  issueGoogleNonce,
+  googleAuthProvider,
   getProviderMe,
   updateProviderProfile,
   logoutProvider,
@@ -92,12 +99,63 @@ const providerSessionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post(['/otp/request', '/otp/send'], otpRequestIpLimiter, otpRequestEmailLimiter, requestOtp);
-router.post('/otp/verify', otpVerifyLimiter, verifyOtp);
-router.post('/register', providerSessionLimiter, registerProvider);
-router.post('/login', providerSessionLimiter, registerProvider);
+const googleNonceLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => `${rateLimitKey(req)}:google-nonce`,
+  message: {
+    success: false,
+    message: 'Too many Google sign-in attempts. Please try again after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const googleAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => `${rateLimitKey(req)}:google-auth`,
+  message: {
+    success: false,
+    message: 'Too many Google sign-in attempts. Please try again after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Enforces strict JSON-only Content-Type and trusted Origin/Referer validation on all
+ * unauthenticated provider authentication POST endpoints to prevent login/auth CSRF.
+ */
+function enforceJsonAuthCsrf(req, res, next) {
+  if (!isTrustedRequestOrigin(req)) {
+    return errorResponse(res, 'CSRF validation failed: untrusted request origin.', 403);
+  }
+  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+  if (!contentType.includes('application/json')) {
+    return errorResponse(
+      res,
+      'CSRF validation failed: application/json content type is required.',
+      403
+    );
+  }
+  return next();
+}
+
+router.post(
+  ['/otp/request', '/otp/send'],
+  enforceJsonAuthCsrf,
+  otpRequestIpLimiter,
+  otpRequestEmailLimiter,
+  requestOtp
+);
+router.post('/otp/verify', enforceJsonAuthCsrf, otpVerifyLimiter, verifyOtp);
+router.post('/register', enforceJsonAuthCsrf, providerSessionLimiter, registerProvider);
+router.post('/login', enforceJsonAuthCsrf, providerSessionLimiter, registerProvider);
+router.post('/google/nonce', enforceJsonAuthCsrf, googleNonceLimiter, issueGoogleNonce);
+router.post('/google', enforceJsonAuthCsrf, googleAuthLimiter, googleAuthProvider);
 router.get('/me', requireProvider, getProviderMe);
-router.put('/profile', requireProvider, updateProviderProfile);
+router.put('/profile', requireProvider, requireActiveProvider, updateProviderProfile);
 router.post('/logout', requireProvider, logoutProvider);
 
 export default router;

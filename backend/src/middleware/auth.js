@@ -1,16 +1,80 @@
 import Admin from '../models/Admin.js';
 import ProviderAccount from '../models/ProviderAccount.js';
+import env from '../config/env.js';
 import { errorResponse } from '../utils/apiResponse.js';
 
 const HEX_TOKEN_REGEX = /^[a-f0-9]{64}$/i;
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+function getAllowedOriginsList() {
+  const raw = (process.env.CORS_ORIGIN || env.corsOrigin || '').trim();
+  return raw
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, '').toLowerCase())
+    .filter(Boolean);
+}
+
+function extractRefererOrigin(refererHeader) {
+  if (!refererHeader || typeof refererHeader !== 'string') return '';
+  try {
+    const parsed = new URL(refererHeader.trim());
+    return `${parsed.protocol}//${parsed.host}`.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Validates Origin (or Referer fallback) against the configured CORS_ORIGIN allowlist.
+ * In development/test, local loopback origins (localhost / 127.0.0.1) are also permitted,
+ * while any external untrusted origin is always rejected.
+ */
+export function isTrustedRequestOrigin(req) {
+  const rawOrigin = String(req.headers.origin || '').trim().replace(/\/$/, '').toLowerCase();
+  const refererOrigin = extractRefererOrigin(req.headers.referer);
+  const candidateOrigin = rawOrigin || refererOrigin;
+
+  if (!candidateOrigin) {
+    // In production, cookie-authenticated state-changing requests must present Origin or Referer
+    return true;
+  }
+
+  const allowedOrigins = getAllowedOriginsList();
+  if (!env.isProduction && allowedOrigins.includes('*')) {
+    return true;
+  }
+
+  if (allowedOrigins.includes(candidateOrigin)) {
+    return true;
+  }
+
+  if (
+    !env.isProduction &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(candidateOrigin)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function isSafeCookieMutation(req) {
   if (!MUTATION_METHODS.has(req.method)) return true;
   const contentType = String(req.headers['content-type'] || '').toLowerCase();
   const xRequestedWith = String(req.headers['x-requested-with'] || '');
+  const hasOriginOrReferer = Boolean(req.headers.origin || req.headers.referer);
 
-  // Reject HTML form-definable simple content types to prevent cross-site form CSRF
+  // 1. Validate Origin / Referer against strict CORS allowlist
+  if (!isTrustedRequestOrigin(req)) {
+    return false;
+  }
+
+  // 2. In production, require Origin or Referer on cookie-authenticated mutations
+  if (env.isProduction && !hasOriginOrReferer && xRequestedWith !== 'XMLHttpRequest') {
+    return false;
+  }
+
+  // 3. Reject HTML form-definable simple content types to prevent cross-site form CSRF
   if (
     contentType.includes('application/x-www-form-urlencoded') ||
     contentType.includes('text/plain')
@@ -18,7 +82,7 @@ function isSafeCookieMutation(req) {
     return false;
   }
 
-  // Require custom AJAX header or JSON content type
+  // 4. Require custom AJAX header or JSON content type
   return xRequestedWith === 'XMLHttpRequest' || contentType.includes('application/json');
 }
 
@@ -157,4 +221,10 @@ export function requireActiveProvider(req, res, next) {
   next();
 }
 
-export default { requireAdmin, requireRole, requireProvider, requireActiveProvider };
+export default {
+  requireAdmin,
+  requireRole,
+  requireProvider,
+  requireActiveProvider,
+  isTrustedRequestOrigin,
+};
