@@ -97,11 +97,11 @@ export default function ProviderProfilePage() {
 
   usePageMeta({
     title: provider
-      ? `${provider.businessName} | WARESHOP`
-      : 'Business Listing Not Found | WARESHOP',
+      ? `${provider.businessName} | WARERENT`
+      : 'Business Listing Not Found | WARERENT',
     description: provider
       ? provider.metaDescription || provider.description
-      : 'The requested commercial property or business listing is not available on WARESHOP.',
+      : 'The requested commercial property or business listing is not available on WARERENT.',
     canonical: provider ? `https://wareshop.in/providers/${provider.slug}` : undefined,
   });
 
@@ -471,7 +471,7 @@ export default function ProviderProfilePage() {
               </h2>
               <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
                 Speak directly with the authorized owner of this listing using their business
-                mobile number. WARESHOP never intercepts calls or charges brokerage fees.
+                mobile number. WARERENT never intercepts calls or charges brokerage fees.
               </p>
 
               <div className="mt-5">
@@ -526,7 +526,7 @@ export default function ProviderProfilePage() {
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Listing reviewed and published by WARESHOP admin</span>
+                  <span>Listing reviewed and published by WARERENT admin</span>
                 </div>
                 <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200/80 flex items-start gap-2 text-[11px] text-slate-500 mt-3">
                   <ShieldCheck className="w-4 h-4 text-[#F36B21] shrink-0 mt-0.5" />
@@ -546,7 +546,7 @@ export default function ProviderProfilePage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-[#F36B21]">
-                  More on WARESHOP
+                  More on WARERENT
                 </p>
                 <h2 className="text-xl sm:text-2xl font-black text-[#171717] mt-1">
                   Related Commercial Listings

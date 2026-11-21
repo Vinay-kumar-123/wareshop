@@ -34,20 +34,16 @@ function Brand() {
   return (
     <Link
       to="/"
-      className="flex items-center gap-2.5 group shrink-0"
-      aria-label="WARESHOP home"
+      className="inline-flex items-center h-12 sm:h-14 overflow-hidden shrink-0 focus:outline-none"
+      aria-label="WARERENT home"
     >
-      <span className="w-10 h-10 rounded-lg bg-[#F36B21] group-hover:bg-[#D95513] text-white flex items-center justify-center shadow-2xs transition-colors">
-        <Warehouse className="w-5 h-5" />
-      </span>
-      <div className="flex flex-col">
-        <span className="text-xl sm:text-[22px] font-black tracking-tight text-[#171717] leading-none">
-          WARESHOP
-        </span>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[#F36B21] mt-0.5">
-          Commercial Marketplace
-        </span>
-      </div>
+      <img
+        src="/warerent-logo.png"
+        alt="WARERENT"
+        width="1280"
+        height="543"
+        className="h-[72px] sm:h-[84px] lg:h-[88px] w-auto max-w-none object-contain -ml-2.5 sm:-ml-3 -mr-2"
+      />
     </Link>
   );
 }

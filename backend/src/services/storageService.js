@@ -31,7 +31,7 @@ function createCloudinarySignature(params, apiSecret) {
  * Cloudinary (server-side signed upload) or local filesystem storage.
  */
 export const storageService = {
-  async uploadImage(file) {
+  async uploadImage(file, options = {}) {
     if (!file) {
       const error = new Error('No file provided for upload');
       error.statusCode = 400;
@@ -68,11 +68,17 @@ export const storageService = {
         error.statusCode = 503;
         throw error;
       }
+      const targetFolder = (
+        options.folder ||
+        process.env.CLOUDINARY_FOLDER ||
+        env.storage.cloudinary.folder ||
+        'wareshop/providers'
+      ).trim();
       return await this._uploadToCloudinary(cleanFile, {
         cloudName,
         apiKey,
         apiSecret,
-        folder: (process.env.CLOUDINARY_FOLDER || env.storage.cloudinary.folder || 'wareshop/providers').trim(),
+        folder: targetFolder,
       });
     }
 
@@ -82,10 +88,10 @@ export const storageService = {
       throw error;
     }
 
-    return await this._uploadToLocalStorage(cleanFile);
+    return await this._uploadToLocalStorage(cleanFile, options);
   },
 
-  async _uploadToLocalStorage(file) {
+  async _uploadToLocalStorage(file, options = {}) {
     const uploadDir = env.storage.uploadDir;
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -97,7 +103,8 @@ export const storageService = {
       'image/webp': '.webp',
     };
     const ext = extMap[file.mimetype] || '.jpg';
-    const uniqueKey = `shop-${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
+    const prefix = String(options.filePrefix || 'shop').replace(/[^a-z0-9_-]/gi, '') || 'shop';
+    const uniqueKey = `${prefix}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
     const targetPath = path.join(uploadDir, uniqueKey);
 
     await fs.promises.writeFile(targetPath, file.buffer);
@@ -184,6 +191,8 @@ export const storageService = {
         });
         return;
       }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
       try {
         const timestamp = Math.floor(Date.now() / 1000);
         const signature = createCloudinarySignature({ public_id: publicId, timestamp }, apiSecret);
@@ -193,13 +202,30 @@ export const storageService = {
           timestamp: String(timestamp),
           signature,
         });
-        await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/destroy`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body.toString(),
-        });
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/destroy`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              Accept: 'application/json',
+            },
+            body: body.toString(),
+            signal: controller.signal,
+          }
+        );
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || (result.result && result.result !== 'ok' && result.result !== 'not found')) {
+          logger.warn('Cloudinary asset deletion returned non-ok response', {
+            publicId,
+            status: response.status,
+            result: result.result || result?.error?.message,
+          });
+        }
       } catch (err) {
         logger.warn('Failed to delete Cloudinary asset', { publicId, error: err.message });
+      } finally {
+        clearTimeout(timeout);
       }
     } else if (!isProduction) {
       // Prevent path traversal on local delete (development/test only)

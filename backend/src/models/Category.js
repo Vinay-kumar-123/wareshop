@@ -42,6 +42,12 @@ const categorySchema = new mongoose.Schema(
       maxlength: 500,
       default: '',
     },
+    imagePublicId: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+      default: '',
+    },
     displayOrder: {
       type: Number,
       min: 0,

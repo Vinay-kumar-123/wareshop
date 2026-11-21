@@ -6,6 +6,7 @@ import EmptyState from '../../components/common/EmptyState.jsx';
 import ProviderCard from '../../components/marketplace/ProviderCard.jsx';
 import { getCategoryBySlug } from '../../data/categories.js';
 import { getCategoryVisual } from '../../assets/categories/index.js';
+import { resolveMediaUrl } from '../../services/api.js';
 import providerService from '../../services/providerService.js';
 import {
   Store,
@@ -38,39 +39,65 @@ export default function CategoryDetailPage() {
   const [isLoadingProviders, setIsLoadingProviders] = useState(true);
   const [providersError, setProvidersError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [bannerImgFailed, setBannerImgFailed] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    const localCat = getCategoryBySlug(slug);
+    const normalizedSlug = String(slug || '').toLowerCase();
+    const localCat = getCategoryBySlug(normalizedSlug);
     if (localCat) {
       setCategory(localCat);
       setCategoryChecked(true);
     } else {
-      providerService
-        .getPublicCategories()
-        .then((cats) => {
-          if (!isMounted) return;
-          const found = cats.find((c) => c.slug === String(slug || '').toLowerCase());
-          setCategory(found || null);
-          setCategoryChecked(true);
-        })
-        .catch(() => {
-          if (isMounted) setCategoryChecked(true);
-        });
+      setCategory(null);
+      setCategoryChecked(false);
     }
+
+    providerService
+      .getPublicCategories()
+      .then((cats) => {
+        if (!isMounted) return;
+        const found = Array.isArray(cats)
+          ? cats.find((c) => String(c.slug || '').toLowerCase() === normalizedSlug)
+          : null;
+        if (found) {
+          setCategory({
+            ...(localCat || {}),
+            ...found,
+            imageUrl: found.imageUrl || localCat?.imageUrl || '',
+            shortDescription: found.shortDescription || localCat?.shortDescription || '',
+            description: found.description || localCat?.description || '',
+            subcategories: localCat?.subcategories || [],
+          });
+        } else if (!localCat) {
+          setCategory(null);
+        }
+        setCategoryChecked(true);
+      })
+      .catch(() => {
+        if (isMounted) setCategoryChecked(true);
+      });
+
     return () => {
       isMounted = false;
     };
   }, [slug]);
 
+  const resolvedBannerUrl = resolveMediaUrl(category?.imageUrl);
   useEffect(() => {
-    if (!category) return;
+    setBannerImgFailed(false);
+  }, [resolvedBannerUrl]);
+
+  const activeCategorySlug = category?.slug || '';
+
+  useEffect(() => {
+    if (!activeCategorySlug) return;
     let isMounted = true;
     setIsLoadingProviders(true);
     setProvidersError(null);
 
     providerService
-      .getProviders({ categorySlug: category.slug, limit: 24 })
+      .getProviders({ categorySlug: activeCategorySlug, limit: 24 })
       .then((res) => {
         if (isMounted) {
           setCategoryProviders(res.data || []);
@@ -88,15 +115,15 @@ export default function CategoryDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [category, retryCount]);
+  }, [activeCategorySlug, retryCount]);
 
   usePageMeta({
     title: category
-      ? `${category.seoTitle || category.name} | WARESHOP`
-      : 'Category Not Found | WARESHOP',
+      ? `${category.seoTitle || category.name} | WARERENT`
+      : 'Category Not Found | WARERENT',
     description: category
       ? category.description
-      : 'The requested commercial space category could not be found on WARESHOP.',
+      : 'The requested commercial space category could not be found on WARERENT.',
     canonical: category ? `https://wareshop.in/categories/${category.slug}` : undefined,
   });
 
@@ -123,7 +150,9 @@ export default function CategoryDetailPage() {
   }
 
   const IconComponent = iconMap[category.icon] || Layers;
-  const categoryVisual = category.imageUrl || getCategoryVisual(category.slug || category.name);
+  const fallbackVisual = getCategoryVisual(category.slug || category.name);
+  const categoryVisual =
+    !bannerImgFailed && resolvedBannerUrl ? resolvedBannerUrl : fallbackVisual;
 
   return (
     <div className="bg-[#F7F8FA] min-h-screen pb-16">
@@ -191,6 +220,9 @@ export default function CategoryDetailPage() {
                 <img
                   src={categoryVisual}
                   alt={category.pluralName || category.name}
+                  onError={() => {
+                    if (!bannerImgFailed) setBannerImgFailed(true);
+                  }}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -301,7 +333,7 @@ export default function CategoryDetailPage() {
             <EmptyState
               icon={IconComponent}
               title={`No Published ${category.pluralName || category.name} Yet`}
-              description={`There are currently no published listings in ${category.name}. Own a ${category.name.toLowerCase()}? Submit your property on WARESHOP.`}
+              description={`There are currently no published listings in ${category.name}. Own a ${category.name.toLowerCase()}? Submit your property on WARERENT.`}
               actionLabel={`List Your ${category.name}`}
               actionHref="/become-a-partner?tab=submit"
             />

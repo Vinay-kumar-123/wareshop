@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Warehouse, ArrowRight, ShieldCheck, PhoneCall, Building2, MapPin } from 'lucide-react';
+import { ArrowRight, ShieldCheck, PhoneCall, Building2, MapPin } from 'lucide-react';
 import { categories } from '../data/categories.js';
 
 const topCities = [
@@ -43,21 +43,21 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           {/* Brand & Mission */}
           <div className="lg:col-span-2">
-            <Link to="/" className="inline-flex items-center gap-2.5">
-              <span className="w-10 h-10 bg-[#F36B21] text-white rounded-lg flex items-center justify-center shadow-2xs">
-                <Warehouse className="w-5 h-5" />
-              </span>
-              <div>
-                <span className="font-black text-2xl tracking-tight text-white block leading-none">
-                  WARESHOP
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#F36B21] mt-0.5 block">
-                  Commercial Marketplace
-                </span>
-              </div>
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center bg-white rounded-xl h-12 overflow-hidden shadow-xs"
+              aria-label="WARERENT home"
+            >
+              <img
+                src="/warerent-logo.png"
+                alt="WARERENT"
+                width="1280"
+                height="543"
+                className="h-[82px] w-auto max-w-none object-contain -ml-1.5 -mr-1"
+              />
             </Link>
             <p className="mt-4 max-w-md text-xs sm:text-sm leading-relaxed text-slate-400">
-              WARESHOP is India’s commercial property and business discovery marketplace for{' '}
+              WARERENT is India’s commercial property and business discovery marketplace for{' '}
               <strong className="text-slate-200 font-semibold">
                 Shops, Offices, Warehouses, and Godowns
               </strong>
@@ -164,7 +164,7 @@ export default function Footer() {
                   to="/about"
                   className="text-xs sm:text-sm text-slate-400 hover:text-[#F36B21] transition-colors"
                 >
-                  About WARESHOP
+                  About WARERENT
                 </Link>
               </li>
             </ul>
@@ -206,7 +206,7 @@ export default function Footer() {
 
         <div className="border-t border-slate-800/90 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <p>
-            © {new Date().getFullYear()} WARESHOP Commercial Marketplace. All rights reserved.
+            © {new Date().getFullYear()} WARERENT Commercial Marketplace. All rights reserved.
           </p>
           <p className="text-center sm:text-right">
             Direct customer-to-owner discovery. Published owners control their displayed contact numbers.

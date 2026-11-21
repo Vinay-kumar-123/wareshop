@@ -90,9 +90,9 @@ const EMPTY_FORM = {
 
 export default function BecomePartnerPage() {
   usePageMeta({
-    title: 'Provider Portal — List & Manage Commercial Properties | WARESHOP',
+    title: 'Provider Portal — List & Manage Commercial Properties | WARERENT',
     description:
-      'Authenticate with your email address via Email OTP to submit and manage commercial shop, office, warehouse, and godown listings on WARESHOP.',
+      'Authenticate with your email address via Email OTP to submit and manage commercial shop, office, warehouse, and godown listings on WARERENT.',
     canonical: 'https://wareshop.in/become-a-partner',
   });
 
@@ -638,7 +638,7 @@ export default function BecomePartnerPage() {
       <div className="bg-[#F7F8FA] min-h-[70vh] flex flex-col items-center justify-center p-8">
         <div className="w-10 h-10 border-3 border-[#F36B21] border-t-transparent rounded-full animate-spin mb-3" />
         <p className="text-xs sm:text-sm text-slate-600 font-semibold">
-          Loading WARESHOP Provider Portal...
+          Loading WARERENT Provider Portal...
         </p>
       </div>
     );
@@ -673,7 +673,7 @@ export default function BecomePartnerPage() {
                   <span>Provider Portal & Email OTP Authentication</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-950 tracking-tight leading-tight">
-                  List Your Commercial Property or Business on WARESHOP
+                  List Your Commercial Property or Business on WARERENT
                 </h1>
                 <p className="text-slate-600 text-sm sm:text-base leading-relaxed mt-3">
                   Register or sign in with your email address via Email OTP. Once
@@ -714,7 +714,7 @@ export default function BecomePartnerPage() {
                 <div className="relative h-36 bg-slate-900 overflow-hidden">
                   <img
                     src={heroCommercialImg}
-                    alt="WARESHOP Commercial Properties"
+                    alt="WARERENT Commercial Properties"
                     loading="lazy"
                     className="w-full h-full object-cover opacity-55"
                   />
@@ -725,7 +725,7 @@ export default function BecomePartnerPage() {
                         Direct Commercial Discovery
                       </span>
                       <h2 className="text-sm sm:text-base font-black text-white">
-                        Why Property Owners Choose WARESHOP
+                        Why Property Owners Choose WARERENT
                       </h2>
                     </div>
                     <span className="px-2.5 py-1 rounded bg-white/10 backdrop-blur-xs text-[11px] font-bold text-white border border-white/15">
@@ -1054,7 +1054,7 @@ export default function BecomePartnerPage() {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              {account.name ? `Welcome, ${account.name}` : 'WARESHOP Provider Dashboard'}
+              {account.name ? `Welcome, ${account.name}` : 'WARERENT Provider Dashboard'}
             </h1>
           </div>
 
@@ -2042,7 +2042,7 @@ export default function BecomePartnerPage() {
                     Application & Review Status
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Track every listing application through WARESHOP’s verification lifecycle (
+                    Track every listing application through WARERENT’s verification lifecycle (
                     SUBMITTED → APPROVED → PUBLISHED).
                   </p>
                 </div>

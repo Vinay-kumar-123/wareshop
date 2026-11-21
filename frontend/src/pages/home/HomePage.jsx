@@ -46,9 +46,9 @@ const popularLocations = [
 
 export default function HomePage() {
   usePageMeta({
-    title: 'WARESHOP | Commercial Shops, Offices, Warehouses & Godowns Across India',
+    title: 'WARERENT | Commercial Shops, Offices, Warehouses & Godowns Across India',
     description:
-      'Discover verified commercial shops, offices, warehouses and godowns across India on WARESHOP. Connect directly with property and business owners.',
+      'Discover verified commercial shops, offices, warehouses and godowns across India on WARERENT. Connect directly with property and business owners.',
     canonical: 'https://wareshop.in/',
   });
 
@@ -64,18 +64,22 @@ export default function HomePage() {
       .getPublicCategories()
       .then((apiCats) => {
         if (!isMounted || !Array.isArray(apiCats) || apiCats.length === 0) return;
-        const apiBySlug = new Map(apiCats.map((c) => [String(c.slug || '').toLowerCase(), c]));
-        const merged = staticCategories.map((sc) => {
-          const found = apiBySlug.get(sc.slug);
-          return found
-            ? {
-                ...sc,
-                listingCount:
-                  typeof found.publishedCount === 'number'
-                    ? found.publishedCount
-                    : found.listingCount,
-              }
-            : sc;
+        const staticBySlug = new Map(staticCategories.map((c) => [c.slug, c]));
+        const merged = apiCats.map((apiCat) => {
+          const fallback = staticBySlug.get(String(apiCat.slug || '').toLowerCase()) || {};
+          return {
+            ...fallback,
+            ...apiCat,
+            id: apiCat._id || apiCat.slug,
+            imageUrl: apiCat.imageUrl || fallback.imageUrl || '',
+            shortDescription: apiCat.shortDescription || fallback.shortDescription,
+            description: apiCat.description || fallback.description,
+            subcategories: fallback.subcategories || [],
+            listingCount:
+              typeof apiCat.publishedCount === 'number'
+                ? apiCat.publishedCount
+                : apiCat.listingCount,
+          };
         });
         setCategoriesWithCounts(merged);
       })
@@ -410,17 +414,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How WARESHOP Works */}
+      {/* How WARERENT Works */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         <div className="text-center max-w-2xl mx-auto mb-10">
           <p className="text-xs font-bold uppercase tracking-widest text-[#F36B21]">
             Direct Discovery Workflow
           </p>
           <h2 className="mt-1.5 text-2xl sm:text-3xl font-black text-[#171717] tracking-tight">
-            How WARESHOP Works
+            How WARERENT Works
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-slate-600">
-            Unlike lead-broker platforms that trap your enquiry in a call center, WARESHOP connects
+            Unlike lead-broker platforms that trap your enquiry in a call center, WARERENT connects
             you straight to the verified property or business owner.
           </p>
         </div>
@@ -496,7 +500,7 @@ export default function HomePage() {
                 Built for Transparent Commercial Discovery
               </h2>
               <p className="mt-2 text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Every listing on WARESHOP follows strict verification and data-integrity rules to
+                Every listing on WARERENT follows strict verification and data-integrity rules to
                 protect both property seekers and business owners.
               </p>
 

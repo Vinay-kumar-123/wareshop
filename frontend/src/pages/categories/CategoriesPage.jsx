@@ -9,9 +9,9 @@ import { Building2, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function CategoriesPage() {
   usePageMeta({
-    title: 'Commercial Property & Business Categories | WARESHOP',
+    title: 'Commercial Property & Business Categories | WARERENT',
     description:
-      'Browse commercial shops, offices, warehouses and godowns available across India on WARESHOP.',
+      'Browse commercial shops, offices, warehouses and godowns available across India on WARERENT.',
     canonical: 'https://wareshop.in/categories',
   });
 
@@ -30,7 +30,7 @@ export default function CategoriesPage() {
             ...fallback,
             ...apiCat,
             id: apiCat._id || apiCat.slug,
-            imageUrl: fallback.imageUrl || apiCat.imageUrl,
+            imageUrl: apiCat.imageUrl || fallback.imageUrl || '',
             shortDescription: apiCat.shortDescription || fallback.shortDescription,
             description: apiCat.description || fallback.description,
             subcategories: fallback.subcategories || [],
@@ -65,7 +65,7 @@ export default function CategoriesPage() {
             <span>Commercial Space Verticals</span>
           </span>
           <h1 className="text-3xl sm:text-4xl font-black text-[#171717] tracking-tight leading-tight mb-3">
-            WARESHOP Commercial Categories
+            WARERENT Commercial Categories
           </h1>
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
             Explore India’s commercial properties and businesses across four primary verticals:
@@ -97,7 +97,7 @@ export default function CategoriesPage() {
                 Own a Commercial Property or Operate a Specialized Business?
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 max-w-xl leading-relaxed">
-                Register on the WARESHOP Provider Portal using your mobile OTP. You can list under
+                Register on the WARERENT Provider Portal using your mobile OTP. You can list under
                 any active category or submit a custom category request for administrator review.
               </p>
             </div>

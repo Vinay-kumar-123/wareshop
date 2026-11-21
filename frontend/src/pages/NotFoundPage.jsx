@@ -5,8 +5,8 @@ import { usePageMeta } from '../hooks/usePageMeta.js';
 
 export default function NotFoundPage() {
   usePageMeta({
-    title: 'Page Not Found (404) | WARESHOP',
-    description: 'The requested page could not be found on WARESHOP.',
+    title: 'Page Not Found (404) | WARERENT',
+    description: 'The requested page could not be found on WARERENT.',
   });
 
   return (

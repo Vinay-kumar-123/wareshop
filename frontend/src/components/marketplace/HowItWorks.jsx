@@ -39,7 +39,7 @@ export function HowItWorksSection() {
         <SectionHeading
           id="hiw-title"
           tag="Direct Commercial Discovery"
-          title="How WARESHOP Works"
+          title="How WARERENT Works"
           subtitle="Connect directly with commercial property and business owners across India without call-center lead brokers."
           align="center"
         />
@@ -95,7 +95,7 @@ export function TrustSection() {
       icon: Building2,
       title: 'Administrator Review Gate',
       description:
-        'All new submissions and listing edits are reviewed by WARESHOP administrators prior to publication.',
+        'All new submissions and listing edits are reviewed by WARERENT administrators prior to publication.',
     },
     {
       icon: Lock,

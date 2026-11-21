@@ -7,15 +7,14 @@ import {
   LockKeyhole,
   Mail,
   AlertCircle,
-  Warehouse,
   ArrowLeft,
   CheckCircle2,
 } from 'lucide-react';
 
 export default function AdminLoginPage() {
   usePageMeta({
-    title: 'Admin Login | WARESHOP Operations Console',
-    description: 'Secure administrator sign-in for WARESHOP.',
+    title: 'Admin Login | WARERENT Operations Console',
+    description: 'Secure administrator sign-in for WARERENT.',
     canonical: false,
     noIndex: true,
   });
@@ -59,18 +58,18 @@ export default function AdminLoginPage() {
             backgroundSize: '28px 28px',
           }}
         />
-        <Link to="/" className="relative flex items-center gap-3 w-fit">
-          <span className="w-11 h-11 rounded-xl bg-[#F36B21] flex items-center justify-center shadow-xs">
-            <Warehouse className="w-6 h-6 text-white" />
-          </span>
-          <div>
-            <span className="font-black text-2xl tracking-tight block leading-none">
-              WARESHOP
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#F36B21] block mt-1">
-              Commercial Marketplace
-            </span>
-          </div>
+        <Link
+          to="/"
+          className="relative inline-flex items-center justify-center bg-white rounded-xl h-[52px] overflow-hidden w-fit shadow-xs"
+          aria-label="WARERENT home"
+        >
+          <img
+            src="/warerent-logo.png"
+            alt="WARERENT"
+            width="1280"
+            height="543"
+            className="h-[88px] w-auto max-w-none object-contain -ml-1.5 -mr-1"
+          />
         </Link>
 
         <div className="relative max-w-md">
@@ -99,7 +98,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="relative text-xs text-slate-500">
-          WARESHOP Administration · Access is logged and rate-limited
+          WARERENT Administration · Access is logged and rate-limited
         </p>
       </section>
 
@@ -108,12 +107,16 @@ export default function AdminLoginPage() {
         <div className="w-full max-w-md">
           <Link
             to="/"
-            className="lg:hidden flex items-center gap-2.5 font-black text-xl text-slate-950 mb-8"
+            className="lg:hidden inline-flex items-center justify-center bg-white rounded-xl h-12 overflow-hidden border border-slate-200/80 shadow-2xs mb-8"
+            aria-label="WARERENT home"
           >
-            <span className="w-9 h-9 rounded-lg bg-[#F36B21] text-white flex items-center justify-center">
-              <Warehouse className="w-5 h-5" />
-            </span>
-            <span>WARESHOP</span>
+            <img
+              src="/warerent-logo.png"
+              alt="WARERENT"
+              width="1280"
+              height="543"
+              className="h-[78px] w-auto max-w-none object-contain -ml-1.5 -mr-1"
+            />
           </Link>
 
           <Link
@@ -132,7 +135,7 @@ export default function AdminLoginPage() {
               Administrator Sign In
             </h2>
             <p className="mt-1.5 text-xs sm:text-sm text-slate-500">
-              Use your operator credentials to access WARESHOP administration.
+              Use your operator credentials to access WARERENT administration.
             </p>
 
             {error && (

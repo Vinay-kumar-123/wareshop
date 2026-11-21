@@ -185,6 +185,7 @@ export function buildEnv(rawEnv = process.env) {
         apiKey: (rawEnv.CLOUDINARY_API_KEY || '').trim(),
         apiSecret: (rawEnv.CLOUDINARY_API_SECRET || '').trim(),
         folder: (rawEnv.CLOUDINARY_FOLDER || 'wareshop/providers').trim(),
+        categoryFolder: (rawEnv.CLOUDINARY_CATEGORY_FOLDER || 'wareshop/categories').trim(),
       },
     },
   };

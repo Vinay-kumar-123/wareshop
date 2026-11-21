@@ -67,9 +67,9 @@ export default function ProvidersPage() {
   const [retryCount, setRetryCount] = useState(0);
 
   usePageMeta({
-    title: 'Explore Commercial Properties & Businesses | WARESHOP',
+    title: 'Explore Commercial Properties & Businesses | WARERENT',
     description:
-      'Search and filter published commercial shops, offices, warehouses and godowns across India on WARESHOP.',
+      'Search and filter published commercial shops, offices, warehouses and godowns across India on WARERENT.',
     canonical: 'https://wareshop.in/providers',
   });
 

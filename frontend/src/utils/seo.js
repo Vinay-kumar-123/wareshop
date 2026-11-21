@@ -1,8 +1,8 @@
 export const siteConfig = {
-  name: 'WARESHOP',
-  defaultTitle: 'WARESHOP | Find Commercial Spaces & Businesses',
+  name: 'WARERENT',
+  defaultTitle: 'WARERENT | Find Commercial Spaces & Businesses',
   url: 'https://wareshop.in',
-  description: 'Find commercial shops, offices, warehouses and godowns across India with WARESHOP.',
+  description: 'Find commercial shops, offices, warehouses and godowns across India with WARERENT.',
   defaultImage: '/og-image.png',
 };
 

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Store, Building2, Warehouse, Package, Layers, CheckCircle2 } from 'lucide-react';
 import { getCategoryVisual } from '../../assets/categories/index.js';
+import { resolveMediaUrl } from '../../services/api.js';
 
 const iconMap = {
   Store,
@@ -12,11 +13,17 @@ const iconMap = {
 };
 
 export default function CategoryCard({ category }) {
+  const resolvedImageUrl = resolveMediaUrl(category.imageUrl);
   const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [resolvedImageUrl]);
+
   const IconComponent = iconMap[category.icon] || Layers;
   const slug = String(category.slug || '').toLowerCase();
   const fallbackVisual = getCategoryVisual(slug || category.name);
-  const imageSrc = !imgFailed ? category.imageUrl || fallbackVisual : fallbackVisual;
+  const imageSrc = !imgFailed && resolvedImageUrl ? resolvedImageUrl : fallbackVisual;
 
   return (
     <Link
