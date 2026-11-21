@@ -4,20 +4,9 @@ import {
   Search,
   MapPin,
   Building2,
-  ArrowRight,
-  Store,
-  Warehouse,
-  Package,
   X,
 } from 'lucide-react';
 import { categories } from '../../data/categories.js';
-
-const categoryTabIcons = {
-  shop: Store,
-  office: Building2,
-  warehouse: Warehouse,
-  godown: Package,
-};
 
 export default function HeroSearch({ onSearch }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,65 +39,107 @@ export default function HeroSearch({ onSearch }) {
 
   return (
     <div className="w-full">
-      {/* Quick Category Selector Tabs above Search Bar */}
-      <div
-        className="inline-flex flex-wrap items-center gap-1.5 mb-2.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80"
-        role="tablist"
-        aria-label="Select property category filter"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={categoryQuery === ''}
-          onClick={() => setCategoryQuery('')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            categoryQuery === ''
-              ? 'bg-[#171717] text-white shadow-2xs'
-              : 'text-slate-600 hover:text-[#171717] hover:bg-white/60'
-          }`}
-        >
-          All Commercial Spaces
-        </button>
-        {categories.map((cat) => {
-          const Icon = categoryTabIcons[cat.slug] || Building2;
-          const active = categoryQuery === cat.slug;
-          return (
-            <button
-              key={cat.slug}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setCategoryQuery(cat.slug)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                active
-                  ? 'bg-[#F36B21] text-white shadow-2xs'
-                  : 'text-slate-700 hover:text-[#F36B21] hover:bg-white/70'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{cat.pluralName || cat.name}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Main Search Box */}
       <form
         onSubmit={handleSearch}
-        className="bg-white rounded-xl shadow-elevated border border-slate-200 p-2 transition-all duration-150 focus-within:border-[#F36B21] focus-within:ring-3 focus-within:ring-[#F36B21]/15"
+        className="w-full"
         role="search"
         aria-label="Search commercial properties and businesses"
       >
-        <div className="flex flex-col lg:flex-row items-stretch gap-2">
-          {/* Keyword / Business Name Input */}
-          <div className="flex-[1.5] flex items-center gap-3 px-3.5 py-2.5 bg-slate-50/70 lg:bg-transparent rounded-lg border lg:border-none border-slate-200/80">
+        {/* Mobile & Tablet Search-First Bar (Immediate, prominent single-row search bar with search icon on the right) */}
+        <div className="lg:hidden space-y-2">
+          <div className="flex items-center bg-white border border-slate-300 rounded-xl shadow-xs focus-within:border-[#F36B21] focus-within:ring-2 focus-within:ring-[#F36B21]/15 transition-all overflow-hidden">
+            <label htmlFor="mobile-primary-search" className="sr-only">
+              Search shops, offices, warehouses
+            </label>
+            <input
+              id="mobile-primary-search"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search shops, offices, warehouses..."
+              className="w-full h-12 pl-4 pr-2 text-sm text-[#171717] placeholder:text-slate-400 bg-transparent outline-none font-medium"
+              autoComplete="off"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-2 text-slate-400 hover:text-slate-600 shrink-0"
+                aria-label="Clear search query"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="h-10 w-10 mr-1 rounded-lg bg-[#F36B21] hover:bg-[#D95513] active:bg-[#B4400E] text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+              aria-label="Search commercial properties"
+            >
+              <Search className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+
+          {/* Compact Location & Category Filter Row on Mobile/Tablet */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2 h-10 px-3 bg-white border border-slate-200 rounded-lg focus-within:border-[#F36B21] transition-colors">
+              <MapPin className="w-3.5 h-3.5 text-[#F36B21] shrink-0" aria-hidden="true" />
+              <label htmlFor="mobile-location-input" className="sr-only">
+                City or location
+              </label>
+              <input
+                id="mobile-location-input"
+                type="text"
+                value={locationQuery}
+                onChange={(e) => setLocationQuery(e.target.value)}
+                placeholder="City (e.g. Mumbai)"
+                className="w-full bg-transparent text-xs text-[#171717] placeholder:text-slate-400 outline-none font-medium truncate"
+                autoComplete="off"
+              />
+              {locationQuery && (
+                <button
+                  type="button"
+                  onClick={() => setLocationQuery('')}
+                  className="text-slate-400 hover:text-slate-600"
+                  aria-label="Clear location"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 h-10 px-3 bg-white border border-slate-200 rounded-lg focus-within:border-[#F36B21] transition-colors">
+              <Building2 className="w-3.5 h-3.5 text-[#F36B21] shrink-0" aria-hidden="true" />
+              <label htmlFor="mobile-category-select" className="sr-only">
+                Property category
+              </label>
+              <select
+                id="mobile-category-select"
+                value={categoryQuery}
+                onChange={(e) => setCategoryQuery(e.target.value)}
+                className="w-full bg-transparent text-xs text-[#171717] outline-none font-medium cursor-pointer truncate"
+              >
+                <option value="">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>
+                    {cat.pluralName || cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Unified Multi-Field Search Bar */}
+        <div className="hidden lg:flex items-center bg-white border border-slate-300 rounded-xl shadow-card p-1.5 focus-within:border-[#F36B21] focus-within:ring-3 focus-within:ring-[#F36B21]/15 transition-all">
+          {/* Primary Keyword Input */}
+          <div className="flex-[1.6] flex items-center gap-3 px-3.5 py-2 min-w-0">
             <Search className="w-5 h-5 text-[#F36B21] shrink-0" aria-hidden="true" />
-            <div className="w-full text-left min-w-0">
+            <div className="w-full min-w-0">
               <label
                 htmlFor="hero-keyword-input"
                 className="block text-[10px] font-bold uppercase tracking-wider text-slate-400"
               >
-                Keyword, Business or Facility
+                Search Commercial Properties
               </label>
               <div className="flex items-center">
                 <input
@@ -116,7 +147,7 @@ export default function HeroSearch({ onSearch }) {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Retail shop, corporate office, PEB warehouse, godown..."
+                  placeholder="Search shops, offices, warehouses..."
                   className="w-full bg-transparent text-[#171717] text-sm placeholder:text-slate-400 outline-none font-medium truncate"
                   autoComplete="off"
                 />
@@ -134,17 +165,17 @@ export default function HeroSearch({ onSearch }) {
             </div>
           </div>
 
-          <div className="hidden lg:block w-px bg-slate-200 my-1.5" aria-hidden="true" />
+          <div className="w-px h-9 bg-slate-200" aria-hidden="true" />
 
-          {/* Location / City Input */}
-          <div className="flex-1 flex items-center gap-3 px-3.5 py-2.5 bg-slate-50/70 lg:bg-transparent rounded-lg border lg:border-none border-slate-200/80">
+          {/* City / Location Input */}
+          <div className="flex-1 flex items-center gap-3 px-3.5 py-2 min-w-0">
             <MapPin className="w-5 h-5 text-[#F36B21] shrink-0" aria-hidden="true" />
-            <div className="w-full text-left min-w-0">
+            <div className="w-full min-w-0">
               <label
                 htmlFor="hero-location-input"
                 className="block text-[10px] font-bold uppercase tracking-wider text-slate-400"
               >
-                City or Industrial Hub
+                City or Location
               </label>
               <div className="flex items-center">
                 <input
@@ -152,7 +183,7 @@ export default function HeroSearch({ onSearch }) {
                   type="text"
                   value={locationQuery}
                   onChange={(e) => setLocationQuery(e.target.value)}
-                  placeholder="Mumbai, Delhi NCR, Bengaluru, Pune..."
+                  placeholder="Mumbai, Delhi NCR, Bengaluru..."
                   className="w-full bg-transparent text-[#171717] text-sm placeholder:text-slate-400 outline-none font-medium truncate"
                   autoComplete="off"
                 />
@@ -170,12 +201,12 @@ export default function HeroSearch({ onSearch }) {
             </div>
           </div>
 
-          <div className="hidden lg:block w-px bg-slate-200 my-1.5" aria-hidden="true" />
+          <div className="w-px h-9 bg-slate-200" aria-hidden="true" />
 
           {/* Category Selector */}
-          <div className="lg:w-48 flex items-center gap-2.5 px-3.5 py-2.5 bg-slate-50/70 lg:bg-transparent rounded-lg border lg:border-none border-slate-200/80">
+          <div className="w-48 flex items-center gap-2.5 px-3.5 py-2">
             <Building2 className="w-5 h-5 text-[#F36B21] shrink-0" aria-hidden="true" />
-            <div className="w-full text-left">
+            <div className="w-full">
               <label
                 htmlFor="hero-category-select"
                 className="block text-[10px] font-bold uppercase tracking-wider text-slate-400"
@@ -201,10 +232,10 @@ export default function HeroSearch({ onSearch }) {
           {/* Submit Search Button */}
           <button
             type="submit"
-            className="bg-[#F36B21] hover:bg-[#D95513] active:bg-[#B4400E] text-white rounded-lg py-3.5 px-6 sm:px-7 text-sm font-bold shadow-xs hover:shadow transition-all duration-150 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            className="bg-[#F36B21] hover:bg-[#D95513] active:bg-[#B4400E] text-white rounded-lg h-12 px-6 text-sm font-semibold shadow-2xs transition-colors flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
-            <span>Search Spaces</span>
-            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            <span>Search</span>
+            <Search className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       </form>

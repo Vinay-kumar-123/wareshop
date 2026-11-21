@@ -328,13 +328,13 @@ export default function ProviderProfilePage() {
 
                 {/* Quick Commercial Metadata Strip */}
                 <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200/80">
+                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                       Space Category
                     </span>
                     <span className="font-bold text-[#171717] mt-0.5 block">{categoryLabel}</span>
                   </div>
-                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200/80">
+                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                       City / Hub
                     </span>
@@ -342,18 +342,63 @@ export default function ProviderProfilePage() {
                       {provider.city || 'India'}
                     </span>
                   </div>
-                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200/80">
+                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                       Verification
                     </span>
                     <span className="font-bold text-emerald-700 mt-0.5 block">OTP + Admin</span>
                   </div>
-                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200/80">
+                  <div className="p-3 rounded-lg bg-[#F7F8FA] border border-slate-200">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                       Contact Mode
                     </span>
                     <span className="font-bold text-[#F36B21] mt-0.5 block">Direct Owner Call</span>
                   </div>
+                </div>
+
+                {/* Mobile Immediate Call Owner CTA Box (visible on mobile/tablet right below property title) */}
+                <div className="mt-5 pt-5 border-t border-slate-100 lg:hidden">
+                  {provider.consentToDisplayPhone === false ? (
+                    <div className="p-3.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium text-center">
+                      The owner of this listing has disabled public phone display.
+                    </div>
+                  ) : contact ? (
+                    <div className="space-y-2.5">
+                      <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-emerald-800">
+                          Owner’s Direct Number
+                        </span>
+                        <span className="text-base font-bold text-emerald-950">
+                          +91 {contact.contactNumber}
+                        </span>
+                      </div>
+                      <a
+                        href={contact.telUri || `tel:+91${contact.contactNumber}`}
+                        className="w-full h-12 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 shadow-2xs transition-colors"
+                      >
+                        <PhoneCall className="w-4 h-4" />
+                        <span>Call Owner Now (+91 {contact.contactNumber})</span>
+                      </a>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRevealContact}
+                      disabled={contactLoading}
+                      className="w-full h-12 px-5 bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Phone className="w-4 h-4" />
+                      <span>
+                        {contactLoading ? 'Verifying & Loading...' : 'Call Owner Directly (0% Brokerage)'}
+                      </span>
+                    </button>
+                  )}
+
+                  {contactError && (
+                    <p className="mt-2 text-xs text-rose-600 font-medium text-center">
+                      {contactError}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -542,19 +587,19 @@ export default function ProviderProfilePage() {
 
         {/* Related Businesses Section */}
         {relatedList.length > 0 && (
-          <section className="mt-14 pt-10 border-t border-slate-200/90">
+          <section className="mt-14 pt-10 border-t border-slate-200">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-[#F36B21]">
                   More on WARERENT
                 </p>
-                <h2 className="text-xl sm:text-2xl font-black text-[#171717] mt-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-[#171717] mt-1">
                   Related Commercial Listings
                 </h2>
               </div>
               <Link
                 to={`/providers?category=${encodeURIComponent(categorySlug)}`}
-                className="text-xs sm:text-sm font-bold text-[#F36B21] hover:underline"
+                className="text-xs sm:text-sm font-semibold text-[#F36B21] hover:underline"
               >
                 View all →
               </Link>
@@ -567,6 +612,39 @@ export default function ProviderProfilePage() {
           </section>
         )}
       </div>
+
+      {/* Mobile Sticky Bottom Call Owner Bar */}
+      {provider.consentToDisplayPhone !== false && (
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 px-4 py-3 shadow-elevated flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Direct Owner Contact
+            </span>
+            <p className="text-xs font-bold text-[#171717] truncate">
+              {contact ? `+91 ${contact.contactNumber}` : provider.businessName}
+            </p>
+          </div>
+          {contact ? (
+            <a
+              href={contact.telUri || `tel:+91${contact.contactNumber}`}
+              className="h-11 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shrink-0 shadow-2xs transition-colors"
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>Call Now</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={handleRevealContact}
+              disabled={contactLoading}
+              className="h-11 px-5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shrink-0 shadow-2xs transition-colors cursor-pointer"
+            >
+              <Phone className="w-4 h-4" />
+              <span>{contactLoading ? 'Loading...' : 'Call Owner'}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Fullscreen Lightbox Modal for Owner Photo */}
       {lightboxOpen && hasValidMainImage && (
