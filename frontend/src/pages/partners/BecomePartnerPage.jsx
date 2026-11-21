@@ -1532,23 +1532,23 @@ export default function BecomePartnerPage() {
   }
 
   // ============================================================================
-  // AUTHENTICATED VIEW: PROVIDER PORTAL DASHBOARD
+  // AUTHENTICATED VIEW: PROVIDER PORTAL DASHBOARD (DESKTOP-OPTIMIZED WORKSPACE)
   // ============================================================================
   const navItems = [
     { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard },
-    { id: 'listings', label: `My Listings (${listings.length})`, icon: Building2 },
-    { id: 'submit', label: 'Add New Listing', icon: PlusCircle },
-    { id: 'status', label: 'Application Status', icon: FileCheck2 },
-    { id: 'profile', label: 'Account Profile', icon: User },
+    { id: 'listings', label: 'Property Listings', count: listings.length, icon: Building2 },
+    { id: 'submit', label: 'Create New Listing', icon: PlusCircle },
+    { id: 'status', label: 'Approval & Lifecycle', icon: FileCheck2 },
+    { id: 'profile', label: 'Account & Profile', icon: User },
   ];
 
   return (
     <div className="bg-[#F7F8FA] min-h-screen pb-16">
-      {/* Top Portal Bar */}
-      <div className="bg-slate-950 text-white border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Top Portal Workspace Header */}
+      <div className="bg-[#171717] text-white border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-400 mb-1.5">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 mb-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>
                 {account.emailVerified
@@ -1556,27 +1556,27 @@ export default function BecomePartnerPage() {
                   : `Authenticated Provider (+91 ${account.phone})`}
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              {account.name ? `Welcome, ${account.name}` : 'WARERENT Provider Dashboard'}
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              {account.name ? `${account.name} — Provider Workspace` : 'WARERENT Provider Workspace'}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={startNewListing}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer shadow-2xs"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Add New Listing</span>
+              <span>Create New Listing</span>
             </button>
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-slate-700 hover:border-slate-500 text-slate-200 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-lg border border-slate-700 hover:border-slate-500 text-slate-200 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
-              <span>Logout</span>
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
@@ -1596,21 +1596,52 @@ export default function BecomePartnerPage() {
         </div>
       )}
 
+      {/* Mobile & Tablet Horizontal Tab Strip (below lg / 1024px) */}
+      <div className="lg:hidden bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2.5">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              activeTab === item.id || (activeTab === 'edit' && item.id === 'listings');
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => (item.id === 'submit' ? startNewListing() : switchTab(item.id))}
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                  isActive
+                    ? 'bg-[#FFF5EF] text-[#B4400E] border-[#F36B21]'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 text-[#F36B21]" />
+                <span>{item.label}</span>
+                {typeof item.count === 'number' && (
+                  <span className="ml-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">
+                    {item.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Main Portal Layout */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          {/* Sidebar Navigation */}
-          <aside className="lg:col-span-3">
-            <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs space-y-1">
-              <div className="px-3.5 py-2.5 mb-1 border-b border-slate-100">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 block">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+          {/* Desktop Sticky Sidebar Navigation */}
+          <aside className="hidden lg:block lg:col-span-3 sticky top-24">
+            <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-card space-y-1">
+              <div className="px-3.5 py-3 mb-1.5 border-b border-slate-100">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
                   {account.emailVerified ? 'Email Verified Account' : 'Verified Provider Account'}
                 </span>
-                <span className="text-xs font-extrabold text-slate-900 block mt-0.5 truncate">
+                <span className="text-xs font-bold text-[#171717] block mt-0.5 truncate">
                   {account.email || (account.phone ? `+91 ${account.phone}` : 'Provider Account')}
                 </span>
                 {account.email && account.phone && (
-                  <span className="text-[11px] font-semibold text-slate-500 block mt-0.5">
+                  <span className="text-[11px] font-medium text-slate-500 block mt-0.5">
                     +91 {account.phone}
                   </span>
                 )}
@@ -1625,18 +1656,31 @@ export default function BecomePartnerPage() {
                     key={item.id}
                     type="button"
                     onClick={() => (item.id === 'submit' ? startNewListing() : switchTab(item.id))}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-colors text-left cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors text-left cursor-pointer ${
                       isActive
-                        ? 'bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5]'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950 border border-transparent'
+                        ? 'bg-[#FFF5EF] text-[#B4400E] border border-[#FFE6D5]'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-[#171717] border border-transparent'
                     }`}
                   >
-                    <Icon
-                      className={`w-4 h-4 shrink-0 ${
-                        isActive ? 'text-[#F36B21]' : 'text-slate-400'
-                      }`}
-                    />
-                    <span>{item.label}</span>
+                    <span className="flex items-center gap-3">
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${
+                          isActive ? 'text-[#F36B21]' : 'text-slate-400'
+                        }`}
+                      />
+                      <span>{item.label}</span>
+                    </span>
+                    {typeof item.count === 'number' && (
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-xs font-bold ${
+                          isActive
+                            ? 'bg-[#F36B21] text-white'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {item.count}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -1645,7 +1689,7 @@ export default function BecomePartnerPage() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
                   <span>Sign Out</span>
@@ -1659,45 +1703,46 @@ export default function BecomePartnerPage() {
             {/* TAB 1: DASHBOARD OVERVIEW */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
+                {/* Summary KPI Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-card">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       Total Listings
                     </span>
-                    <p className="text-2xl sm:text-3xl font-black text-slate-950 mt-1">
+                    <p className="text-2xl sm:text-3xl font-bold text-[#171717] mt-1">
                       {stats.total}
                     </p>
                     <span className="text-[11px] text-slate-400 mt-1 block">
                       All submitted properties
                     </span>
                   </div>
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-600">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-card">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">
                       Published Live
                     </span>
-                    <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">
+                    <p className="text-2xl sm:text-3xl font-bold text-emerald-700 mt-1">
                       {stats.published}
                     </p>
                     <span className="text-[11px] text-slate-400 mt-1 block">
                       Visible in directory
                     </span>
                   </div>
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-600">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-card">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">
                       Pending Review
                     </span>
-                    <p className="text-2xl sm:text-3xl font-black text-amber-700 mt-1">
+                    <p className="text-2xl sm:text-3xl font-bold text-amber-700 mt-1">
                       {stats.submitted}
                     </p>
                     <span className="text-[11px] text-slate-400 mt-1 block">
                       Awaiting moderation
                     </span>
                   </div>
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600">
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-card">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">
                       Approved
                     </span>
-                    <p className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">
+                    <p className="text-2xl sm:text-3xl font-bold text-blue-700 mt-1">
                       {stats.approved}
                     </p>
                     <span className="text-[11px] text-slate-400 mt-1 block">
@@ -1706,97 +1751,398 @@ export default function BecomePartnerPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-                  <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
+                {/* Recent Listings Overview Table / List */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+                  <div className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
                     <div>
-                      <h2 className="text-lg font-extrabold text-slate-950">
-                        Your Recent Commercial Listings
+                      <h2 className="text-base sm:text-lg font-bold text-[#171717]">
+                        Recent Commercial Listings
                       </h2>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Manage your properties and monitor administrator review status.
+                        Quick view of your properties and their administrator review status.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={loadDashboardData}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 hover:text-[#F36B21] cursor-pointer transition-colors"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Refresh</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={loadDashboardData}
+                        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 hover:text-[#F36B21] cursor-pointer transition-colors"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Refresh</span>
+                      </button>
+                      {listings.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => switchTab('listings')}
+                          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#FFF5EF] text-[#B4400E] border border-[#FFE6D5] text-xs font-semibold cursor-pointer"
+                        >
+                          <span>Manage All</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {listings.length === 0 ? (
-                    <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <div className="p-10 sm:p-12 text-center bg-slate-50/40">
                       <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2.5" />
-                      <h3 className="text-sm font-bold text-slate-900">
-                        You haven’t submitted any listings yet
+                      <h3 className="text-sm font-bold text-[#171717]">
+                        You haven’t submitted any commercial listings yet
                       </h3>
                       <p className="text-xs text-slate-500 mt-1 mb-5 max-w-md mx-auto">
-                        Submit your first Shop, Office, Warehouse, or Godown listing for review.
+                        Create your first Shop, Office, Warehouse, or Godown listing for
+                        administrator review.
                       </p>
                       <button
                         type="button"
                         onClick={startNewListing}
-                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
+                        className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-semibold cursor-pointer"
                       >
                         <PlusCircle className="w-4 h-4" />
-                        <span>Submit First Listing</span>
+                        <span>Create First Listing</span>
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {listings.slice(0, 5).map((item) => {
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-[#F7F8FA] border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              <th className="py-3 px-5">Property / Business</th>
+                              <th className="py-3 px-4">Category</th>
+                              <th className="py-3 px-4">Location</th>
+                              <th className="py-3 px-4">Status</th>
+                              <th className="py-3 px-5 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
+                            {listings.slice(0, 5).map((item) => {
+                              const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                              const hasOwnerPhoto = Boolean(item.shopImage?.url);
+                              const thumbUrl = hasOwnerPhoto
+                                ? item.shopImage.url
+                                : getCategoryVisual(item.categorySlug || item.category);
+                              return (
+                                <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                                  <td className="py-3.5 px-5">
+                                    <div className="flex items-center gap-3">
+                                      <img
+                                        src={thumbUrl}
+                                        alt={item.businessName}
+                                        loading="lazy"
+                                        className="w-12 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                                      />
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-[#171717] truncate max-w-[240px]">
+                                          {item.businessName}
+                                        </p>
+                                        {item.referenceId && (
+                                          <span className="text-[11px] font-mono text-slate-400 block">
+                                            Ref: {item.referenceId}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 px-4 font-semibold text-slate-700">
+                                    {item.category}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-slate-600">
+                                    {item.city || '—'}
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <span
+                                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badge.classes}`}
+                                    >
+                                      <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                                      <span>{badge.label}</span>
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-5 text-right">
+                                    <div className="inline-flex items-center justify-end gap-2">
+                                      {item.status === 'PUBLISHED' && item.slug && (
+                                        <Link
+                                          to={`/providers/${item.slug}`}
+                                          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <span>Live</span>
+                                          <ExternalLink className="w-3 h-3" />
+                                        </Link>
+                                      )}
+                                      {item.status !== 'SUSPENDED' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => startEditListing(item)}
+                                          className="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-[#FFF5EF] text-[#B4400E] border border-[#FFE6D5] hover:bg-[#FFE6D5]/60 text-xs font-semibold cursor-pointer"
+                                        >
+                                          <Edit3 className="w-3 h-3" />
+                                          <span>Edit</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile Stack View */}
+                      <div className="md:hidden divide-y divide-slate-100">
+                        {listings.slice(0, 5).map((item) => {
+                          const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                          return (
+                            <div key={item.id} className="p-4 space-y-2.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <h3 className="font-bold text-[#171717] text-sm">
+                                    {item.businessName}
+                                  </h3>
+                                  <p className="text-xs text-slate-500 mt-0.5">
+                                    {item.category} • {item.city}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${badge.classes}`}
+                                >
+                                  {badge.label}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 pt-1">
+                                {item.status === 'PUBLISHED' && item.slug && (
+                                  <Link
+                                    to={`/providers/${item.slug}`}
+                                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700"
+                                  >
+                                    <span>View Live</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </Link>
+                                )}
+                                {item.status !== 'SUSPENDED' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditListing(item)}
+                                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-[#FFF5EF] text-[#B4400E] border border-[#FFE6D5] text-xs font-semibold cursor-pointer"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    <span>Edit</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: PROPERTY LISTING MANAGEMENT TABLE */}
+            {activeTab === 'listings' && (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+                <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100">
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-[#171717]">
+                      Property Listing Management
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Manage your submitted, approved, and published commercial property listings.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startNewListing}
+                    className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-semibold cursor-pointer"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Create New Listing</span>
+                  </button>
+                </div>
+
+                {listings.length === 0 ? (
+                  <div className="p-12 text-center bg-slate-50/40">
+                    <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-800 mb-2">No listings found</p>
+                    <button
+                      type="button"
+                      onClick={startNewListing}
+                      className="h-10 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-semibold cursor-pointer"
+                    >
+                      Create Your First Listing
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Desktop Structured Management Table */}
+                    <div className="hidden md:block">
+                      <table className="w-full table-fixed text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#F7F8FA] border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th className="py-3.5 px-4 w-[34%]">Property & Media</th>
+                            <th className="py-3.5 px-3 w-[14%]">Category</th>
+                            <th className="py-3.5 px-3 w-[18%]">City / Address</th>
+                            <th className="py-3.5 px-3 w-[18%]">Status</th>
+                            <th className="py-3.5 px-4 w-[16%] text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
+                          {listings.map((item) => {
+                            const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
+                            const hasOwnerPhoto = Boolean(item.shopImage?.url);
+                            const thumbUrl = hasOwnerPhoto
+                              ? item.shopImage.url
+                              : getCategoryVisual(item.categorySlug || item.category);
+                            return (
+                              <tr key={item.id} className="hover:bg-slate-50/70 transition-colors align-top">
+                                <td className="py-4 px-4">
+                                  <div className="flex items-start gap-3">
+                                    <div className="relative w-14 h-11 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                                      <img
+                                        src={thumbUrl}
+                                        alt={item.businessName}
+                                        loading="lazy"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="font-bold text-[#171717] truncate">
+                                        {item.businessName}
+                                      </p>
+                                      <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                                        {item.description}
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                          {hasOwnerPhoto ? 'Owner Photo' : 'Category Visual'}
+                                        </span>
+                                        {item.referenceId && (
+                                          <span className="text-[11px] font-mono text-slate-400">
+                                            {item.referenceId}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-4 px-3">
+                                  <span className="inline-block text-xs font-semibold text-[#B4400E] bg-[#FFF5EF] border border-[#FFE6D5] px-2 py-0.5 rounded-md">
+                                    {item.category}
+                                  </span>
+                                  {item.customCategoryRequest && (
+                                    <span className="block text-[11px] text-indigo-700 mt-1 truncate">
+                                      Custom: {item.customCategoryRequest.requestedName}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-4 px-3 text-xs text-slate-600">
+                                  <p className="font-semibold text-[#171717] truncate">{item.city || '—'}</p>
+                                  <p className="text-slate-500 truncate mt-0.5">
+                                    {[item.address, item.state, item.pinCode]
+                                      .filter(Boolean)
+                                      .join(', ')}
+                                  </p>
+                                </td>
+                                <td className="py-4 px-3">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badge.classes}`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${badge.dot}`} />
+                                    <span className="truncate">{badge.label}</span>
+                                  </span>
+                                  {item.rejectionReason && (
+                                    <p className="mt-1.5 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded">
+                                      <strong>Note:</strong> {item.rejectionReason}
+                                    </p>
+                                  )}
+                                  {item.suspensionReason && (
+                                    <p className="mt-1.5 text-[11px] text-red-800 bg-red-50 border border-red-200 px-2 py-1 rounded">
+                                      <strong>Suspended:</strong> {item.suspensionReason}
+                                    </p>
+                                  )}
+                                </td>
+                                <td className="py-4 px-4 text-right">
+                                  <div className="inline-flex items-center justify-end gap-1.5">
+                                    {item.status === 'PUBLISHED' && item.slug && (
+                                      <Link
+                                        to={`/providers/${item.slug}`}
+                                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                                      >
+                                        <span>Live</span>
+                                        <ExternalLink className="w-3 h-3" />
+                                      </Link>
+                                    )}
+                                    {item.status !== 'SUSPENDED' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditListing(item)}
+                                        className="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-semibold cursor-pointer"
+                                      >
+                                        <Edit3 className="w-3 h-3" />
+                                        <span>Edit</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile & Tablet Responsive Cards */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {listings.map((item) => {
                         const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
                         const hasOwnerPhoto = Boolean(item.shopImage?.url);
                         const thumbUrl = hasOwnerPhoto
                           ? item.shopImage.url
                           : getCategoryVisual(item.categorySlug || item.category);
                         return (
-                          <div
-                            key={item.id}
-                            className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
-                          >
-                            <div className="flex items-start gap-3.5">
+                          <div key={item.id} className="p-4 space-y-3">
+                            <div className="flex items-start gap-3">
                               <img
                                 src={thumbUrl}
                                 alt={item.businessName}
                                 loading="lazy"
-                                className="w-16 h-14 rounded-lg object-cover border border-slate-200 shrink-0 hidden sm:block"
+                                className="w-16 h-14 rounded-lg object-cover border border-slate-200 shrink-0"
                               />
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
-                                    {item.businessName}
-                                  </h3>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                  <span className="text-[11px] font-semibold text-[#B4400E] bg-[#FFF5EF] border border-[#FFE6D5] px-2 py-0.5 rounded">
+                                    {item.category}
+                                  </span>
                                   <span
-                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badge.classes}`}
                                   >
                                     {badge.label}
                                   </span>
                                 </div>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  <span className="font-semibold text-slate-700">
-                                    {item.category}
-                                  </span>{' '}
-                                  • {item.city}
-                                  {item.referenceId ? ` • Ref: ${item.referenceId}` : ''}
+                                <h3 className="text-sm font-bold text-[#171717] truncate">
+                                  {item.businessName}
+                                </h3>
+                                <p className="text-xs text-slate-500 truncate mt-0.5">
+                                  {[item.city, item.state].filter(Boolean).join(', ')}
                                 </p>
-                                {item.rejectionReason && (
-                                  <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg">
-                                    <strong>Rejection Reason:</strong> {item.rejectionReason}
-                                  </p>
-                                )}
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
+                            {item.rejectionReason && (
+                              <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                                <strong>Rejection Note:</strong> {item.rejectionReason}
+                              </div>
+                            )}
+                            <div className="flex items-center justify-end gap-2">
                               {item.status === 'PUBLISHED' && item.slug && (
                                 <Link
                                   to={`/providers/${item.slug}`}
-                                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                                  className="inline-flex items-center justify-center gap-1 h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700"
                                 >
-                                  <span>View Live</span>
+                                  <span>Public Profile</span>
                                   <ExternalLink className="w-3.5 h-3.5" />
                                 </Link>
                               )}
@@ -1804,10 +2150,10 @@ export default function BecomePartnerPage() {
                                 <button
                                   type="button"
                                   onClick={() => startEditListing(item)}
-                                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[#FFF5EF] text-[#D95513] border border-[#FFE6D5] hover:bg-[#FFE6D5]/60 text-xs font-bold cursor-pointer"
+                                  className="inline-flex items-center justify-center gap-1 h-9 px-3.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-semibold cursor-pointer"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
-                                  <span>Edit</span>
+                                  <span>Edit Listing</span>
                                 </button>
                               )}
                             </div>
@@ -1815,164 +2161,20 @@ export default function BecomePartnerPage() {
                         );
                       })}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: MY LISTINGS */}
-            {activeTab === 'listings' && (
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
-                  <div>
-                    <h2 className="text-xl font-extrabold text-slate-950">
-                      My Commercial Listings
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      View and edit your submitted, approved, and published listings.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={startNewListing}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Add New Listing</span>
-                  </button>
-                </div>
-
-                {listings.length === 0 ? (
-                  <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                    <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-                    <p className="text-sm font-bold text-slate-800 mb-2">No listings found</p>
-                    <button
-                      type="button"
-                      onClick={startNewListing}
-                      className="px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
-                    >
-                      Add Your First Listing
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {listings.map((item) => {
-                      const badge = STATUS_BADGES[item.status] || STATUS_BADGES.SUBMITTED;
-                      const hasOwnerPhoto = Boolean(item.shopImage?.url);
-                      const thumbUrl = hasOwnerPhoto
-                        ? item.shopImage.url
-                        : getCategoryVisual(item.categorySlug || item.category);
-                      return (
-                        <div
-                          key={item.id}
-                          className="p-5 rounded-xl border border-slate-200 hover:border-slate-300 flex flex-col md:flex-row justify-between gap-5 transition-colors"
-                        >
-                          <div className="flex flex-col sm:flex-row items-start gap-4 flex-1 min-w-0">
-                            <div className="relative w-full sm:w-36 h-28 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
-                              <img
-                                src={thumbUrl}
-                                alt={item.businessName}
-                                loading="lazy"
-                                className="w-full h-full object-cover"
-                              />
-                              <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-slate-900/75 text-white text-[9px] font-bold">
-                                {hasOwnerPhoto ? 'Owner Photo' : 'Category Visual'}
-                              </span>
-                            </div>
-
-                            <div className="space-y-2 flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[#D95513] bg-[#FFF5EF] border border-[#FFE6D5] px-2.5 py-0.5 rounded">
-                                  {item.category}
-                                </span>
-                                <span
-                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badge.classes}`}
-                                >
-                                  {badge.label}
-                                </span>
-                                {item.referenceId && (
-                                  <span className="text-xs font-mono text-slate-400">
-                                    {item.referenceId}
-                                  </span>
-                                )}
-                              </div>
-
-                              <h3 className="text-lg font-extrabold text-slate-900">
-                                {item.businessName}
-                              </h3>
-                              <p className="text-xs text-slate-600 line-clamp-2">
-                                {item.description}
-                              </p>
-                              <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                                <MapPin className="w-3.5 h-3.5 text-[#F36B21] shrink-0" />
-                                <span className="truncate">
-                                  {[item.address, item.city, item.state, item.pinCode]
-                                    .filter(Boolean)
-                                    .join(', ')}
-                                </span>
-                              </p>
-
-                              {item.customCategoryRequest && (
-                                <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg inline-block">
-                                  Custom Category Request (
-                                  {item.customCategoryRequest.requestedName}):{' '}
-                                  <strong>{item.customCategoryRequest.status}</strong>
-                                </p>
-                              )}
-
-                              {item.rejectionReason && (
-                                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
-                                  <strong>Administrator Rejection Note:</strong>{' '}
-                                  {item.rejectionReason}
-                                </div>
-                              )}
-
-                              {item.suspensionReason && (
-                                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-900">
-                                  <strong>Suspension Note:</strong> {item.suspensionReason}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex md:flex-col justify-end gap-2 shrink-0">
-                            {item.status === 'PUBLISHED' && item.slug && (
-                              <Link
-                                to={`/providers/${item.slug}`}
-                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800"
-                              >
-                                <span>Public Profile</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Link>
-                            )}
-                            {item.status !== 'SUSPENDED' && (
-                              <button
-                                type="button"
-                                onClick={() => startEditListing(item)}
-                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                                <span>Edit Listing</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  </>
                 )}
               </div>
             )}
 
-            {/* TAB 3: ADD / EDIT LISTING FORM */}
+            {/* TAB 3: ADD / EDIT LISTING FORM (STRUCTURED MULTI-SECTION WORKSPACE) */}
             {(activeTab === 'submit' || activeTab === 'edit') && (
-              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+              <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-card">
                 {submissionSuccess ? (
                   <div className="text-center py-6">
                     <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-200">
                       <CheckCircle2 className="w-7 h-7" />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-950 mb-2">
+                    <h2 className="text-2xl font-bold text-[#171717] mb-2">
                       {submissionSuccess.isEdit
                         ? 'Listing Updated & Sent for Review'
                         : 'Listing Application Submitted'}
@@ -1980,7 +2182,7 @@ export default function BecomePartnerPage() {
                     <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto mb-6">
                       {submissionSuccess.message}
                     </p>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 max-w-md mx-auto text-left text-xs space-y-2 mb-6">
+                    <div className="bg-[#F7F8FA] border border-slate-200 rounded-xl p-4 max-w-md mx-auto text-left text-xs space-y-2 mb-6">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Reference ID:</span>
                         <span className="font-mono font-bold text-[#F36B21]">
@@ -1989,7 +2191,7 @@ export default function BecomePartnerPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">Business / Property:</span>
-                        <span className="font-bold text-slate-900">
+                        <span className="font-bold text-[#171717]">
                           {submissionSuccess.businessName}
                         </span>
                       </div>
@@ -2002,31 +2204,31 @@ export default function BecomePartnerPage() {
                       <button
                         type="button"
                         onClick={() => switchTab('listings')}
-                        className="px-5 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold cursor-pointer"
+                        className="h-10 px-5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-semibold cursor-pointer"
                       >
-                        View My Listings
+                        View Property Listings
                       </button>
                       <button
                         type="button"
                         onClick={startNewListing}
-                        className="px-5 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold cursor-pointer"
+                        className="h-10 px-5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
                       >
-                        Add Another Listing
+                        Create Another Listing
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
                     <div className="mb-6 pb-4 border-b border-slate-100">
-                      <h2 className="text-xl font-black text-slate-950">
+                      <h2 className="text-lg sm:text-xl font-bold text-[#171717]">
                         {editingListingId
-                          ? 'Edit Commercial Listing'
-                          : 'Add New Commercial Listing'}
+                          ? 'Edit Commercial Property Listing'
+                          : 'Create New Commercial Property Listing'}
                       </h2>
                       <p className="text-xs text-slate-500 mt-1">
                         {editingListingId
                           ? 'Updating a listing submits the changes for administrator verification before appearing publicly.'
-                          : 'Complete the form below to submit your Shop, Office, Warehouse, or Godown for administrator review.'}
+                          : 'Complete the structured sections below to submit your Shop, Office, Warehouse, or Godown for administrator review.'}
                       </p>
                     </div>
 
@@ -2040,470 +2242,539 @@ export default function BecomePartnerPage() {
                     )}
 
                     <form onSubmit={handleListingSubmit} className="space-y-6" noValidate>
-                      {/* Section 1: Property & Category */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <div className="sm:col-span-2">
-                          <label
-                            htmlFor="listing-businessName"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Business / Property Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id="listing-businessName"
-                            name="businessName"
-                            type="text"
-                            value={formData.businessName}
-                            onChange={handleFormChange}
-                            placeholder="e.g. Apex Industrial Warehouse & Logistics Park"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.businessName && (
-                            <p className="mt-1 text-xs font-medium text-red-600">
-                              {errors.businessName}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label
-                            htmlFor="listing-category"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Category <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            id="listing-category"
-                            name="category"
-                            value={formData.category}
-                            onChange={handleFormChange}
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white cursor-pointer"
-                          >
-                            <option value="">Select Category</option>
-                            {availableCategories.map((c) => (
-                              <option key={c._id || c.slug} value={c.slug}>
-                                {c.name}
-                              </option>
-                            ))}
-                            <option value="other">Other — Request Custom Category</option>
-                          </select>
-                          {errors.category && (
-                            <p className="mt-1 text-xs font-medium text-red-600">
-                              {errors.category}
-                            </p>
-                          )}
-                        </div>
-
-                        {formData.category === 'other' && (
+                      {/* Section 1: Property Identity & Classification */}
+                      <div className="p-5 rounded-xl bg-[#F7F8FA] border border-slate-200 space-y-5">
+                        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200/80">
+                          <span className="w-6 h-6 rounded-md bg-[#F36B21] text-white text-xs font-bold flex items-center justify-center">
+                            1
+                          </span>
                           <div>
+                            <h3 className="text-sm font-bold text-[#171717]">
+                              Property Identity & Classification
+                            </h3>
+                            <p className="text-[11px] text-slate-500">
+                              Core commercial category, property title, facilities, and overview.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="sm:col-span-2">
                             <label
-                              htmlFor="listing-customCategoryName"
+                              htmlFor="listing-businessName"
                               className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
                             >
-                              Requested Custom Category <span className="text-red-500">*</span>
+                              Business / Property Name <span className="text-red-500">*</span>
                             </label>
                             <input
-                              id="listing-customCategoryName"
-                              name="customCategoryName"
+                              id="listing-businessName"
+                              name="businessName"
                               type="text"
-                              value={formData.customCategoryName}
+                              value={formData.businessName}
                               onChange={handleFormChange}
-                              placeholder="e.g. Cold Storage Facility"
-                              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
+                              placeholder="e.g. Apex Industrial Warehouse & Logistics Park"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
                             />
-                            {errors.customCategoryName && (
+                            {errors.businessName && (
                               <p className="mt-1 text-xs font-medium text-red-600">
-                                {errors.customCategoryName}
+                                {errors.businessName}
                               </p>
                             )}
                           </div>
-                        )}
 
-                        <div className={formData.category === 'other' ? 'sm:col-span-2' : ''}>
-                          <label
-                            htmlFor="listing-servicesOffered"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Services / Facilities Offered <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id="listing-servicesOffered"
-                            name="servicesOffered"
-                            type="text"
-                            value={formData.servicesOffered}
-                            onChange={handleFormChange}
-                            placeholder="e.g. Retail Frontage, Loading Dock, 24x7 Security"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.servicesOffered && (
-                            <p className="mt-1 text-xs font-medium text-red-600">
-                              {errors.servicesOffered}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Description */}
-                      <div>
-                        <label
-                          htmlFor="listing-businessDescription"
-                          className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                        >
-                          Property / Business Description <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          id="listing-businessDescription"
-                          name="businessDescription"
-                          rows={4}
-                          value={formData.businessDescription}
-                          onChange={handleFormChange}
-                          placeholder="Describe the commercial property or business, access roads, suitability, and key highlights..."
-                          className="w-full p-3.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                        />
-                        {errors.businessDescription && (
-                          <p className="mt-1 text-xs font-medium text-red-600">
-                            {errors.businessDescription}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Contact Person, Locked Verified Phone, Optional Email */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                        <div>
-                          <label
-                            htmlFor="listing-contactPerson"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Contact Person <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id="listing-contactPerson"
-                            name="contactPerson"
-                            type="text"
-                            value={formData.contactPerson}
-                            onChange={handleFormChange}
-                            placeholder="Full Name"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.contactPerson && (
-                            <p className="mt-1 text-xs font-medium text-red-600">
-                              {errors.contactPerson}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label
-                            htmlFor="listing-phone"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            {account.phoneVerified ? (
-                              'Verified Mobile (Locked)'
-                            ) : (
-                              <>
-                                Business Mobile Number <span className="text-red-500">*</span>
-                              </>
+                          <div>
+                            <label
+                              htmlFor="listing-category"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Commercial Category <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              id="listing-category"
+                              name="category"
+                              value={formData.category}
+                              onChange={handleFormChange}
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21] cursor-pointer"
+                            >
+                              <option value="">Select Category</option>
+                              {availableCategories.map((c) => (
+                                <option key={c._id || c.slug} value={c.slug}>
+                                  {c.name}
+                                </option>
+                              ))}
+                              <option value="other">Other — Request Custom Category</option>
+                            </select>
+                            {errors.category && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.category}
+                              </p>
                             )}
-                          </label>
-                          {account.phoneVerified ? (
-                            <div className="w-full px-3.5 py-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 font-bold flex items-center justify-between">
-                              <span>+91 {account.phone}</span>
-                              <Lock className="w-3.5 h-3.5 text-emerald-700" />
-                            </div>
-                          ) : (
-                            <>
-                              <div className="relative flex items-center">
-                                <span className="absolute left-3.5 text-sm font-extrabold text-slate-500 select-none">
-                                  +91
-                                </span>
-                                <input
-                                  id="listing-phone"
-                                  name="phone"
-                                  type="tel"
-                                  maxLength={10}
-                                  value={formData.phone}
-                                  onChange={(e) => {
-                                    const digits = e.target.value.replace(/\D/g, '');
-                                    setFormData((prev) => ({ ...prev, phone: digits }));
-                                    if (errors.phone) {
-                                      setErrors((prev) => {
-                                        const next = { ...prev };
-                                        delete next.phone;
-                                        return next;
-                                      });
-                                    }
-                                  }}
-                                  placeholder="98XXXXXXXX"
-                                  className="w-full pl-12 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-bold focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                                />
-                              </div>
-                              {errors.phone && (
+                          </div>
+
+                          {formData.category === 'other' && (
+                            <div>
+                              <label
+                                htmlFor="listing-customCategoryName"
+                                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                              >
+                                Requested Custom Category <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                id="listing-customCategoryName"
+                                name="customCategoryName"
+                                type="text"
+                                value={formData.customCategoryName}
+                                onChange={handleFormChange}
+                                placeholder="e.g. Cold Storage Facility"
+                                className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                              />
+                              {errors.customCategoryName && (
                                 <p className="mt-1 text-xs font-medium text-red-600">
-                                  {errors.phone}
+                                  {errors.customCategoryName}
                                 </p>
                               )}
-                            </>
+                            </div>
                           )}
-                        </div>
 
-                        <div>
-                          <label
-                            htmlFor="listing-email"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Email (Optional)
-                          </label>
-                          <input
-                            id="listing-email"
-                            name="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={handleFormChange}
-                            placeholder="owner@business.com"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.email && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{errors.email}</p>
-                          )}
+                          <div className={formData.category === 'other' ? 'sm:col-span-2' : ''}>
+                            <label
+                              htmlFor="listing-servicesOffered"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Services / Facilities Offered <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="listing-servicesOffered"
+                              name="servicesOffered"
+                              type="text"
+                              value={formData.servicesOffered}
+                              onChange={handleFormChange}
+                              placeholder="e.g. Retail Frontage, Loading Dock, 24x7 Security"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.servicesOffered && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.servicesOffered}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label
+                              htmlFor="listing-businessDescription"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Property / Business Description <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                              id="listing-businessDescription"
+                              name="businessDescription"
+                              rows={4}
+                              value={formData.businessDescription}
+                              onChange={handleFormChange}
+                              placeholder="Describe the commercial property or business, access roads, suitability, and key highlights..."
+                              className="w-full p-3.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.businessDescription && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.businessDescription}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Address, City, State, PIN, Website */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                        <div className="sm:col-span-3">
-                          <label
-                            htmlFor="listing-address"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Street Address / Landmark <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id="listing-address"
-                            name="address"
-                            type="text"
-                            value={formData.address}
-                            onChange={handleFormChange}
-                            placeholder="Plot / Shop No., Industrial Area or Commercial Complex"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.address && (
-                            <p className="mt-1 text-xs font-medium text-red-600">
-                              {errors.address}
+                      {/* Section 2: Owner & Direct Contact Details */}
+                      <div className="p-5 rounded-xl bg-[#F7F8FA] border border-slate-200 space-y-5">
+                        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200/80">
+                          <span className="w-6 h-6 rounded-md bg-[#F36B21] text-white text-xs font-bold flex items-center justify-center">
+                            2
+                          </span>
+                          <div>
+                            <h3 className="text-sm font-bold text-[#171717]">
+                              Owner & Direct Contact Details
+                            </h3>
+                            <p className="text-[11px] text-slate-500">
+                              Authorized contact person and business mobile number for direct
+                              customer calls.
                             </p>
-                          )}
+                          </div>
                         </div>
 
-                        <div>
-                          <label
-                            htmlFor="listing-city"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            City <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id="listing-city"
-                            name="city"
-                            type="text"
-                            value={formData.city}
-                            onChange={handleFormChange}
-                            placeholder="e.g. Mumbai"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.city && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{errors.city}</p>
-                          )}
-                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div>
+                            <label
+                              htmlFor="listing-contactPerson"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Contact Person <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="listing-contactPerson"
+                              name="contactPerson"
+                              type="text"
+                              value={formData.contactPerson}
+                              onChange={handleFormChange}
+                              placeholder="Full Name"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.contactPerson && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.contactPerson}
+                              </p>
+                            )}
+                          </div>
 
-                        <div>
-                          <label
-                            htmlFor="listing-state"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            State <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id="listing-state"
-                            name="state"
-                            type="text"
-                            value={formData.state}
-                            onChange={handleFormChange}
-                            placeholder="e.g. Maharashtra"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.state && (
-                            <p className="mt-1 text-xs font-medium text-red-600">{errors.state}</p>
-                          )}
-                        </div>
+                          <div>
+                            <label
+                              htmlFor="listing-phone"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              {account.phoneVerified ? (
+                                'Verified Mobile (Locked)'
+                              ) : (
+                                <>
+                                  Business Mobile Number <span className="text-red-500">*</span>
+                                </>
+                              )}
+                            </label>
+                            {account.phoneVerified ? (
+                              <div className="w-full px-3.5 py-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 font-bold flex items-center justify-between">
+                                <span>+91 {account.phone}</span>
+                                <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                              </div>
+                            ) : (
+                              <>
+                                <div className="relative flex items-center">
+                                  <span className="absolute left-3.5 text-sm font-bold text-slate-500 select-none">
+                                    +91
+                                  </span>
+                                  <input
+                                    id="listing-phone"
+                                    name="phone"
+                                    type="tel"
+                                    maxLength={10}
+                                    value={formData.phone}
+                                    onChange={(e) => {
+                                      const digits = e.target.value.replace(/\D/g, '');
+                                      setFormData((prev) => ({ ...prev, phone: digits }));
+                                      if (errors.phone) {
+                                        setErrors((prev) => {
+                                          const next = { ...prev };
+                                          delete next.phone;
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    placeholder="98XXXXXXXX"
+                                    className="w-full pl-12 pr-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] font-semibold focus:outline-none focus:border-[#F36B21]"
+                                  />
+                                </div>
+                                {errors.phone && (
+                                  <p className="mt-1 text-xs font-medium text-red-600">
+                                    {errors.phone}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          </div>
 
-                        <div>
-                          <label
-                            htmlFor="listing-pinCode"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            PIN Code <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id="listing-pinCode"
-                            name="pinCode"
-                            type="text"
-                            maxLength={6}
-                            value={formData.pinCode}
-                            onChange={handleFormChange}
-                            placeholder="400001"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.pinCode && (
-                            <p className="mt-1 text-xs font-medium text-red-600">
-                              {errors.pinCode}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="sm:col-span-2">
-                          <label
-                            htmlFor="listing-website"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Website URL (Optional)
-                          </label>
-                          <input
-                            id="listing-website"
-                            name="website"
-                            type="url"
-                            value={formData.website}
-                            onChange={handleFormChange}
-                            placeholder="https://www.yourbusiness.in"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
-                          {errors.website && (
-                            <p className="mt-1 text-xs font-medium text-red-600">
-                              {errors.website}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label
-                            htmlFor="listing-serviceAreas"
-                            className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
-                          >
-                            Nearby Localities
-                          </label>
-                          <input
-                            id="listing-serviceAreas"
-                            name="serviceAreas"
-                            type="text"
-                            value={formData.serviceAreas}
-                            onChange={handleFormChange}
-                            placeholder="Andheri, Bhiwandi, Navi Mumbai"
-                            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-[#F36B21] focus:bg-white"
-                          />
+                          <div>
+                            <label
+                              htmlFor="listing-email"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Email (Optional)
+                            </label>
+                            <input
+                              id="listing-email"
+                              name="email"
+                              type="email"
+                              value={formData.email}
+                              onChange={handleFormChange}
+                              placeholder="owner@business.com"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.email && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.email}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Image Upload */}
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                          Property / Business Photograph (JPEG, PNG, WebP — Max 5MB)
-                        </label>
-                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 bg-slate-50 text-center">
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleImageSelect}
-                            accept="image/jpeg,image/png,image/webp"
-                            className="hidden"
-                          />
-                          {shopImagePreview ? (
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                              <div className="relative">
-                                <img
-                                  src={shopImagePreview}
-                                  alt="Preview"
-                                  className="w-40 h-28 object-cover rounded-lg border border-slate-200"
-                                />
+                      {/* Section 3: Location & Service Coverage */}
+                      <div className="p-5 rounded-xl bg-[#F7F8FA] border border-slate-200 space-y-5">
+                        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200/80">
+                          <span className="w-6 h-6 rounded-md bg-[#F36B21] text-white text-xs font-bold flex items-center justify-center">
+                            3
+                          </span>
+                          <div>
+                            <h3 className="text-sm font-bold text-[#171717]">
+                              Location & Service Coverage
+                            </h3>
+                            <p className="text-[11px] text-slate-500">
+                              Physical address, city, state, PIN code, and operating corridors.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="sm:col-span-3">
+                            <label
+                              htmlFor="listing-address"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Street Address / Landmark <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="listing-address"
+                              name="address"
+                              type="text"
+                              value={formData.address}
+                              onChange={handleFormChange}
+                              placeholder="Plot / Shop No., Industrial Area or Commercial Complex"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.address && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.address}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="listing-city"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              City <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="listing-city"
+                              name="city"
+                              type="text"
+                              value={formData.city}
+                              onChange={handleFormChange}
+                              placeholder="e.g. Mumbai"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.city && (
+                              <p className="mt-1 text-xs font-medium text-red-600">{errors.city}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="listing-state"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              State <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="listing-state"
+                              name="state"
+                              type="text"
+                              value={formData.state}
+                              onChange={handleFormChange}
+                              placeholder="e.g. Maharashtra"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.state && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.state}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="listing-pinCode"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              PIN Code <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="listing-pinCode"
+                              name="pinCode"
+                              type="text"
+                              maxLength={6}
+                              value={formData.pinCode}
+                              onChange={handleFormChange}
+                              placeholder="400001"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.pinCode && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.pinCode}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label
+                              htmlFor="listing-website"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Website URL (Optional)
+                            </label>
+                            <input
+                              id="listing-website"
+                              name="website"
+                              type="url"
+                              value={formData.website}
+                              onChange={handleFormChange}
+                              placeholder="https://www.yourbusiness.in"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                            {errors.website && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {errors.website}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="listing-serviceAreas"
+                              className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                            >
+                              Nearby Localities
+                            </label>
+                            <input
+                              id="listing-serviceAreas"
+                              name="serviceAreas"
+                              type="text"
+                              value={formData.serviceAreas}
+                              onChange={handleFormChange}
+                              placeholder="Andheri, Bhiwandi, Navi Mumbai"
+                              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-[#171717] focus:outline-none focus:border-[#F36B21]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section 4: Property Media & Verification Consents */}
+                      <div className="p-5 rounded-xl bg-[#F7F8FA] border border-slate-200 space-y-5">
+                        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200/80">
+                          <span className="w-6 h-6 rounded-md bg-[#F36B21] text-white text-xs font-bold flex items-center justify-center">
+                            4
+                          </span>
+                          <div>
+                            <h3 className="text-sm font-bold text-[#171717]">
+                              Property Media & Display Consents
+                            </h3>
+                            <p className="text-[11px] text-slate-500">
+                              Upload an authentic property photograph and confirm phone display
+                              consent.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Property / Business Photograph (JPEG, PNG, WebP — Max 5MB)
+                          </label>
+                          <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 bg-white text-center">
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              onChange={handleImageSelect}
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                            />
+                            {shopImagePreview ? (
+                              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                                <div className="relative">
+                                  <img
+                                    src={shopImagePreview}
+                                    alt="Preview"
+                                    className="w-40 h-28 object-cover rounded-lg border border-slate-200"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleRemoveImage}
+                                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                                 <button
                                   type="button"
-                                  onClick={handleRemoveImage}
-                                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center cursor-pointer"
+                                  onClick={() => fileInputRef.current?.click()}
+                                  className="text-xs font-semibold text-[#F36B21] hover:underline cursor-pointer"
                                 >
-                                  <X className="w-3.5 h-3.5" />
+                                  Choose a different photo
                                 </button>
                               </div>
+                            ) : (
                               <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="text-xs font-bold text-[#F36B21] hover:underline cursor-pointer"
+                                className="inline-flex flex-col items-center gap-1.5 cursor-pointer py-2"
                               >
-                                Choose a different photo
+                                <Upload className="w-6 h-6 text-[#F36B21]" />
+                                <span className="text-xs font-semibold text-[#F36B21]">
+                                  Click to upload property or business image
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  If no photo is uploaded, a clearly labeled category illustration
+                                  will be shown.
+                                </span>
                               </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="inline-flex flex-col items-center gap-1.5 cursor-pointer py-2"
-                            >
-                              <Upload className="w-6 h-6 text-[#F36B21]" />
-                              <span className="text-xs font-bold text-[#F36B21]">
-                                Click to upload property or business image
-                              </span>
-                              <span className="text-[11px] text-slate-500">
-                                If no photo is uploaded, a clearly labeled category illustration
-                                will be shown.
-                              </span>
-                            </button>
+                            )}
+                          </div>
+                          {errors.shopImage && (
+                            <p className="mt-1 text-xs font-medium text-red-600">
+                              {errors.shopImage}
+                            </p>
                           )}
                         </div>
-                        {errors.shopImage && (
-                          <p className="mt-1 text-xs font-medium text-red-600">
-                            {errors.shopImage}
-                          </p>
-                        )}
-                      </div>
 
-                      {/* Consents */}
-                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
-                        <label className="flex items-start gap-2.5 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            name="consentToDisplayPhone"
-                            checked={formData.consentToDisplayPhone}
-                            onChange={handleFormChange}
-                            className="mt-0.5 rounded border-slate-300 text-[#F36B21] focus:ring-[#F36B21]"
-                          />
-                          <span className="text-slate-700">
-                            <strong className="text-slate-900">
-                              Display my{' '}
-                              {account.phoneVerified ? 'verified' : 'business'} phone number
-                              {formData.phone || account.phone
-                                ? ` (+91 ${formData.phone || account.phone})`
-                                : ''}{' '}
-                              publicly
-                            </strong>{' '}
-                            on this listing once approved and published so customers can call me
-                            directly.
-                          </span>
-                        </label>
+                        {/* Consents */}
+                        <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-3 text-xs">
+                          <label className="flex items-start gap-2.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              name="consentToDisplayPhone"
+                              checked={formData.consentToDisplayPhone}
+                              onChange={handleFormChange}
+                              className="mt-0.5 rounded border-slate-300 text-[#F36B21] focus:ring-[#F36B21]"
+                            />
+                            <span className="text-slate-700">
+                              <strong className="text-[#171717]">
+                                Display my{' '}
+                                {account.phoneVerified ? 'verified' : 'business'} phone number
+                                {formData.phone || account.phone
+                                  ? ` (+91 ${formData.phone || account.phone})`
+                                  : ''}{' '}
+                                publicly
+                              </strong>{' '}
+                              on this listing once approved and published so customers can call me
+                              directly.
+                            </span>
+                          </label>
 
-                        <label className="flex items-start gap-2.5 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            name="consentToContact"
-                            checked={formData.consentToContact}
-                            onChange={handleFormChange}
-                            className="mt-0.5 rounded border-slate-300 text-[#F36B21] focus:ring-[#F36B21]"
-                          />
-                          <span className="text-slate-700">
-                            I confirm that I am the authorized owner or representative of this
-                            property/business and the details submitted are accurate.
-                          </span>
-                        </label>
-                        {errors.consentToContact && (
-                          <p className="text-xs font-medium text-red-600">
-                            {errors.consentToContact}
-                          </p>
-                        )}
+                          <label className="flex items-start gap-2.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              name="consentToContact"
+                              checked={formData.consentToContact}
+                              onChange={handleFormChange}
+                              className="mt-0.5 rounded border-slate-300 text-[#F36B21] focus:ring-[#F36B21]"
+                            />
+                            <span className="text-slate-700">
+                              I confirm that I am the authorized owner or representative of this
+                              property/business and the details submitted are accurate.
+                            </span>
+                          </label>
+                          {errors.consentToContact && (
+                            <p className="text-xs font-medium text-red-600">
+                              {errors.consentToContact}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-end gap-3 pt-2">
@@ -2511,7 +2782,7 @@ export default function BecomePartnerPage() {
                           <button
                             type="button"
                             onClick={() => switchTab('listings')}
-                            className="px-5 py-2.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            className="h-11 px-5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -2519,7 +2790,7 @@ export default function BecomePartnerPage() {
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className="px-6 py-3 rounded-lg bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                          className="h-11 px-6 rounded-lg bg-[#F36B21] hover:bg-[#D95513] disabled:opacity-60 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 cursor-pointer shadow-2xs"
                         >
                           <span>
                             {isSubmitting

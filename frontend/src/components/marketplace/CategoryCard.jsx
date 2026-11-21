@@ -28,7 +28,7 @@ export default function CategoryCard({ category }) {
   return (
     <Link
       to={`/categories/${category.slug}`}
-      className="group rounded-xl overflow-hidden bg-white border border-slate-200/90 shadow-card hover:shadow-card-hover hover:border-[#F36B21]/60 transition-all duration-200 flex flex-col h-full"
+      className="group rounded-xl overflow-hidden bg-white border border-slate-200 shadow-card hover:shadow-card-hover hover:border-[#F36B21]/60 transition-all duration-200 flex flex-col h-full"
       aria-label={`Explore ${category.pluralName || category.name} listings`}
     >
       {/* Category Visual Banner */}
@@ -42,16 +42,16 @@ export default function CategoryCard({ category }) {
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/25 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/20 to-transparent" />
 
         {/* Top Category Tag */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/95 backdrop-blur-xs text-[#171717] text-[11px] font-bold shadow-2xs">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/95 backdrop-blur-xs text-[#171717] text-[11px] font-semibold shadow-2xs">
             <IconComponent className="w-3.5 h-3.5 text-[#F36B21]" aria-hidden="true" />
             <span>{category.shortDescription || 'Commercial Space'}</span>
           </span>
           {typeof category.listingCount === 'number' && category.listingCount > 0 && (
-            <span className="bg-[#F36B21] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-2xs">
+            <span className="bg-[#F36B21] text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-md shadow-2xs">
               {category.listingCount} listed
             </span>
           )}
@@ -59,21 +59,21 @@ export default function CategoryCard({ category }) {
 
         {/* Bottom Title Overlay */}
         <div className="absolute bottom-3 left-4 right-4 text-white">
-          <h3 className="text-lg sm:text-xl font-extrabold tracking-tight leading-snug">
+          <h3 className="text-lg font-bold tracking-tight leading-snug">
             {category.pluralName || category.name}
           </h3>
         </div>
       </div>
 
       {/* Category Details */}
-      <div className="p-5 flex flex-col flex-1 justify-between">
+      <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between">
         <div>
-          <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-4 line-clamp-2">
+          <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-3.5 line-clamp-2">
             {category.description}
           </p>
 
           {category.subcategories && category.subcategories.length > 0 ? (
-            <div className="space-y-1.5 mb-4">
+            <div className="space-y-1.5 mb-3.5">
               {category.subcategories.slice(0, 2).map((sub) => (
                 <div
                   key={sub.id || sub.name}
@@ -87,7 +87,7 @@ export default function CategoryCard({ category }) {
           ) : (
             category.popularServices &&
             category.popularServices.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-4">
+              <div className="flex flex-wrap gap-1.5 mb-3.5">
                 {category.popularServices.slice(0, 2).map((srv) => (
                   <span
                     key={srv}
@@ -101,7 +101,7 @@ export default function CategoryCard({ category }) {
           )}
         </div>
 
-        <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#F36B21] group-hover:text-[#D95513]">
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-[#F36B21] group-hover:text-[#D95513]">
           <span>Explore {category.pluralName || category.name}</span>
           <span className="w-6 h-6 rounded-md bg-[#FFF5EF] group-hover:bg-[#F36B21] group-hover:text-white flex items-center justify-center transition-colors">
             <ArrowUpRight className="w-3.5 h-3.5" />

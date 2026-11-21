@@ -45,7 +45,7 @@ export default function Footer() {
           <div className="lg:col-span-2">
             <Link
               to="/"
-              className="inline-flex items-center justify-center bg-white rounded-xl h-12 overflow-hidden shadow-xs"
+              className="inline-flex items-center justify-center bg-white rounded-xl h-11 px-1 overflow-hidden shadow-2xs"
               aria-label="WARERENT home"
             >
               <img
@@ -53,7 +53,7 @@ export default function Footer() {
                 alt="WARERENT"
                 width="1280"
                 height="543"
-                className="h-[82px] w-auto max-w-none object-contain -ml-1.5 -mr-1"
+                className="h-[74px] w-auto max-w-none object-contain -ml-1.5 -mr-1"
               />
             </Link>
             <p className="mt-4 max-w-md text-xs sm:text-sm leading-relaxed text-slate-400">
@@ -63,7 +63,7 @@ export default function Footer() {
               </strong>
               . Search verified listings and call property or business owners directly.
             </p>
-            <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-slate-300">
+            <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs text-slate-300">
               <span className="inline-flex items-center gap-1.5 bg-slate-800/80 border border-slate-700/80 px-2.5 py-1 rounded-md">
                 <PhoneCall className="w-3.5 h-3.5 text-[#F36B21]" />
                 <span>Direct Owner Contact</span>
@@ -80,14 +80,14 @@ export default function Footer() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
                 to="/become-a-partner?tab=submit"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-xs sm:text-sm font-bold text-white transition-colors"
+                className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-xs sm:text-sm font-semibold text-white transition-colors"
               >
-                <span>List Your Property</span>
+                <span>List Your Property Free</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 to="/become-a-partner"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-700 hover:border-slate-500 text-xs sm:text-sm font-semibold text-slate-200 transition-colors"
+                className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-700 hover:border-slate-500 text-xs sm:text-sm font-semibold text-slate-200 transition-colors"
               >
                 <span>Provider Portal</span>
               </Link>

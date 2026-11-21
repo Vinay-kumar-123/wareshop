@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Menu,
   X,
-  Warehouse,
-  Search,
   Building2,
   UserCheck,
   Compass,
@@ -12,10 +10,9 @@ import {
   HelpCircle,
   ShieldCheck,
   PhoneCall,
-  Store,
-  Package,
+  Home,
+  ChevronRight,
 } from 'lucide-react';
-import { categories } from '../data/categories.js';
 
 const navLinks = [
   { label: 'Directory', href: '/providers', icon: Compass },
@@ -23,18 +20,20 @@ const navLinks = [
   { label: 'About', href: '/about', icon: HelpCircle },
 ];
 
-const quickCategoryIcons = {
-  shop: Store,
-  office: Building2,
-  warehouse: Warehouse,
-  godown: Package,
-};
+const drawerLinks = [
+  { label: 'Home', href: '/', icon: Home, end: true },
+  { label: 'Directory', href: '/providers', icon: Compass },
+  { label: 'Categories', href: '/categories', icon: Grid },
+  { label: 'About', href: '/about', icon: HelpCircle },
+];
 
-function Brand() {
+function Brand({ compact = false }) {
   return (
     <Link
       to="/"
-      className="inline-flex items-center h-12 sm:h-14 overflow-hidden shrink-0 focus:outline-none"
+      className={`inline-flex items-center overflow-hidden shrink-0 focus:outline-none ${
+        compact ? 'h-10' : 'h-11 sm:h-12'
+      }`}
       aria-label="WARERENT home"
     >
       <img
@@ -42,7 +41,9 @@ function Brand() {
         alt="WARERENT"
         width="1280"
         height="543"
-        className="h-[72px] sm:h-[84px] lg:h-[88px] w-auto max-w-none object-contain -ml-2.5 sm:-ml-3 -mr-2"
+        className={`${
+          compact ? 'h-[62px] -ml-2 -mr-1.5' : 'h-[66px] sm:h-[74px] lg:h-[80px] -ml-2.5 -mr-2'
+        } w-auto max-w-none object-contain`}
       />
     </Link>
   );
@@ -50,36 +51,48 @@ function Brand() {
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [quickQuery, setQuickQuery] = useState('');
-  const [quickCategory, setQuickCategory] = useState('');
   const location = useLocation();
-  const navigate = useNavigate();
+  const closeButtonRef = useRef(null);
 
+  // Close drawer on route change
   useEffect(() => {
     setOpen(false);
   }, [location.pathname, location.search]);
 
-  const handleQuickSearch = (e) => {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (quickCategory) {
-      params.set('category', quickCategory);
+  // Escape key dismissal and body scroll lock when drawer is open
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Focus close button for keyboard accessibility
+    if (closeButtonRef.current) {
+      closeButtonRef.current.focus();
     }
-    if (quickQuery.trim()) {
-      params.set('search', quickQuery.trim());
-    }
-    navigate(`/providers${params.toString() ? `?${params.toString()}` : ''}`);
-  };
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-slate-200/90 shadow-2xs">
-      {/* Top Commercial Utility Bar (Desktop) */}
-      <div className="hidden lg:block bg-[#171717] text-slate-300 text-[11px] border-b border-slate-800">
+    <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-2xs">
+      {/* Top Commercial Utility Bar (Desktop Only) */}
+      <div className="hidden xl:block bg-[#171717] text-slate-300 text-[11px] border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-8 flex items-center justify-between">
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5 font-medium text-slate-200">
               <span className="w-1.5 h-1.5 rounded-full bg-[#F36B21]" />
-              <span>India’s B2B & Commercial Space Marketplace:</span>
+              <span>India’s Commercial Property Marketplace:</span>
               <strong className="text-white font-semibold">
                 Shops • Offices • Warehouses • Godowns
               </strong>
@@ -87,7 +100,7 @@ export default function Navbar() {
             <span className="text-slate-600">|</span>
             <span className="inline-flex items-center gap-1 text-slate-300">
               <PhoneCall className="w-3 h-3 text-[#F36B21]" />
-              <span>Direct Owner Calls (0% Brokerage)</span>
+              <span>Direct Owner Contact (0% Brokerage)</span>
             </span>
           </div>
 
@@ -114,57 +127,34 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Main Sticky Header */}
+      {/* Main Compact Header */}
       <nav
-        className="max-w-7xl mx-auto h-16 sm:h-[70px] px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4"
+        className="max-w-7xl mx-auto h-14 sm:h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 sm:gap-4"
         aria-label="Main navigation"
       >
         <Brand />
 
-        {/* Quick Search Bar in Header */}
-        <form
-          onSubmit={handleQuickSearch}
-          className="hidden lg:flex flex-1 max-w-lg items-center bg-[#F7F8FA] border border-slate-300/90 rounded-lg overflow-hidden focus-within:border-[#F36B21] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#F36B21]/15 transition-all"
-        >
-          <select
-            value={quickCategory}
-            onChange={(e) => setQuickCategory(e.target.value)}
-            aria-label="Filter category"
-            className="h-9 pl-3 pr-2 bg-slate-100/80 border-r border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer shrink-0"
+        {/* Desktop Nav Links (lg and above) */}
+        <div className="hidden lg:flex items-center gap-1">
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `px-3.5 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                isActive
+                  ? 'text-[#F36B21] bg-[#FFF5EF]'
+                  : 'text-slate-700 hover:text-[#F36B21] hover:bg-slate-50'
+              }`
+            }
           >
-            <option value="">All Spaces</option>
-            {categories.map((cat) => (
-              <option key={cat.slug} value={cat.slug}>
-                {cat.pluralName || cat.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={quickQuery}
-            onChange={(e) => setQuickQuery(e.target.value)}
-            placeholder="Search shops, offices, warehouses, cities..."
-            aria-label="Quick search commercial listings"
-            className="w-full px-3 py-2 text-xs sm:text-sm text-[#171717] placeholder:text-slate-400 bg-transparent focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="px-4 h-9 bg-[#F36B21] hover:bg-[#D95513] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-            aria-label="Search directory"
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span>Search</span>
-          </button>
-        </form>
-
-        {/* Desktop Nav Links */}
-        <div className="hidden md:flex items-center gap-1">
+            Home
+          </NavLink>
           {navLinks.map((item) => (
             <NavLink
               key={item.href}
               to={item.href}
               className={({ isActive }) =>
-                `px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${
+                `px-3.5 py-2 text-sm font-semibold rounded-lg transition-colors ${
                   isActive
                     ? 'text-[#F36B21] bg-[#FFF5EF]'
                     : 'text-slate-700 hover:text-[#F36B21] hover:bg-slate-50'
@@ -176,127 +166,127 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Provider Portal & List Property Actions */}
-        <div className="hidden md:flex items-center gap-2 shrink-0">
+        {/* Desktop Provider Portal & List Property Actions (lg and above) */}
+        <div className="hidden lg:flex items-center gap-2.5 shrink-0">
           <Link
             to="/become-a-partner"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 hover:border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#171717] hover:bg-slate-50 transition-colors"
+            className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-lg border border-slate-200 hover:border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#171717] hover:bg-slate-50 transition-colors"
           >
             <UserCheck className="w-4 h-4 text-[#F36B21]" />
             <span>Provider Login</span>
           </Link>
           <Link
             to="/become-a-partner?tab=submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all"
+            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-xs sm:text-sm font-semibold shadow-2xs transition-colors"
           >
             <Building2 className="w-4 h-4" />
-            <span>List Property</span>
-            <span className="ml-0.5 px-1.5 py-0.2 bg-white/20 text-white text-[10px] font-extrabold uppercase rounded">
-              Free
-            </span>
+            <span>List Your Property Free</span>
           </Link>
         </div>
 
-        {/* Mobile Menu Button */}
+        {/* Mobile & Tablet Menu Trigger (visible below lg / 1024px) */}
         <button
           type="button"
-          className="md:hidden p-2 rounded-lg text-slate-700 hover:bg-slate-100 border border-slate-200"
-          onClick={() => setOpen(!open)}
-          aria-label="Toggle navigation menu"
+          className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-[#171717] hover:bg-slate-100 active:bg-slate-200/70 border border-slate-200 transition-colors cursor-pointer"
+          onClick={() => setOpen((prev) => !prev)}
+          aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
           aria-expanded={open}
+          aria-controls="mobile-navigation-drawer"
         >
           {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </nav>
 
-      {/* Mobile Drawer */}
-      {open && (
-        <div className="md:hidden bg-white border-t border-slate-200 px-4 pt-3 pb-5 space-y-4 shadow-lg">
-          <form
-            onSubmit={handleQuickSearch}
-            className="flex items-center bg-[#F7F8FA] border border-slate-300 rounded-lg overflow-hidden"
-          >
-            <input
-              type="text"
-              value={quickQuery}
-              onChange={(e) => setQuickQuery(e.target.value)}
-              placeholder="Search shops, offices, warehouses..."
-              className="w-full px-3.5 py-2.5 text-sm text-[#171717] bg-transparent focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2.5 bg-[#F36B21] text-white font-bold text-sm"
-              aria-label="Search"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          </form>
+      {/* Mobile & Tablet Navigation Drawer with Outside-Click Backdrop & Escape Dismissal */}
+      <div
+        className={`lg:hidden fixed inset-0 z-50 transition-opacity duration-200 ${
+          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        aria-hidden={!open}
+      >
+        {/* Outside-Click Backdrop */}
+        <div
+          className="fixed inset-0 bg-slate-950/40 backdrop-blur-[1px]"
+          onClick={() => setOpen(false)}
+          data-testid="mobile-drawer-backdrop"
+        />
 
-          {/* Quick Category Pills in Mobile Menu */}
-          <div>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
-              Commercial Verticals
-            </span>
-            <div className="grid grid-cols-2 gap-1.5">
-              {categories.map((cat) => {
-                const Icon = quickCategoryIcons[cat.slug] || Building2;
+        {/* Clean White Surface Drawer Panel */}
+        <div
+          id="mobile-navigation-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation menu"
+          className={`fixed top-0 right-0 w-full max-w-[320px] max-h-screen overflow-y-auto bg-white border-l border-slate-200 shadow-elevated transition-transform duration-200 ease-out ${
+            open ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {/* Drawer Header: WARERENT Logo + Close Button */}
+          <div className="flex items-center justify-between h-14 px-4 border-b border-slate-200">
+            <Brand compact />
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={() => setOpen(false)}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-[#171717] hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              aria-label="Close navigation menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Primary Navigation Links */}
+          <nav className="px-3 py-3" aria-label="Mobile primary navigation">
+            <ul className="divide-y divide-slate-100">
+              {drawerLinks.map((item) => {
+                const Icon = item.icon;
                 return (
-                  <Link
-                    key={cat.slug}
-                    to={`/categories/${cat.slug}`}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 hover:bg-[#FFF5EF] border border-slate-200/80 text-xs font-semibold text-slate-800"
-                  >
-                    <Icon className="w-3.5 h-3.5 text-[#F36B21]" />
-                    <span>{cat.pluralName || cat.name}</span>
-                  </Link>
+                  <li key={item.href}>
+                    <NavLink
+                      to={item.href}
+                      end={item.end}
+                      onClick={() => setOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center justify-between px-3 py-3 rounded-lg text-sm font-semibold transition-colors ${
+                          isActive
+                            ? 'bg-[#FFF5EF] text-[#F36B21]'
+                            : 'text-[#171717] hover:bg-slate-50'
+                        }`
+                      }
+                    >
+                      <span className="flex items-center gap-3">
+                        <Icon className="w-4 h-4 text-[#F36B21] shrink-0" aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                    </NavLink>
+                  </li>
                 );
               })}
-            </div>
-          </div>
+            </ul>
+          </nav>
 
-          <div className="space-y-1 pt-1 border-t border-slate-100">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `block px-3 py-2 rounded-lg text-sm font-semibold ${
-                  isActive ? 'bg-[#FFF5EF] text-[#F36B21]' : 'text-slate-700 hover:bg-slate-50'
-                }`
-              }
-            >
-              Home
-            </NavLink>
-            {navLinks.map((item) => (
-              <NavLink
-                key={item.href}
-                to={item.href}
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-lg text-sm font-semibold ${
-                    isActive ? 'bg-[#FFF5EF] text-[#F36B21]' : 'text-slate-700 hover:bg-slate-50'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+          {/* Subtle Separator & Provider Actions */}
+          <div className="px-4 pt-3 pb-5 border-t border-slate-200 bg-slate-50/50 space-y-2.5">
             <Link
               to="/become-a-partner"
-              className="w-full py-2.5 px-4 rounded-lg border border-slate-200 text-center text-xs sm:text-sm font-bold text-[#171717] hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+              className="w-full h-11 px-4 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-[#171717] text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors"
             >
-              Provider Login / OTP Portal
+              <UserCheck className="w-4 h-4 text-[#F36B21]" aria-hidden="true" />
+              <span>Provider Login / OTP Portal</span>
             </Link>
             <Link
               to="/become-a-partner?tab=submit"
-              className="w-full py-2.5 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-center text-xs sm:text-sm font-bold text-white"
+              onClick={() => setOpen(false)}
+              className="w-full h-11 px-4 rounded-lg bg-[#F36B21] hover:bg-[#D95513] text-white text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors"
             >
-              List Your Property Free
+              <Building2 className="w-4 h-4" aria-hidden="true" />
+              <span>List Your Property Free</span>
             </Link>
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }
