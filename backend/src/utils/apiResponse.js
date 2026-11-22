@@ -20,12 +20,16 @@ export const errorResponse = (
   res,
   message = 'An error occurred',
   statusCode = 500,
-  errors = null
+  errors = null,
+  code = null
 ) => {
   const body = {
     success: false,
     message,
   };
+  if (code && typeof code === 'string') {
+    body.code = code;
+  }
   if (errors) {
     body.errors = errors;
   }

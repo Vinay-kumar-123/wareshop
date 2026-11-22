@@ -39,7 +39,9 @@ export const errorHandler = (err, req, res, next) => {
     return errorResponse(
       res,
       'A record with the provided unique value already exists.',
-      409
+      409,
+      null,
+      'DUPLICATE_KEY'
     );
   }
 
@@ -71,7 +73,10 @@ export const errorHandler = (err, req, res, next) => {
       ? 'An unexpected server error occurred. Please try again later.'
       : err.message || 'Request could not be processed.';
 
-  return errorResponse(res, message, statusCode);
+  const errorCode =
+    (statusCode < 500 || err.exposeCode) && typeof err.code === 'string' ? err.code : null;
+
+  return errorResponse(res, message, statusCode, null, errorCode);
 };
 
 export const notFoundHandler = (req, res) => {

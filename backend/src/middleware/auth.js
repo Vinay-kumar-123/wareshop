@@ -214,8 +214,10 @@ export function requireActiveProvider(req, res, next) {
   if (req.providerAccount.status === 'SUSPENDED') {
     return errorResponse(
       res,
-      'Your provider account is currently suspended and cannot submit or modify listings.',
-      403
+      'Your provider account is currently unavailable. Please contact support for assistance.',
+      403,
+      null,
+      'PROVIDER_SUSPENDED'
     );
   }
   next();

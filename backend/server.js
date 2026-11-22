@@ -2,6 +2,7 @@ import app from './src/app.js';
 import env, { validateEnv } from './src/config/env.js';
 import connectDB, { disconnectDB } from './src/config/db.js';
 import authService from './src/services/authService.js';
+import { inspectProviderAccountIndexes } from './src/models/ProviderAccount.js';
 import logger from './src/utils/logger.js';
 
 let server;
@@ -13,6 +14,21 @@ const startServer = async () => {
 
   // 2. Connect to MongoDB Atlas
   const conn = await connectDB();
+
+  // 2b. Read-only check for legacy non-partial ProviderAccount indexes
+  if (conn) {
+    try {
+      const indexReport = await inspectProviderAccountIndexes();
+      if (!indexReport.ok) {
+        logger.error(
+          'ProviderAccount MongoDB index mismatch detected. Run "npm run reconcile:provider-indexes -- --apply" after reviewing the dry-run report.',
+          { issues: indexReport.issues.map((i) => ({ index: i.index, reason: i.reason })) }
+        );
+      }
+    } catch (idxErr) {
+      logger.warn(`ProviderAccount index inspection skipped: ${idxErr.message}`);
+    }
+  }
 
   // 3. In development only, optionally provision initial admin if valid credentials are configured
   if (conn && env.isDevelopment && env.admin.email && env.admin.password) {

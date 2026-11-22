@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import OtpChallenge from '../models/OtpChallenge.js';
 import ProviderAccount from '../models/ProviderAccount.js';
 import env from '../config/env.js';
+import logger from '../utils/logger.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { sanitizeString } from '../utils/referenceId.js';
 import {
@@ -39,6 +40,22 @@ function safeEqualHex(a, b) {
   } catch {
     return false;
   }
+}
+
+function isDuplicateKeyError(err) {
+  return Boolean(err && (err.code === 11000 || err.code === 11001));
+}
+
+function getDuplicateKeyField(err) {
+  const patternKeys = err?.keyPattern ? Object.keys(err.keyPattern) : [];
+  if (patternKeys.length > 0) return patternKeys[0];
+  const valueKeys = err?.keyValue ? Object.keys(err.keyValue) : [];
+  if (valueKeys.length > 0) return valueKeys[0];
+  const msg = String(err?.message || '');
+  if (/\bphone_1\b|dup key:\s*\{\s*phone\s*:/i.test(msg)) return 'phone';
+  if (/\bgoogleId_1\b|dup key:\s*\{\s*googleId\s*:/i.test(msg)) return 'googleId';
+  if (/\bemail_1\b|dup key:\s*\{\s*email\s*:/i.test(msg)) return 'email';
+  return '';
 }
 
 function getProviderCookieOptions() {
@@ -398,7 +415,9 @@ export async function registerProvider(req, res, next) {
           return errorResponse(
             res,
             'This mobile number is already associated with another provider account.',
-            409
+            409,
+            null,
+            'PHONE_CONFLICT'
           );
         }
       }
@@ -422,7 +441,45 @@ export async function registerProvider(req, res, next) {
       if (cleanName) {
         createPayload.name = cleanName;
       }
-      account = await ProviderAccount.create(createPayload);
+      try {
+        account = await ProviderAccount.create(createPayload);
+      } catch (createErr) {
+        if (!isDuplicateKeyError(createErr)) throw createErr;
+        const dupField = getDuplicateKeyField(createErr);
+        const dupVal = createErr?.keyValue?.[dupField];
+        if (dupField === 'phone' && (!cleanPhone || dupVal === null || dupVal === '')) {
+          logger.error(
+            'Legacy non-partial phone_1 unique index blocked Email OTP account creation',
+            { index: 'phone_1' }
+          );
+          return errorResponse(
+            res,
+            'We are experiencing a temporary issue with sign-in. Your account and information are safe. Please try again shortly.',
+            503,
+            null,
+            'AUTH_TEMPORARILY_UNAVAILABLE'
+          );
+        }
+        if (dupField === 'phone') {
+          return errorResponse(
+            res,
+            'This mobile number is already associated with another provider account.',
+            409,
+            null,
+            'PHONE_CONFLICT'
+          );
+        }
+        // Concurrent request for the same verified email won the race; resolve idempotently
+        const racedAccount = await ProviderAccount.findOne({ email, emailVerified: true });
+        if (!racedAccount) throw createErr;
+        isNewAccount = false;
+        racedAccount.sessionTokenHash = sessionTokenHash;
+        racedAccount.sessionExpiresAt = sessionExpiresAt;
+        racedAccount.lastLoginAt = new Date();
+        if (!racedAccount.name && cleanName) racedAccount.name = cleanName;
+        await racedAccount.save();
+        account = racedAccount;
+      }
     } else {
       account.sessionTokenHash = sessionTokenHash;
       account.sessionExpiresAt = sessionExpiresAt;
@@ -448,7 +505,9 @@ export async function registerProvider(req, res, next) {
           return errorResponse(
             res,
             'This mobile number is already associated with another provider account.',
-            409
+            409,
+            null,
+            'PHONE_CONFLICT'
           );
         }
         account.phone = cleanPhone;
@@ -457,7 +516,22 @@ export async function registerProvider(req, res, next) {
       if (!account.name && cleanName) {
         account.name = cleanName;
       }
-      await account.save();
+      try {
+        await account.save();
+      } catch (saveErr) {
+        if (!isDuplicateKeyError(saveErr)) throw saveErr;
+        const dupField = getDuplicateKeyField(saveErr);
+        if (dupField === 'phone') {
+          return errorResponse(
+            res,
+            'This mobile number is already associated with another provider account.',
+            409,
+            null,
+            'PHONE_CONFLICT'
+          );
+        }
+        throw saveErr;
+      }
     }
 
     res.cookie(PROVIDER_COOKIE_NAME, sessionToken, {
@@ -524,7 +598,9 @@ export async function googleAuthProvider(req, res, next) {
       return errorResponse(
         res,
         'A valid Google sign-in nonce is required. Please retry Google Sign-In.',
-        400
+        400,
+        null,
+        'GOOGLE_NONCE_INVALID'
       );
     }
 
@@ -535,7 +611,13 @@ export async function googleAuthProvider(req, res, next) {
         : '';
 
     if (cleanPhone && !PHONE_REGEX.test(cleanPhone)) {
-      return errorResponse(res, 'Enter a valid 10-digit Indian mobile number', 400);
+      return errorResponse(
+        res,
+        'Enter a valid 10-digit Indian mobile number',
+        400,
+        null,
+        'VALIDATION_ERROR'
+      );
     }
 
     // 1. Cryptographically verify the ID token; its signed nonce claim must equal suppliedNonce
@@ -553,7 +635,9 @@ export async function googleAuthProvider(req, res, next) {
       return errorResponse(
         res,
         'Google sign-in request is expired or has already been used. Please retry Google Sign-In.',
-        401
+        401,
+        null,
+        'GOOGLE_NONCE_EXPIRED'
       );
     }
 
@@ -571,16 +655,20 @@ export async function googleAuthProvider(req, res, next) {
     ) {
       return errorResponse(
         res,
-        'This Google account conflicts with an existing provider account.',
-        409
+        'An account with this email already exists. Please use the sign-in method associated with your existing account.',
+        409,
+        null,
+        'GOOGLE_ACCOUNT_CONFLICT'
       );
     }
 
     if (accountByEmail && accountByEmail.googleId && accountByEmail.googleId !== googleId) {
       return errorResponse(
         res,
-        'This email address is already linked to a different Google account.',
-        409
+        'An account with this email already exists. Please use the sign-in method associated with your existing account.',
+        409,
+        null,
+        'GOOGLE_EMAIL_LINKED_TO_OTHER'
       );
     }
 
@@ -588,7 +676,9 @@ export async function googleAuthProvider(req, res, next) {
       return errorResponse(
         res,
         'This Google account is already linked to a different provider email address.',
-        409
+        409,
+        null,
+        'GOOGLE_SUB_LINKED_TO_OTHER'
       );
     }
 
@@ -602,6 +692,102 @@ export async function googleAuthProvider(req, res, next) {
     const sessionDurationHours = 24;
     const sessionExpiresAt = new Date(now.getTime() + sessionDurationHours * 60 * 60 * 1000);
 
+    const linkAndUpdateExistingAccount = async (targetAccount) => {
+      const hadGoogleId = Boolean(targetAccount.googleId);
+      if (!hadGoogleId) {
+        // Atomic conditional link: succeeds only if no different Google identity was linked concurrently
+        const linked = await ProviderAccount.findOneAndUpdate(
+          {
+            _id: targetAccount._id,
+            $or: [{ googleId: null }, { googleId: '' }, { googleId }],
+          },
+          { $set: { googleId } },
+          { new: true }
+        );
+        if (!linked) {
+          return {
+            conflict: true,
+            status: 409,
+            code: 'GOOGLE_EMAIL_LINKED_TO_OTHER',
+            message:
+              'An account with this email already exists. Please use the sign-in method associated with your existing account.',
+          };
+        }
+        targetAccount.googleId = googleId;
+        accountLinked = true;
+      }
+      targetAccount.authProvider =
+        !hadGoogleId ||
+        targetAccount.authProvider === 'EMAIL_OTP' ||
+        targetAccount.authProvider === 'BOTH'
+          ? 'BOTH'
+          : 'GOOGLE';
+      targetAccount.sessionTokenHash = sessionTokenHash;
+      targetAccount.sessionExpiresAt = sessionExpiresAt;
+      targetAccount.lastLoginAt = now;
+      targetAccount.emailVerified = true;
+      if (!targetAccount.emailVerifiedAt) {
+        targetAccount.emailVerifiedAt = now;
+      }
+      if (!targetAccount.verifiedAt) {
+        targetAccount.verifiedAt = now;
+      }
+      if (!targetAccount.phone && cleanPhone) {
+        const phoneOwner = await ProviderAccount.findOne({
+          phone: cleanPhone,
+          _id: { $ne: targetAccount._id },
+        }).lean();
+        if (phoneOwner) {
+          return {
+            conflict: true,
+            status: 409,
+            code: 'PHONE_CONFLICT',
+            message: 'This mobile number is already associated with another provider account.',
+          };
+        }
+        targetAccount.phone = cleanPhone;
+        targetAccount.phoneVerified = false;
+      }
+      if (!targetAccount.name && googleName) {
+        targetAccount.name = googleName;
+      }
+      try {
+        await targetAccount.save();
+      } catch (saveErr) {
+        if (!isDuplicateKeyError(saveErr)) throw saveErr;
+        const dupField = getDuplicateKeyField(saveErr);
+        const dupVal = saveErr?.keyValue?.[dupField];
+        if (dupField === 'phone' && (!cleanPhone || dupVal === null || dupVal === '')) {
+          logger.error('Legacy non-partial phone_1 unique index blocked Google account update', {
+            index: 'phone_1',
+          });
+          return {
+            conflict: true,
+            status: 503,
+            code: 'GOOGLE_AUTH_TEMPORARILY_UNAVAILABLE',
+            message:
+              "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
+          };
+        }
+        if (dupField === 'phone') {
+          return {
+            conflict: true,
+            status: 409,
+            code: 'PHONE_CONFLICT',
+            message: 'This mobile number is already associated with another provider account.',
+          };
+        }
+        return {
+          conflict: true,
+          status: 409,
+          code: 'GOOGLE_ACCOUNT_CONFLICT',
+          message:
+            'An account with this email already exists. Please use the sign-in method associated with your existing account.',
+        };
+      }
+      return { conflict: false, account: targetAccount };
+    };
+
     if (!account) {
       if (cleanPhone) {
         const phoneOwner = await ProviderAccount.findOne({ phone: cleanPhone }).lean();
@@ -609,7 +795,9 @@ export async function googleAuthProvider(req, res, next) {
           return errorResponse(
             res,
             'This mobile number is already associated with another provider account.',
-            409
+            409,
+            null,
+            'PHONE_CONFLICT'
           );
         }
       }
@@ -635,62 +823,86 @@ export async function googleAuthProvider(req, res, next) {
       if (googleName) {
         createPayload.name = googleName;
       }
-      account = await ProviderAccount.create(createPayload);
-    } else {
-      const hadGoogleId = Boolean(account.googleId);
-      if (!hadGoogleId) {
-        // Atomic conditional link: succeeds only if no different Google identity was linked concurrently
-        const linked = await ProviderAccount.findOneAndUpdate(
-          {
-            _id: account._id,
-            $or: [{ googleId: null }, { googleId: '' }, { googleId }],
-          },
-          { $set: { googleId } },
-          { new: true }
-        );
-        if (!linked) {
+      try {
+        account = await ProviderAccount.create(createPayload);
+      } catch (createErr) {
+        if (!isDuplicateKeyError(createErr)) throw createErr;
+
+        const dupField = getDuplicateKeyField(createErr);
+        const dupVal = createErr?.keyValue?.[dupField];
+
+        if (dupField === 'phone' && (!cleanPhone || dupVal === null || dupVal === '')) {
+          logger.error(
+            'Legacy non-partial phone_1 unique index blocked Google account creation',
+            { index: 'phone_1' }
+          );
           return errorResponse(
             res,
-            'This email address is already linked to a different Google account.',
-            409
+            "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
+            503,
+            null,
+            'GOOGLE_AUTH_TEMPORARILY_UNAVAILABLE'
           );
         }
-        account.googleId = googleId;
-        accountLinked = true;
-      }
-      account.authProvider =
-        !hadGoogleId || account.authProvider === 'EMAIL_OTP' || account.authProvider === 'BOTH'
-          ? 'BOTH'
-          : 'GOOGLE';
-      account.sessionTokenHash = sessionTokenHash;
-      account.sessionExpiresAt = sessionExpiresAt;
-      account.lastLoginAt = now;
-      account.emailVerified = true;
-      if (!account.emailVerifiedAt) {
-        account.emailVerifiedAt = now;
-      }
-      if (!account.verifiedAt) {
-        account.verifiedAt = now;
-      }
-      if (!account.phone && cleanPhone) {
-        const phoneOwner = await ProviderAccount.findOne({
-          phone: cleanPhone,
-          _id: { $ne: account._id },
-        }).lean();
-        if (phoneOwner) {
+
+        if (dupField === 'phone') {
           return errorResponse(
             res,
             'This mobile number is already associated with another provider account.',
-            409
+            409,
+            null,
+            'PHONE_CONFLICT'
           );
         }
-        account.phone = cleanPhone;
-        account.phoneVerified = false;
+
+        // Concurrent Google sign-in / registration race: re-query by verified identity
+        const [racedByGoogleId, racedByEmail] = await Promise.all([
+          ProviderAccount.findOne({ googleId }),
+          ProviderAccount.findOne({ email, emailVerified: true }),
+        ]);
+
+        if (
+          racedByGoogleId &&
+          racedByEmail &&
+          String(racedByGoogleId._id) !== String(racedByEmail._id)
+        ) {
+          return errorResponse(
+            res,
+            'An account with this email already exists. Please use the sign-in method associated with your existing account.',
+            409,
+            null,
+            'GOOGLE_ACCOUNT_CONFLICT'
+          );
+        }
+
+        const racedAccount = racedByGoogleId || racedByEmail;
+        if (
+          !racedAccount ||
+          (racedAccount.googleId && racedAccount.googleId !== googleId) ||
+          (racedAccount.email && racedAccount.email !== email)
+        ) {
+          return errorResponse(
+            res,
+            'An account with this email already exists. Please use the sign-in method associated with your existing account.',
+            409,
+            null,
+            'GOOGLE_ACCOUNT_CONFLICT'
+          );
+        }
+
+        isNewAccount = false;
+        const resolved = await linkAndUpdateExistingAccount(racedAccount);
+        if (resolved.conflict) {
+          return errorResponse(res, resolved.message, resolved.status, null, resolved.code);
+        }
+        account = resolved.account;
       }
-      if (!account.name && googleName) {
-        account.name = googleName;
+    } else {
+      const resolved = await linkAndUpdateExistingAccount(account);
+      if (resolved.conflict) {
+        return errorResponse(res, resolved.message, resolved.status, null, resolved.code);
       }
-      await account.save();
+      account = resolved.account;
     }
 
     res.cookie(PROVIDER_COOKIE_NAME, sessionToken, {
