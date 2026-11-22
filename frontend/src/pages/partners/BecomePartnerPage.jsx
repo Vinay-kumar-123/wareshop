@@ -103,19 +103,11 @@ function describeGoogleNonceFailure(errInfo) {
   const msg = String(errInfo?.message || '').trim();
   const origin = typeof window !== 'undefined' ? window.location.origin : 'this site';
 
-  if (status === 503) {
-    if (/not configured/i.test(msg)) {
-      return {
-        title: 'Google Sign-In Not Configured on Server',
-        message:
-          'Google Sign-In is enabled in the frontend build, but GOOGLE_CLIENT_ID is not configured on the backend server. Please verify backend environment variables or continue with Email OTP below.',
-      };
-    }
+  if (status === 503 || status >= 500) {
     return {
-      title: 'Authentication Service Temporarily Unavailable',
+      title: 'Google Sign-In Temporarily Unavailable',
       message:
-        msg ||
-        'The WARERENT authentication service is temporarily unavailable. Please try again shortly or continue with Email OTP below.',
+        "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
     };
   }
 
@@ -128,9 +120,9 @@ function describeGoogleNonceFailure(errInfo) {
 
   if (status === 404) {
     return {
-      title: 'Google Sign-In Service Unavailable',
+      title: 'Google Sign-In Temporarily Unavailable',
       message:
-        'The backend Google Sign-In nonce endpoint (/api/v1/provider-auth/google/nonce) returned 404 Not Found. Please ensure the backend service is running the latest deployment, or continue with Email OTP below.',
+        "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
     };
   }
 
@@ -145,18 +137,121 @@ function describeGoogleNonceFailure(errInfo) {
 
   if (status === 0) {
     return {
-      title: 'Network Connection Error',
+      title: 'Connection Problem',
       message:
-        msg ||
-        'Unable to reach the WARERENT server to initialize Google Sign-In. Please check your internet connection or continue with Email OTP below.',
+        "We couldn't connect to our authentication service. Please check your internet connection and try again.",
     };
   }
 
   return {
-    title: 'Google Sign-In Initialization Failed',
+    title: 'Google Sign-In Temporarily Unavailable',
     message:
-      msg ||
-      'Unable to initialize a secure Google Sign-In session right now. Please try again or continue with Email OTP below.',
+      "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
+  };
+}
+
+function mapGoogleAuthError(err) {
+  const status = err?.status ?? 0;
+  const code = err?.data?.code || '';
+  const rawMsg = String(err?.message || '').trim();
+
+  if (status === 0) {
+    return {
+      title: 'Connection Problem',
+      message:
+        "We couldn't connect to our authentication service. Please check your internet connection and try again.",
+    };
+  }
+
+  if (code === 'PROVIDER_SUSPENDED') {
+    return {
+      title: 'Account Temporarily Restricted',
+      message:
+        'Your provider account is currently unavailable. Please contact support for assistance.',
+    };
+  }
+
+  if (
+    code === 'GOOGLE_AUTH_TEMPORARILY_UNAVAILABLE' ||
+    code === 'DB_INDEX_CONFLICT' ||
+    code === 'GOOGLE_NOT_CONFIGURED' ||
+    status === 503 ||
+    status >= 500
+  ) {
+    return {
+      title: 'Google Sign-In Temporarily Unavailable',
+      message:
+        "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
+    };
+  }
+
+  if (code === 'PHONE_CONFLICT') {
+    return {
+      title: 'Mobile Number Already Registered',
+      message:
+        rawMsg ||
+        'This mobile number is already associated with another provider account.',
+    };
+  }
+
+  if (
+    code === 'GOOGLE_ACCOUNT_CONFLICT' ||
+    code === 'GOOGLE_EMAIL_LINKED_TO_OTHER' ||
+    code === 'GOOGLE_SUB_LINKED_TO_OTHER' ||
+    code === 'DUPLICATE_KEY' ||
+    status === 409
+  ) {
+    return {
+      title: 'Account Already Exists',
+      message:
+        code === 'GOOGLE_SUB_LINKED_TO_OTHER'
+          ? 'This Google account is already linked to a different email address. Please sign in with that account or use Email OTP.'
+          : 'An account with this email already exists. Please use the sign-in method associated with your existing account.',
+    };
+  }
+
+  if (
+    code === 'GOOGLE_NONCE_INVALID' ||
+    code === 'GOOGLE_NONCE_EXPIRED' ||
+    code === 'GOOGLE_TOKEN_EXPIRED' ||
+    (status === 401 && /nonce|expired/i.test(rawMsg))
+  ) {
+    return {
+      title: 'Sign-In Session Expired',
+      message: 'Your sign-in attempt has expired. Please start again using Continue with Google.',
+    };
+  }
+
+  if (code === 'GOOGLE_EMAIL_NOT_VERIFIED') {
+    return {
+      title: 'Google Email Not Verified',
+      message:
+        'Your Google account email address is not verified. Please verify your email with Google or sign in using Email OTP.',
+    };
+  }
+
+  if (code === 'GOOGLE_AUDIENCE_MISMATCH' || (status === 401 && /audience|client/i.test(rawMsg))) {
+    return {
+      title: 'Google Sign-In Temporarily Unavailable',
+      message:
+        "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
+    };
+  }
+
+  if (status === 429) {
+    return {
+      title: 'Too Many Attempts',
+      message:
+        rawMsg || 'Too many Google sign-in attempts. Please wait a few minutes or continue using Email OTP.',
+    };
+  }
+
+  return {
+    title: 'Google Sign-In Failed',
+    message:
+      rawMsg && !/mongo|e11000|index|stack|collection/i.test(rawMsg)
+        ? rawMsg
+        : "We're experiencing a temporary issue with Google sign-in. Your account and information are safe. Please try again shortly, or continue using Email OTP to access your provider account.",
   };
 }
 
@@ -283,6 +378,7 @@ export default function BecomePartnerPage() {
   const googleButtonContainerRef = useRef(null);
   // Server-issued single-use nonce + attempt token, held in memory only (never persisted)
   const googleAttemptRef = useRef(null);
+  const googleSubmittingRef = useRef(false);
   const googleNonceErrorRef = useRef(null);
   const googleScriptLoadErrorRef = useRef(false);
   const googleCallbackRef = useRef(null);
@@ -629,6 +725,8 @@ export default function BecomePartnerPage() {
 
   const handleGoogleCredentialResponse = useCallback(
     async (response) => {
+      if (googleSubmittingRef.current) return;
+
       const idToken = response?.credential;
       if (!idToken) {
         setAuthErrorTitle('Google Sign-In Cancelled');
@@ -649,16 +747,17 @@ export default function BecomePartnerPage() {
 
       const activeAttempt = googleAttemptRef.current;
       if (!activeAttempt?.nonce || !activeAttempt?.attemptToken) {
-        setAuthErrorTitle('Google Session Expired');
+        setAuthErrorTitle('Sign-In Session Expired');
         setAuthError(
-          'Your Google sign-in security nonce expired. Please click Continue with Google again.'
+          'Your sign-in attempt has expired. Please start again using Continue with Google.'
         );
         await initializeAndRenderGoogleButton({ forceNewNonce: true });
         return;
       }
 
+      googleSubmittingRef.current = true;
       setAuthError('');
-      setAuthErrorTitle('Google Authentication Error');
+      setAuthErrorTitle('Google Sign-In Temporarily Unavailable');
       setAuthNotice('Verifying your Google account...');
       setAuthLoading(true);
       setAuthPhase('google');
@@ -678,29 +777,12 @@ export default function BecomePartnerPage() {
         setActiveTab(targetTab);
       } catch (err) {
         setAuthNotice('');
-        const status = err?.status ?? 0;
-        const msg =
-          err?.message ||
-          'Unable to sign in with Google right now. Please try again or continue with Email OTP.';
-
-        if (status === 0) {
-          setAuthErrorTitle('Network Connection Error');
-        } else if (status === 503) {
-          setAuthErrorTitle('Google Sign-In Unavailable');
-        } else if (status === 409) {
-          setAuthErrorTitle('Account Conflict');
-        } else if (status === 429) {
-          setAuthErrorTitle('Too Many Attempts');
-        } else if (status === 401 && /audience|client/i.test(msg)) {
-          setAuthErrorTitle('Google Client ID Mismatch');
-        } else if (status === 401 && /nonce|expired/i.test(msg)) {
-          setAuthErrorTitle('Google Session Expired');
-        } else {
-          setAuthErrorTitle('Google Sign-In Failed');
-        }
-        setAuthError(msg);
+        const mapped = mapGoogleAuthError(err);
+        setAuthErrorTitle(mapped.title);
+        setAuthError(mapped.message);
         await initializeAndRenderGoogleButton({ forceNewNonce: true });
       } finally {
+        googleSubmittingRef.current = false;
         setAuthLoading(false);
         setAuthPhase('idle');
       }
@@ -756,6 +838,7 @@ export default function BecomePartnerPage() {
   }, [checkingSession, account, initializeAndRenderGoogleButton]);
 
   const handleFallbackGoogleClick = async () => {
+    if (authLoading || googleSubmittingRef.current) return;
     setAuthError('');
     setAuthNotice('');
 

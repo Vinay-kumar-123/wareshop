@@ -14,9 +14,11 @@ const GOOGLE_AUTHORITATIVE_DOMAINS = new Set(['gmail.com', 'googlemail.com']);
 export const GOOGLE_CLIENT_ID_REGEX = /^\d+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i;
 export const GOOGLE_NONCE_TTL_MS = 10 * 60_000;
 
-function httpError(message, statusCode) {
+function httpError(message, statusCode, code = null, exposeCode = false) {
   const err = new Error(message);
   err.statusCode = statusCode;
+  if (code) err.code = code;
+  if (exposeCode) err.exposeCode = true;
   return err;
 }
 
@@ -58,7 +60,7 @@ export const googleAuthService = {
    */
   async issueNonce({ requestIp = '' } = {}) {
     if (!this.isConfigured()) {
-      throw httpError('Google Sign-In is not configured on this server.', 503);
+      throw httpError('Google Sign-In is not configured on this server.', 503, 'GOOGLE_NOT_CONFIGURED', true);
     }
     const nonce = crypto.randomBytes(32).toString('hex');
     const attemptToken = crypto.randomBytes(32).toString('hex');
@@ -122,17 +124,21 @@ export const googleAuthService = {
   async verifyIdToken({ idToken, expectedNonce } = {}) {
     const clientId = getConfiguredClientId();
     if (!clientId) {
-      throw httpError('Google Sign-In is not configured on this server.', 503);
+      throw httpError('Google Sign-In is not configured on this server.', 503, 'GOOGLE_NOT_CONFIGURED', true);
     }
 
     const cleanToken = typeof idToken === 'string' ? idToken.trim() : '';
     if (!cleanToken || cleanToken.length > 4096 || !JWT_STRUCTURE_REGEX.test(cleanToken)) {
-      throw httpError('A valid Google authentication token is required.', 400);
+      throw httpError('A valid Google authentication token is required.', 400, 'GOOGLE_TOKEN_INVALID');
     }
 
     const cleanExpectedNonce = typeof expectedNonce === 'string' ? expectedNonce.trim() : '';
     if (!NONCE_REGEX.test(cleanExpectedNonce)) {
-      throw httpError('A valid Google sign-in nonce is required. Please retry Google Sign-In.', 400);
+      throw httpError(
+        'A valid Google sign-in nonce is required. Please retry Google Sign-In.',
+        400,
+        'GOOGLE_NONCE_INVALID'
+      );
     }
 
     let payload = null;
@@ -141,54 +147,70 @@ export const googleAuthService = {
     } catch (verifyErr) {
       const rawMsg = String(verifyErr?.message || '');
       if (/audience|recipient/i.test(rawMsg)) {
-        throw httpError('Google token audience does not match this application.', 401);
+        throw httpError(
+          'Google token audience does not match this application.',
+          401,
+          'GOOGLE_AUDIENCE_MISMATCH'
+        );
       }
       if (/expired|used too late/i.test(rawMsg)) {
-        throw httpError('Google authentication token has expired. Please sign in again.', 401);
+        throw httpError(
+          'Google authentication token has expired. Please sign in again.',
+          401,
+          'GOOGLE_TOKEN_EXPIRED'
+        );
       }
       if (/issuer/i.test(rawMsg)) {
-        throw httpError('Invalid Google token issuer.', 401);
+        throw httpError('Invalid Google token issuer.', 401, 'GOOGLE_ISSUER_INVALID');
       }
-      throw httpError('Invalid or unverifiable Google authentication token.', 401);
+      throw httpError('Invalid or unverifiable Google authentication token.', 401, 'GOOGLE_TOKEN_INVALID');
     }
 
     if (!payload || typeof payload !== 'object') {
-      throw httpError('Invalid Google token payload.', 401);
+      throw httpError('Invalid Google token payload.', 401, 'GOOGLE_TOKEN_INVALID');
     }
 
     // Defense-in-depth re-validation of claims (library already enforces these)
     if (!VALID_GOOGLE_ISSUERS.includes(payload.iss)) {
-      throw httpError('Invalid Google token issuer.', 401);
+      throw httpError('Invalid Google token issuer.', 401, 'GOOGLE_ISSUER_INVALID');
     }
 
     if (payload.aud !== clientId) {
-      throw httpError('Google token audience does not match this application.', 401);
+      throw httpError(
+        'Google token audience does not match this application.',
+        401,
+        'GOOGLE_AUDIENCE_MISMATCH'
+      );
     }
 
     const nowSeconds = Math.floor(Date.now() / 1000);
     if (typeof payload.exp !== 'number' || payload.exp <= nowSeconds) {
-      throw httpError('Google authentication token has expired. Please sign in again.', 401);
+      throw httpError(
+        'Google authentication token has expired. Please sign in again.',
+        401,
+        'GOOGLE_TOKEN_EXPIRED'
+      );
     }
 
     const googleId = typeof payload.sub === 'string' ? payload.sub.trim() : '';
     if (!googleId || googleId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(googleId)) {
-      throw httpError('Invalid Google account identifier.', 401);
+      throw httpError('Invalid Google account identifier.', 401, 'GOOGLE_TOKEN_INVALID');
     }
 
     if (payload.email_verified !== true) {
-      throw httpError('Google account email address is not verified.', 403);
+      throw httpError('Google account email address is not verified.', 403, 'GOOGLE_EMAIL_NOT_VERIFIED');
     }
 
     const email = normalizeEmail(payload.email);
     if (!isValidEmail(email)) {
-      throw httpError('Google account does not contain a valid email address.', 400);
+      throw httpError('Google account does not contain a valid email address.', 400, 'GOOGLE_EMAIL_INVALID');
     }
 
     const tokenNonce = typeof payload.nonce === 'string' ? payload.nonce : '';
     const a = Buffer.from(tokenNonce, 'utf8');
     const b = Buffer.from(cleanExpectedNonce, 'utf8');
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      throw httpError('Google authentication nonce validation failed.', 401);
+      throw httpError('Google authentication nonce validation failed.', 401, 'GOOGLE_NONCE_INVALID');
     }
 
     // Google is authoritative for an email only for Gmail addresses or Workspace accounts whose

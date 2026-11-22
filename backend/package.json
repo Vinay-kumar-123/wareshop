@@ -12,6 +12,7 @@
     "admin:reset-password": "node src/scripts/resetAdminPassword.js",
     "seed:demo": "node src/scripts/seedDemoProviders.js",
     "seed:categories": "node src/scripts/seedCategories.js",
+    "reconcile:provider-indexes": "node src/scripts/reconcileProviderAccountIndexes.js",
     "test:phase1": "node test-phase1-security.js",
     "test:mvp": "node test-mvp-complete.js",
     "test": "node test-phase1-security.js && node test-mvp-complete.js"
